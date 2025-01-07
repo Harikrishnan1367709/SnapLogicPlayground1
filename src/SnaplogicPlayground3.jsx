@@ -192,7 +192,7 @@ const SnaplogicPlayground3 = () => {
           <span>LOG VIEWER</span>
           <span>API REFERENCE</span>
         </div>
-        <span>©2023 MuleSoft LLC, a Salesforce company</span>
+        <span>©2023 Snaplogic LLC, a Salesforce company</span>
       </div>
     </div>
   );
