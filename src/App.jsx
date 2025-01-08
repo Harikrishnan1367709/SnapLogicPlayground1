@@ -1,6 +1,10 @@
 import React from 'react'
+// import Sample from './sample'
+
+// import SnaplogicPlayground3 from './SnaplogicPlayground4'
 import SnaplogicPlayground3 from './SnaplogicPlayground3'
 // import SnaplogicPlayground2 from './SnaplogicPlayground2'
+
 
 
 
@@ -17,6 +21,8 @@ function App() {
     //   </div>
     // </ThemeProvider>
     <SnaplogicPlayground3/>
+    // <Sample/>
+
 
   )
 }
