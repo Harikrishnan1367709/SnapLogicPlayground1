@@ -13,23 +13,26 @@ import {
 import { Input } from "./components/ui/input"
 import { Label } from "./components/ui/label"
 import { Button } from './components/ui/button';
+import FormatDropdown from './FormatDropdown';
+
+
 
 const SnapLogicPlayground3 = () => {
 
-
+  
    // State declarations
    const [leftWidth, setLeftWidth] = useState(288);
    const [middleWidth, setMiddleWidth] = useState(500);
    const [rightWidth, setRightWidth] = useState(384);
  
-   const resizableStyles = (width) => ({
-     width: `${width}px`,
-     minWidth: '200px',
-     position: 'relative',
-     cursor: 'col-resize',
-     userSelect: 'none'
-   });
- 
+   const resizableStyles = (width, panelType) => ({
+    width: `${width}px`,
+    minWidth: '200px',
+    position: 'relative',
+    cursor: panelType === 'middle' ? 'text' : 'pointer',
+    userSelect: 'none'
+  });
+
    const ResizeHandle = () => (
      <div
        style={{
@@ -38,7 +41,7 @@ const SnapLogicPlayground3 = () => {
          top: 0,
          bottom: 0,
          width: 6,
-         cursor: 'col-resize',
+         cursor: 'default',
          zIndex: 10
        }}
      />
@@ -219,7 +222,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
          {/* Left Panel */}
-         <div style={resizableStyles(leftWidth)} className="flex-shrink-0 border-r flex flex-col relative" >
+         <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative" >
           <div className="h-1/2 border-b">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
@@ -385,16 +388,20 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             </div>
           </div>
         </div>
-         {/* Left Resize Handle */}
-         <div
-  className="w-[1px] hover:bg-blue-500 cursor-col-resize relative"
-  onMouseDown={(e) => handleMouseDown(e, true)}
-  style={{ cursor: isDragging ? 'col-resize' : 'auto' }}
->
-  <div className="absolute inset-0 w-[1px]" style={{ cursor: 'col-resize' }} />
-</div>
+       {/* Left Resize Handle */}
+  <div
+    className="w-[1px] bg-gray-200 relative"
+    onMouseDown={(e) => handleMouseDown(e, true)}
+  >
+    <div 
+      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-col-resize"
+      style={{ cursor: isDragging ? 'col-resize' : 'auto' }} 
+    >
+      <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
+    </div>
+  </div>
         {/* Middle Panel */}
-        <div style={resizableStyles(middleWidth)} className="flex-1 border-r relative">
+        <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r relative">
           <div className="border-b">
             <div className="flex items-center min-h-[30px] px-4">
               <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
@@ -423,24 +430,30 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             </div>
           </div>
         </div>
-         {/* Right Resize Handle */}
-<div
-  className="w-[1px] hover:bg-blue-500 cursor-col-resize relative"
-  onMouseDown={(e) => handleMouseDown(e, false)}
-  style={{ cursor: isDragging ? 'col-resize' : 'auto' }}
->
-  <div className="absolute inset-0 w-[1px]" style={{ cursor: 'col-resize' }} />
-</div>
+        {/* Right Resize Handle */}
+  <div
+    className="w-[1px] bg-gray-200 relative"
+    onMouseDown={(e) => handleMouseDown(e, false)}
+  >
+    <div 
+      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-col-resize"
+      style={{ cursor: isDragging ? 'col-resize' : 'auto' }} 
+    >
+      <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
+    </div>
+  </div>
         {/* Right Panel */}
-        <div style={resizableStyles(rightWidth)} className="flex-shrink-0 relative">
+        <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0 relative">
           {/* Actual Output Section */}
           <div className="h-1/2 border-b">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
                 <span className="font-bold text-gray-600 text-xs">ACTUAL OUTPUT</span>
                 <div className="flex items-center space-x-2">
-                  <span className="font-bold text-gray-600 text-xs">JSON</span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  {/* <span className="font-bold text-gray-600 text-xs">JSON</span> */}
+                  <div className="flex items-center space-x-2">
+  <FormatDropdown />
+</div>
                 </div>
               </div>
             </div>
@@ -449,7 +462,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
                 {renderLineNumbers(actualLines)}
                 <pre className="text-red-500">
                   {actualLines.map((line, index) => (
-                    <div key={index} className="h-6">{line}</div>
+                    <div key={index} className="h-6" >{line}</div>
                   ))}
                 </pre>
               </div>
@@ -461,9 +474,11 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
                 <span className="font-bold text-gray-600 text-xs">EXPECTED OUTPUT</span>
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-gray-600 text-xs">JSON</span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center space-x-2 ">
+                  {/* <span className="font-bold text-gray-600 text-xs">JSON</span> */}
+                  <div className="flex items-center space-x-2">
+  <FormatDropdown />
+</div>
                 </div>
               </div>
             </div>
