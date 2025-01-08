@@ -26,7 +26,7 @@ const SnaplogicPlayground3 = () => {
             <path d="M65 35 L50 65" stroke="white" strokeWidth="3"/>
             <path d="M35 35 L50 65" stroke="white" strokeWidth="3"/>
           </svg>
-          <div style={{ fontSize: "1.51rem", fontWeight: "600", color: "#333333",fontFamily:"Segoe UI"}}>
+          <div style={{ fontSize: "21px", fontWeight: "bold", color: "#444444",fontFamily:"'OpenSans', sans-serif"}}>
             SnapLogic 
           </div>
         </div>
@@ -60,7 +60,7 @@ const SnaplogicPlayground3 = () => {
           <div className="h-1/2 border-b">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
-                <span className="text-sm font-medium text-gray-600">INPUT EXPLORER</span>
+                <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>INPUT EXPLORER</span>
                 <button className="text-xl bg-white border-none focus:outline-none flex items-center justify-center h-6 w-6">
                   +
                 </button>
@@ -78,7 +78,7 @@ const SnaplogicPlayground3 = () => {
           <div className="h-1/2">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
-                <span className="text-sm font-medium text-gray-600">SCRIPT EXPLORER</span>
+                <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>SCRIPT EXPLORER</span>
                 <button className="text-xl bg-white border-none focus:outline-none flex items-center justify-center h-6 w-6">
                   +
                 </button>
@@ -96,7 +96,7 @@ const SnaplogicPlayground3 = () => {
         <div className="flex-1 border-r">
           <div className="border-b">
             <div className="flex items-center min-h-[30px] px-4">
-              <span className="text-sm font-medium text-gray-600">SCRIPT</span>
+              <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>SCRIPT</span>
             </div>
           </div>
           <div className="p-4 font-mono text-sm">
@@ -128,10 +128,10 @@ const SnaplogicPlayground3 = () => {
           <div className="h-1/2 border-b">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
-                <span className="text-sm font-medium text-gray-600">ACTUAL OUTPUT</span>
+                <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>ACTUAL OUTPUT</span>
                 <div className="flex items-center">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-600">JSON</span>
+                    <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>JSON</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
@@ -158,10 +158,10 @@ const SnaplogicPlayground3 = () => {
           <div className="h-1/2">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
-                <span className="text-sm font-medium text-gray-600">EXPECTED OUTPUT</span>
+                <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>EXPECTED OUTPUT</span>
                 <div className="flex items-center">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-600">JSON</span>
+                    <span className=" font-medium text-gray-600" style={{fontSize:"12px",fontWeight:"bold"}}>JSON</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
