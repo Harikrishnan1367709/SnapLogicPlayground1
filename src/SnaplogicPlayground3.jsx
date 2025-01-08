@@ -16,12 +16,39 @@ import { Button } from './components/ui/button';
 
 const SnapLogicPlayground3 = () => {
 
-  
+
+   // State declarations
+   const [leftWidth, setLeftWidth] = useState(288);
+   const [middleWidth, setMiddleWidth] = useState(500);
+   const [rightWidth, setRightWidth] = useState(384);
+ 
+   const resizableStyles = (width) => ({
+     width: `${width}px`,
+     minWidth: '200px',
+     position: 'relative',
+     cursor: 'col-resize',
+     userSelect: 'none'
+   });
+ 
+   const ResizeHandle = () => (
+     <div
+       style={{
+         position: 'absolute',
+         right: -3,
+         top: 0,
+         bottom: 0,
+         width: 6,
+         cursor: 'col-resize',
+         zIndex: 10
+       }}
+     />
+   );
+ 
 
   // Add these states at the top of your component
 const [isDragging, setIsDragging] = useState(false);
-const [leftWidth, setLeftWidth] = useState(288);
-const [rightWidth, setRightWidth] = useState(384);
+// const [leftWidth, setLeftWidth] = useState(288);
+// const [rightWidth, setRightWidth] = useState(384);
 
 // Add this style to prevent text selection during dragging
 useEffect(() => {
@@ -107,9 +134,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   
 
   const handleScriptChange = (e) => {
-    const newContent = e.target.value;
-    const lines = newContent.split('\n');
-    setScriptLines(lines);
+    setNewScript(e.target.value);
   };
 
   const handleCreateScript = () => {
@@ -128,6 +153,9 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   const handleExpectedOutputChange = (e) => {
     setExpectedOutput(e.target.value);
   };
+  const handleScriptContentChange=(e)=>{
+    setScriptContent(e.target.value);
+  }
 
   // Common styles for textareas
   const textAreaStyles = {
@@ -191,7 +219,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
          {/* Left Panel */}
-         <div style={{ width: `${leftWidth}px`, minWidth: '200px' }} className="flex-shrink-0 border-r flex flex-col">
+         <div style={resizableStyles(leftWidth)} className="flex-shrink-0 border-r flex flex-col relative" >
           <div className="h-1/2 border-b">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
@@ -366,21 +394,32 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   <div className="absolute inset-0 w-[1px]" style={{ cursor: 'col-resize' }} />
 </div>
         {/* Middle Panel */}
-        <div className="flex-1">
+        <div style={resizableStyles(middleWidth)} className="flex-1 border-r relative">
           <div className="border-b">
             <div className="flex items-center min-h-[30px] px-4">
               <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
             </div>
           </div>
+          {/* <div className="p-4">
+              <div className="flex">
+                {renderLineNumbers(expectedLines)}
+                <textarea
+                  value={expectedOutput}
+                  onChange={handleExpectedOutputChange}
+                  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono"
+                  style={textAreaStyles}
+                />
+              </div>
+            </div> */}
           <div className="p-4 font-mono text-sm">
             <div className="flex relative">
               {renderLineNumbers(scriptLines)}
               <textarea
-  value={scriptContent}
-  onChange={handleScriptChange}
-  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-gray-800 font-mono"
-  style={textAreaStyles}
-/>
+             value={scriptContent}
+             onChange={handleScriptContentChange}
+               className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-gray-800 font-mono"
+             style={textAreaStyles}
+               />
             </div>
           </div>
         </div>
@@ -393,7 +432,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   <div className="absolute inset-0 w-[1px]" style={{ cursor: 'col-resize' }} />
 </div>
         {/* Right Panel */}
-        <div style={{ width: `${rightWidth}px`, minWidth: '200px' }} className="flex-shrink-0 border-l flex flex-col">
+        <div style={resizableStyles(rightWidth)} className="flex-shrink-0 relative">
           {/* Actual Output Section */}
           <div className="h-1/2 border-b">
             <div className="border-b">
