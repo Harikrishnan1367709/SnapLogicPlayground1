@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, Upload, Download } from "lucide-react";
+import { ChevronDown, Upload, Download, Terminal, Book } from "lucide-react";
 
 import {
   Dialog,
@@ -19,6 +19,15 @@ import FormatDropdown from './FormatDropdown';
 
 const SnapLogicPlayground3 = () => {
 
+  const [bottomHeight, setBottomHeight] = useState(300);
+
+
+  const [isBottomExpanded, setIsBottomExpanded] = useState(false);
+const [activeTab, setActiveTab] = useState(null);
+
+ 
+
+  const [showToast, setShowToast] = useState(true);
   
    // State declarations
    const [leftWidth, setLeftWidth] = useState(288);
@@ -168,8 +177,44 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     border: 'none'
   };
 
+  const handleBottomResize = (e) => {
+    setIsDragging(true);
+    const startY = e.clientY;
+    const startHeight = bottomHeight;
+  
+    const handleMouseMove = (e) => {
+      const newHeight = startHeight - (e.clientY - startY);
+      setBottomHeight(Math.max(200, Math.min(600, newHeight)));
+    };
+  
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
+    {/* Top Toast Bar */}
+{showToast && (
+  <div className="bg-[#00A0DF] text-[#00044C] py-2 text-[12px] relative">
+    <div className="text-center px-12 font-bold tracking-[0.09em]">
+      EXPERIENCE INNOVATION, UNLEASHED. WATCH THE HIGHLIGHTS FROM CONNECT '22
+    </div>
+    <button
+      onClick={() => setShowToast(false)}
+      className="absolute right-4 top-0 h-full bg-[#00A0DF] text-[#00044C] border-none outline-none focus:outline-none font-bold text-[18px]  flex items-center justify-center font-bold"
+    >
+      ×
+    </button>
+  </div>
+)}
+
+
       {/* Navigation Bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b">
         <div className="flex items-center space-x-3">
@@ -390,7 +435,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
         </div>
        {/* Left Resize Handle */}
   <div
-    className="w-[1px] bg-gray-200 relative"
+    className="w-[2px] bg-gray-200 relative"
     onMouseDown={(e) => handleMouseDown(e, true)}
   >
     <div 
@@ -432,7 +477,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
         </div>
         {/* Right Resize Handle */}
   <div
-    className="w-[1px] bg-gray-200 relative"
+    className="w-[2px] bg-gray-200 relative"
     onMouseDown={(e) => handleMouseDown(e, false)}
   >
     <div 
@@ -457,10 +502,10 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
                 </div>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-4 font-mono text-sm">
               <div className="flex">
                 {renderLineNumbers(actualLines)}
-                <pre className="text-red-500">
+                <pre className="text-red-500 text-sm">
                   {actualLines.map((line, index) => (
                     <div key={index} className="h-6" >{line}</div>
                   ))}
@@ -482,13 +527,13 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
                 </div>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-4 font-mono text-sm">
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
                   onChange={handleExpectedOutputChange}
-                  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono"
+                  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono text-sm"
                   style={textAreaStyles}
                 />
               </div>
@@ -498,13 +543,133 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t p-2 text-sm text-gray-500 flex justify-between items-center">
-        <div className="flex space-x-4">
-          <span>LOG VIEWER</span>
-          <span>API REFERENCE</span>
+      <div className={`border-t transition-all duration-200 ease-in-out ${isBottomExpanded ? `h-[${bottomHeight}px]` : 'h-8'}`}>
+  <div className="flex items-center justify-between h-8 bg-white relative">
+    <div className="flex space-x-4 pl-2">
+      <button 
+        onClick={() => {
+          if (!isBottomExpanded || activeTab !== 'log') {
+            setIsBottomExpanded(true);
+            setActiveTab('log');
+          } else {
+            setIsBottomExpanded(false);
+          }
+        }} 
+        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
+      >
+        <Terminal className="h-3 w-3" />
+        <span className='ml-2'>LOG VIEWER</span>
+      </button>
+      <button 
+        onClick={() => {
+          if (!isBottomExpanded || activeTab !== 'api') {
+            setIsBottomExpanded(true);
+            setActiveTab('api');
+          } else {
+            setIsBottomExpanded(false);
+          }
+        }} 
+        className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
+      >
+        <Book className="h-3 w-3" />
+        <span className='ml-2'>API REFERENCE</span>
+      </button>
+    </div>
+    <span className="text-sm text-gray-500 absolute left-[calc(50%+50px)] flex items-center h-full">©2023 Snaplogic LLC, a Salesforce company</span>
+  </div>
+
+
+
+
+
+
+
+  
+  {/* Content */}
+{isBottomExpanded && (
+  <div className="h-[calc(100%-2rem)] overflow-auto">
+    <div className="flex flex-col justify-center items-center h-full">
+      {activeTab === 'log' && (
+        <>
+          <h2 className="text-xl font-bold text-black mb-4">No Logs Available</h2>
+          <p className="text-sm">
+            learn more about the 
+            <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span> 
+            function in the 
+            <span className="text-sky-500">  API Reference</span>
+          </p>
+        </>
+      )}
+      
+      {activeTab === 'api' && (
+  <div className="w-full h-full flex">
+    {/* Left Navigation */}
+    <div className="w-64 border-r overflow-y-auto">
+      <nav className="p-4">
+        <ul className="space-y-2">
+          <li className="font-semibold text-sm">Getting Started</li>
+          <li className="text-blue-500 text-sm cursor-pointer pl-4">Understanding Expressions</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Expression Types</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Syntax Guide</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Common Functions</li>
+          <li className="font-semibold text-sm mt-4">Advanced Topics</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Complex Expressions</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Best Practices</li>
+          <li className="text-gray-600 text-sm cursor-pointer pl-4">Troubleshooting</li>
+        </ul>
+      </nav>
+    </div>
+
+    {/* Right Content */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">Understanding Expressions</h1>
+        
+        <div className="space-y-6">
+          <section>
+            <h2 className="text-lg font-semibold mb-3">Overview</h2>
+            <p className="text-gray-700">
+              SnapLogic expressions provide a powerful way to transform and manipulate data within your pipelines.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-3">Expression Types</h2>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>JSONPath expressions for data navigation</li>
+              <li>Pipeline parameters for configuration</li>
+              <li>JavaScript expressions for complex logic</li>
+              <li>Runtime expressions for dynamic behavior</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-3">Examples</h2>
+            <div className="bg-gray-50 p-4 rounded-md">
+              <pre className="text-sm font-mono">
+{`// Data Navigation
+$.phoneNumbers[0].type
+
+// String Operations
+$uppercase($.firstName)
+
+// Array Operations
+$.items[*].price`}
+              </pre>
+            </div>
+          </section>
         </div>
-        <span>©2023 Snaplogic LLC, a Salesforce company</span>
       </div>
+    </div>
+  </div>
+)}
+
+    </div>
+  </div>
+)}
+
+</div>
+
     </div>
   );
 };
