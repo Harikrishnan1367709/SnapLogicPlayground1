@@ -19,6 +19,23 @@ import FormatDropdown from './FormatDropdown';
 
 const SnapLogicPlayground3 = () => {
 
+  const [leftWidth, setLeftWidth] = useState(() => 
+    parseInt(localStorage.getItem('leftWidth')) || 288
+  );
+  const [middleWidth, setMiddleWidth] = useState(() => 
+    parseInt(localStorage.getItem('middleWidth')) || 500
+  );
+  const [rightWidth, setRightWidth] = useState(() => 
+    parseInt(localStorage.getItem('rightWidth')) || 384
+  );
+  
+  // Update localStorage when widths change
+  useEffect(() => {
+    localStorage.setItem('leftWidth', leftWidth);
+    localStorage.setItem('middleWidth', middleWidth);
+    localStorage.setItem('rightWidth', rightWidth);
+  }, [leftWidth, middleWidth, rightWidth]);
+
   const [bottomHeight, setBottomHeight] = useState(300);
 
 
@@ -29,10 +46,7 @@ const [activeTab, setActiveTab] = useState(null);
 
   const [showToast, setShowToast] = useState(true);
   
-   // State declarations
-   const [leftWidth, setLeftWidth] = useState(288);
-   const [middleWidth, setMiddleWidth] = useState(500);
-   const [rightWidth, setRightWidth] = useState(384);
+   
  
    const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
@@ -178,13 +192,15 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   };
 
   const handleBottomResize = (e) => {
+    e.preventDefault(); // Prevent default behavior
     setIsDragging(true);
     const startY = e.clientY;
     const startHeight = bottomHeight;
   
     const handleMouseMove = (e) => {
-      const newHeight = startHeight - (e.clientY - startY);
-      setBottomHeight(Math.max(200, Math.min(600, newHeight)));
+      const deltaY = startY - e.clientY;
+      const newHeight = startHeight + deltaY;
+      setBottomHeight(Math.max(32, Math.min(800, newHeight)));
     };
   
     const handleMouseUp = () => {
@@ -442,8 +458,8 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     onMouseDown={(e) => handleMouseDown(e, true)}
   >
     <div 
-      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-col-resize"
-      style={{ cursor: isDragging ? 'col-resize' : 'auto' }} 
+      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
+      style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
     >
       <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
     </div>
@@ -484,8 +500,8 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     onMouseDown={(e) => handleMouseDown(e, false)}
   >
     <div 
-      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-col-resize"
-      style={{ cursor: isDragging ? 'col-resize' : 'auto' }} 
+      className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
+      style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
     >
       <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
     </div>
@@ -493,7 +509,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
         {/* Right Panel */}
         <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0 relative">
           {/* Actual Output Section */}
-          <div className="h-1/2 border-b">
+          <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
               <div className="flex justify-between items-center min-h-[30px] px-4">
                 <span className="font-bold text-gray-600 text-xs">ACTUAL OUTPUT</span>
@@ -505,8 +521,8 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm">
-              <div className="flex">
+            <div className="p-4 font-mono text-sm max-h-[calc(100%-30px)]">
+              <div className="flex ">
                 {renderLineNumbers(actualLines)}
                 <pre className="text-red-500 text-sm">
                   {actualLines.map((line, index) => (
@@ -552,10 +568,11 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     height: isBottomExpanded ? `${bottomHeight}px` : '32px',
     transition: 'height 0.2s ease-in-out'
   }}
+  onMouseDown={handleBottomResize}
 >
   
   <div className="flex items-center justify-between h-8 bg-white relative">
-    <div className="flex space-x-4 pl-2">
+    <div className="flex space-x-4 pl-2 z-10">
       <button 
         onClick={() => {
           if (!isBottomExpanded || activeTab !== 'log') {
@@ -565,7 +582,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             setIsBottomExpanded(false);
           }
         }} 
-        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
+        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none `}
       >
         <Terminal className="h-3 w-3" />
         <span className='ml-2'>LOG VIEWER</span>
@@ -585,17 +602,15 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
         <span className='ml-2'>API REFERENCE</span>
       </button>
     </div>
-    <span className="text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full">
+    <span className="text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full z-10">
       ©2023 Snaplogic LLC, a Salesforce company
     </span>
-    {/* Resize Handle aligned with bottom bar height */}
+    {/* Resize Handle */}
     <div
-      className="absolute left-0 right-0 h-8 cursor-row-resize"
+      className="absolute left-0 right-0 top-0 h-8 cursor-ns-resize hover-cursor-ns-resize"
       onMouseDown={handleBottomResize}
     >
-      <div className="w-full h-full hover:cursor-row-resize">
-        <div className="w-full h-[1px] mx-auto hover:bg-blue-500 opacity-0 hover:opacity-100" />
-      </div>
+      <div className="w-full h-[2px] mx-auto hover:bg-blue-500" />
     </div>
   </div>
 
@@ -694,7 +709,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
 
     </div>
         </div>
-
+<ResizeHandle/>
 
 </div>
   
