@@ -19,6 +19,9 @@ import FormatDropdown from './FormatDropdown';
 
 const SnapLogicPlayground3 = () => {
 
+  const [outputMatch, setOutputMatch] = useState(true);
+
+
   const [activeNavItem, setActiveNavItem] = useState('playground');
 
   const [currentView, setCurrentView] = useState('playground');
@@ -209,6 +212,11 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       setIsScriptDialogOpen(false); // Close the dialog
     }
   };
+
+  const handleActualOutputChange = (e) => {
+    setActualOutput(e.target.value);
+    compareOutputs();
+  };
   
 
   const handleExpectedOutputChange = (e) => {
@@ -226,27 +234,16 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     border: 'none'
   };
 
-  // const handleBottomResize = (e) => {
-  //   e.preventDefault(); // Prevent default behavior
-  //   setIsDragging(true);
-  //   const startY = e.clientY;
-  //   const startHeight = bottomHeight;
+  const compareOutputs = () => {
+    const normalizedActual = actualOutput.trim();
+    const normalizedExpected = expectedOutput.trim();
+    return normalizedActual === normalizedExpected;
+  };
   
-  //   const handleMouseMove = (e) => {
-  //     const deltaY = startY - e.clientY;
-  //     const newHeight = startHeight + deltaY;
-  //     setBottomHeight(Math.max(32, Math.min(800, newHeight)));
-  //   };
-  
-  //   const handleMouseUp = () => {
-  //     setIsDragging(false);
-  //     document.removeEventListener('mousemove', handleMouseMove);
-  //     document.removeEventListener('mouseup', handleMouseUp);
-  //   };
-  
-  //   document.addEventListener('mousemove', handleMouseMove);
-  //   document.addEventListener('mouseup', handleMouseUp);
-  // };
+  // Add useEffect to monitor changes in both outputs
+  useEffect(() => {
+    setOutputMatch(compareOutputs());
+  }, [actualOutput, expectedOutput]);
   
   
 
@@ -631,11 +628,24 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   </div>
         {/* Middle Panel */}
         <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r relative">
-          <div className="border-b">
-            <div className="flex items-center min-h-[30px] px-4">
-              <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
-            </div>
-          </div>
+        <div className="border-b">
+  <div className="flex items-center justify-between min-h-[30px] px-4">
+    <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
+    <div className="flex items-center">
+      {outputMatch ? (
+        <div className="flex items-center">
+          <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+          <span className="text-green-500 text-xs">Success</span>
+        </div>
+      ) : (
+        <div className="flex items-center">
+          <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+          <span className="text-red-500 text-xs">Failure</span>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
           {/* <div className="p-4">
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
@@ -689,11 +699,14 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             <div className="p-4 font-mono text-sm">
               <div className="flex">
                 {renderLineNumbers(actualLines)}
-                <pre className="text-red-500 text-sm">
-                  {actualLines.map((line, index) => (
-                    <div key={index} className="h-6" >{line}</div>
-                  ))}
-                </pre>
+                <pre 
+  className="text-red-500 text-sm"
+  onChange={handleActualOutputChange}
+>
+  {actualLines.map((line, index) => (
+    <div key={index} className="h-6">{line}</div>
+  ))}
+</pre>
               </div>
             </div>
           </div>
