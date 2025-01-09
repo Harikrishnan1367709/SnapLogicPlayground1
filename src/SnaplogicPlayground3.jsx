@@ -635,7 +635,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       {outputMatch ? (
         <div className="flex items-center">
           <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-          <span className="text-green-500 text-xs">Success</span>
+          <span className="text-green-500 text-[12px]">Success</span>
         </div>
       ) : (
         <div className="flex items-center">
