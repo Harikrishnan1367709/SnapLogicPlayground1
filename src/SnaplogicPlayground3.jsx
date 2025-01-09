@@ -196,7 +196,10 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
+  
+  
 
+  
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
     {/* Top Toast Bar */}
@@ -543,7 +546,14 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       </div>
 
       {/* Bottom Bar */}
-      <div className={`border-t transition-all duration-200 ease-in-out ${isBottomExpanded ? `h-[${bottomHeight}px]` : 'h-8'}`}>
+      <div 
+  className="border-t relative flex flex-col"
+  style={{
+    height: isBottomExpanded ? `${bottomHeight}px` : '32px',
+    transition: 'height 0.2s ease-in-out'
+  }}
+>
+  
   <div className="flex items-center justify-between h-8 bg-white relative">
     <div className="flex space-x-4 pl-2">
       <button 
@@ -575,7 +585,18 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
         <span className='ml-2'>API REFERENCE</span>
       </button>
     </div>
-    <span className="text-sm text-gray-500 absolute left-[calc(50%+50px)] flex items-center h-full">©2023 Snaplogic LLC, a Salesforce company</span>
+    <span className="text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full">
+      ©2023 Snaplogic LLC, a Salesforce company
+    </span>
+    {/* Resize Handle aligned with bottom bar height */}
+    <div
+      className="absolute left-0 right-0 h-8 cursor-row-resize"
+      onMouseDown={handleBottomResize}
+    >
+      <div className="w-full h-full hover:cursor-row-resize">
+        <div className="w-full h-[1px] mx-auto hover:bg-blue-500 opacity-0 hover:opacity-100" />
+      </div>
+    </div>
   </div>
 
 
@@ -587,22 +608,23 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   
   {/* Content */}
 {isBottomExpanded && (
+  <div className="flex-1 overflow-auto">
   <div className="h-[calc(100%-2rem)] overflow-auto">
     <div className="flex flex-col justify-center items-center h-full">
       {activeTab === 'log' && (
         <>
           <h2 className="text-xl font-bold text-black mb-4">No Logs Available</h2>
           <p className="text-sm">
-            learn more about the 
-            <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span> 
-            function in the 
+            learn more about the
+            <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span>
+            function in the
             <span className="text-sky-500">  API Reference</span>
           </p>
         </>
       )}
-      
+     
       {activeTab === 'api' && (
-  <div className="w-full h-full flex">
+             < div className="w-full h-full flex">
     {/* Left Navigation */}
     <div className="w-64 border-r overflow-y-auto">
       <nav className="p-4">
@@ -620,11 +642,12 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       </nav>
     </div>
 
+
     {/* Right Content */}
     <div className="flex-1 overflow-y-auto">
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Understanding Expressions</h1>
-        
+       
         <div className="space-y-6">
           <section>
             <h2 className="text-lg font-semibold mb-3">Overview</h2>
@@ -632,6 +655,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
               SnapLogic expressions provide a powerful way to transform and manipulate data within your pipelines.
             </p>
           </section>
+
 
           <section>
             <h2 className="text-lg font-semibold mb-3">Expression Types</h2>
@@ -643,34 +667,42 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
             </ul>
           </section>
 
+
           <section>
             <h2 className="text-lg font-semibold mb-3">Examples</h2>
             <div className="bg-gray-50 p-4 rounded-md">
               <pre className="text-sm font-mono">
-{`// Data Navigation
-$.phoneNumbers[0].type
+               {`// Data Navigation
+                $.phoneNumbers[0].type
 
-// String Operations
-$uppercase($.firstName)
 
-// Array Operations
-$.items[*].price`}
-              </pre>
-            </div>
-          </section>
+                    // String Operations
+              $uppercase($.firstName)
+
+
+                   // Array Operations
+             $.items[*].price`}
+                       </pre>
+                       </div>
+                      </section>
+                    </div>
+                        </div>
+                         </div>
+                   </div>
+                     )}
+
+
+    </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
 
-    </div>
-  </div>
-)}
 
 </div>
+  
+           )}
 
-    </div>
+   </div>
+
+  </div>
   );
 };
 
