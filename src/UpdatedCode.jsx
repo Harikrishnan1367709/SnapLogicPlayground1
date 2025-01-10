@@ -17,6 +17,15 @@ import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
 
+
+    const [hoveredLine, setHoveredLine] = useState(null);
+const [highlightedLine, setHighlightedLine] = useState(null);
+
+    const [showInputContainer, setShowInputContainer] = useState(false);
+    const [showScriptContainer, setShowScriptContainer] = useState(false);
+const [activeScript, setActiveScript] = useState(null);
+
+
     const [inputContents, setInputContents] = useState({});
 
   const [isPayloadView, setIsPayloadView] = useState(false);
@@ -191,14 +200,32 @@ const UpdatedCode = () => {
 
   const handleCreateScript = () => {
     if (newScript.trim() !== "") {
-      const newScripts = newScript.split('\n').map(line => ({
+      const scriptName = newScript.endsWith('.dwl') ? newScript : `${newScript}.dwl`;
+      const newScriptObj = {
         id: Date.now() + Math.random(),
-        content: line,
-      }));
-      setScripts([...scripts, ...newScripts]);
+        name: scriptName,
+        content: '',
+        lastModified: new Date()
+      };
+      setScripts([...scripts, newScriptObj]);
       setNewScript("");
       setIsScriptDialogOpen(false);
     }
+  };
+
+  const handleScriptSelect = (script) => {
+    if (activeScript) {
+      // Auto-save current script
+      const updatedScripts = scripts.map(s => 
+        s.id === activeScript.id 
+          ? { ...s, content: scriptContent }
+          : s
+      );
+      setScripts(updatedScripts);
+    }
+    
+    setActiveScript(script);
+    setScriptContent(script.content);
   };
 
   const handleActualOutputChange = (e) => {
@@ -212,6 +239,14 @@ const UpdatedCode = () => {
 
   const handleScriptContentChange = (e) => {
     setScriptContent(e.target.value);
+    if (activeScript) {
+      const updatedScripts = scripts.map(s => 
+        s.id === activeScript.id 
+          ? { ...s, content: e.target.value }
+          : s
+      );
+      setScripts(updatedScripts);
+    }
   };
 
   const textAreaStyles = {
@@ -385,7 +420,7 @@ const UpdatedCode = () => {
                 setCurrentView('playground');
                 setActiveNavItem('playground');
               }} 
-              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2 border-blue-500' : ''}`}
+              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-blue-500' : ''}`}
             >
               PLAYGROUND
             </a>
@@ -393,8 +428,8 @@ const UpdatedCode = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full">
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]">
+        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full ">
           {isPayloadView ? (
             <div className="flex flex-col h-full">
               <div className="border-b">
@@ -426,70 +461,85 @@ const UpdatedCode = () => {
           ) : (
             <>
             <div className="h-1/2 border-b">
-              <div className="border-b">
-                <div className="flex justify-between items-center h-[30px] px-4">
-                  <span className="font-bold text-gray-600 text-xs">INPUT EXPLORER</span>
-                  <Dialog open={isInputDialogOpen} onOpenChange={setIsInputDialogOpen}>
-                    <DialogTrigger asChild>
-                      <button className="text-xl bg-white border-none focus:outline-none h-[30px] flex items-center">+</button>
-                    </DialogTrigger>
-                    <DialogContent
-                      className="sm:max-w-[425px] bg-gray-100 p-6 shadow-md border-none"
-                      style={{ borderRadius: "0" }}
-                    >
-                      <DialogHeader>
-                        <DialogTitle className="text-[31px] font-semibold text-gray mb-6">
-                          Create new input
-                        </DialogTitle>
-                        <div className="border-b border-gray-300 mt-5"></div>
-                      </DialogHeader>
-                      <div className="py-4">
-                        <Label
-                          htmlFor="identifier"
-                          className="block text-sm font-medium text-gray-700 mb-2"
-                        >
-                          Identifier
-                        </Label>
-                        <Input
-                          id="identifier"
-                          value={newInput}
-                          onChange={handleInputChange}
-                          placeholder=""
-                          className="w-full h-12 px-3 text-lg border-b border-l border-black focus:outline-none focus:border-l-black focus:border-r-black focus:border-t-white focus:border-b-white hover:border-l-black hover:border-r-black"
-                          style={{
-                            borderTop: "0",
-                            borderBottom: "0",
-                            borderRadius: "0",
-                          }}
-                        />
-                      </div>
-                      <DialogFooter className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsInputDialogOpen(false)}
-                          className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200"
-                          style={{ borderRadius: "0", borderColor: "rgb(209 213 219)" }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          disabled={isCreateInputDisabled}
-                          onClick={handleCreateInput}
-                          className={`h-10 px-4 text-sm font-medium ${
-                            isCreateInputDisabled
-                              ? "text-white bg-gray-300 cursor-not-allowed"
-                              : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
-                          }`}
-                          style={{ borderRadius: "0" }}
-                        >
-                          Create
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
+            <div className="border-b">
+  <div className="flex justify-between items-center h-[30px] px-4">
+    <span className="font-bold text-gray-600 text-xs">INPUT EXPLORER</span>
+    <button 
+      onClick={() => setShowInputContainer(true)} 
+      className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
+      style={{ borderRight: "0px" }}
+    >
+      +
+    </button>
+  </div>
+</div>
+
+
+
+
+{showInputContainer && (
+    <>
+   <div className="fixed inset-0 bg-black/75 z-40" />
+   <div className="fixed inset-0 z-50 flex items-center justify-center">
+   <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md">
+      <div className="mb-3">
+        <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
+          Create new input
+        </h2>
+        <div className="border-b border-gray-200 mt-5 -mx-6"></div>
+      </div>
+      <div className="py-2">
+<div className="flex items-center justify-between">
+        <label className="block text-sm font-small text-[#262626]  text-[14px] mb-2 ml-1">
+          Identifier
+        </label>
+<div className="w-3.5 h-3.5 rounded-full font-bold border border-gray-900 flex items-center justify-center text-[0.7rem] text-gray-900 mb-2">
+      i
+    </div>
+  </div>
+        <input
+  value={newInput}
+  onChange={handleInputChange}
+  className="w-full text-[15px] ml-1 h-11 px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  style={{
+    borderTop: "0",
+    borderBottom: "0",
+    outline: "none"
+  }}
+/>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          onClick={() => setShowInputContainer(false)}
+          className="h-10 px-4 text-sm  font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200  rounded-none"
+          style={{ borderColor: "rgb(209 213 219)",outline: "none" }}
+        >
+        
+          Cancel
+        </button>
+         <button
+          disabled={isCreateInputDisabled}
+          onClick={() => {
+            handleCreateInput();
+            setShowInputContainer(false);
+          }}
+          className={`h-10 px-4 text-sm  rounded-none font-medium ${
+            isCreateInputDisabled
+              ? "text-black bg-gray-300 cursor-not-allowed"
+              : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
+          }`}
+          style={{ 
+            border: "none",
+            outline: "none"
+          }}
+        >
+          Create
+        </button>
+      </div>
+    </div>
+  </div>
+  </>
+)}
               <div className="p-4">
   {inputs.map((input, index) => (
     <div
@@ -504,81 +554,92 @@ const UpdatedCode = () => {
 </div>
               </div>
               <div className="h-1/2">
-                <div className="border-b">
-                  <div className="flex justify-between items-center h-[30px] px-4">
-                    <span className="font-bold text-gray-600 text-xs">SCRIPT EXPLORER</span>
-                    <Dialog open={isScriptDialogOpen} onOpenChange={setIsScriptDialogOpen}>
-                      <DialogTrigger asChild>
-                        <button className="text-xl bg-white border-none focus:outline-none h-[30px] flex items-center">+</button>
-                      </DialogTrigger>
-                      <DialogContent
-                        className="sm:max-w-[425px] bg-gray-100 p-6 shadow-md border-none"
-                        style={{ borderRadius: "0" }}
-                      >
-                        <DialogHeader>
-                          <DialogTitle className="text-[31px] font-semibold text-gray mb-6">
-                            Create new script
-                          </DialogTitle>
-                          <div className="border-b border-gray-300 mt-5"></div>
-                        </DialogHeader>
-                        <div className="py-4">
-                          <Label
-                            htmlFor="script"
-                            className="block text-sm font-medium text-gray-700 mb-2"
-                          >
-                            Identifier
-                          </Label>
-                          <Input
-                            id="script"
-                            value={newScript}
-                            onChange={handleScriptChange}
-                            placeholder=""
-                            className="w-full h-12 px-3 text-lg border-b border-l border-black focus:outline-none focus:border-l-black focus:border-r-black focus:border-t-white focus:border-b-white hover:border-l-black hover:border-r-black"
-                            style={{
-                              borderTop: "0",
-                              borderBottom: "0",
-                              borderRadius: "0",
-                            }}
-                          />
-                        </div>
-                        <DialogFooter className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsScriptDialogOpen(false)}
-                            className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200"
-                            style={{ borderRadius: "0", borderColor: "rgb(209 213 219)" }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            disabled={isCreateScriptDisabled}
-                            onClick={handleCreateScript}
-                            className={`h-10 px-4 text-sm font-medium ${
-                              isCreateScriptDisabled
-                                ? "text-white bg-gray-300 cursor-not-allowed"
-                                : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
-                            }`}
-                            style={{ borderRadius: "0" }}
-                          >
-                            Create
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
+              <div className="border-b">
+  <div className="flex justify-between items-center h-[30px] px-4">
+    <span className="font-bold text-gray-600 text-xs">SCRIPT EXPLORER</span>
+    <button 
+      onClick={() => setShowScriptContainer(true)} 
+      className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
+      style={{ borderRight: "0px" }}
+    >
+      +
+    </button>
+  </div>
+</div>
+{showScriptContainer && (
+    <>
+   <div className="fixed inset-0 bg-black/75 z-40" />
+   <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md ">
+      <div className="mb-3">
+        <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
+          Create new script
+        </h2>
+        <div className="border-b border-gray-200 mt-5 -mx-6"></div>
+      </div>
+      <div className="py-2">
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-small text-[#262626] text-[14px] mb-2 ml-1">
+          Identifier
+        </label>
+        <div className="w-3.5 h-3.5 rounded-full font-bold border border-gray-900 flex items-center justify-center text-[0.7rem] text-gray-900 mb-2">
+      i
+    </div>
+  </div>
+  <input
+  value={newScript}
+  onChange={handleScriptChange}
+  className="w-full ml-1 h-11 text-[15px] px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  style={{
+    borderTop: "0",
+    borderBottom: "0",
+    outline: "none"
+  }}
+/>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          onClick={() => setShowScriptContainer(false)}
+          className="h-10 px-4 text-sm  font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200  rounded-none"
+          style={{ borderColor: "rgb(209 213 219)",outline: "none" }}
+        >
+          Cancel
+        </button>
+        <button
+          disabled={isCreateScriptDisabled}
+          onClick={() => {
+            handleCreateScript();
+            setShowScriptContainer(false);
+          }}
+          className={`h-10 px-4 text-sm  rounded-none font-medium ${
+            isCreateScriptDisabled
+              ? "text-black bg-gray-300 cursor-not-allowed"
+              : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
+          }`}
+          style={{ 
+            border: "none",
+            outline: "none"
+          }}
+        >
+          Create
+        </button>
+      </div>
+    </div>
+  </div>
+  </>
+)}
                 <div className="p-4">
-                  {scripts.map((script) => (
-                    <div
-                      key={script.id}
-                      className="flex items-center space-x-2 text-sm text-gray-600"
-                    >
-                      <span className="text-blue-500">dwl</span>
-                      <span>{script.content}</span>
-                    </div>
-                  ))}
-                </div>
+  {scripts.map((script) => (
+    <div
+      key={script.id}
+      className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 p-1"
+      onClick={() => handleScriptSelect(script)}
+    >
+      {/* <span className="text-blue-500"></span> */}
+      <span>{script.name}</span>
+    </div>
+  ))}
+</div>
               </div>
             </>
           )}
@@ -597,7 +658,7 @@ const UpdatedCode = () => {
           </div>
         </div>
                 {/* Middle Panel */}
-                <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r relative">
+                <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r  flex flex-col relative">
           <div className="border-b">
             <div className="flex items-center justify-between min-h-[30px] px-4">
               <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
@@ -616,17 +677,21 @@ const UpdatedCode = () => {
               </div>
             </div>
           </div>
-          <div className="p-4 font-mono text-sm">
-            <div className="flex relative">
-              {renderLineNumbers(scriptLines)}
-              <textarea
-                value={scriptContent}
-                onChange={handleScriptContentChange}
-                className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-gray-800 font-mono"
-                style={textAreaStyles}
-              />
-            </div>
-          </div>
+          <div className="p-2 flex flex-1 font-mono text-sm h-full">
+  <div className="w-12 text-right pr-4 select-none ">
+    {scriptContent.split('\n').map((_, i) => (
+      <div key={i} className="text-blue-400 h-6 leading-6">
+        {i + 1}
+      </div>
+    ))}
+  </div>
+  <textarea
+    value={scriptContent}
+    onChange={handleScriptContentChange}
+    className="flex-1 outline-none resize-none  overflow-auto leading-6 "
+    style={{ lineHeight: '1.5rem' }}
+  />
+</div>
         </div>
 
         {/* Right Resize Handle */}
@@ -642,7 +707,7 @@ const UpdatedCode = () => {
           </div>
         </div>
                 {/* Right Panel */}
-                <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0 relative">
+                <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0  flex flex-col h-full relative">
           {/* Actual Output Section */}
           <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
