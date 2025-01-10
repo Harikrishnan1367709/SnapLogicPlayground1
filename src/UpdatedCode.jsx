@@ -60,12 +60,11 @@ const UpdatedCode = () => {
   const [newScript, setNewScript] = useState("");
   const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
-    minWidth: '200px',
+    minWidth: '250px', // Increased minimum width
     position: 'relative',
     cursor: panelType === 'middle' ? 'text' : 'pointer',
     userSelect: 'none'
   });
-
   const ResizeHandle = () => (
     <div
       style={{
@@ -399,29 +398,30 @@ const UpdatedCode = () => {
           {isPayloadView ? (
             <div className="flex flex-col h-full">
               <div className="border-b">
-                <div className="flex justify-center items-start h-[30px] px-4">
-                <div className="flex items-center space-x-1 flex-1">
-  <button onClick={handleBackClick} className="text-gray-600 hover:text-gray-800 h-[30px] flex items-center">
-    <ChevronLeft className="h-4 w-4 " />
-  </button>
-  <span className="font-bold text-gray-600 text-xs">PAYLOAD</span>
-</div >
-                  <FormatDropdown  />
-                </div>
-              </div>
-              <div className="flex flex-1">
-              <div className="w-12 bg-gray-50 text-right pr-2 py-2 select-none">
-  {Array.from({ length: Math.max(2, payloadContent.split('\n').length) }, (_, i) => (
-    <div key={i} className="text-blue-500 hover:text-blue-700 h-6">{i + 1}</div>
-  ))}
+  <div className="flex justify-center items-center h-[30px] px-2">
+    <div className="flex items-center gap-1">
+      <button onClick={handleBackClick} className="text-gray-600 border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="font-bold text-gray-600 text-xs mr-4">PAYLOAD</span>
+    </div>
+    <FormatDropdown />
+  </div>
 </div>
-                <textarea
-                  value={payloadContent}
-                  onChange={(e) => setPayloadContent(e.target.value)}
-                  className="flex-1 p-2 font-mono text-sm resize-none outline-none"
-                  spellCheck="false"
-                />
-              </div>
+<div className="flex flex-1">
+  <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
+    {Array.from({ length: Math.max(2, payloadContent.split('\n').length) }, (_, i) => (
+      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">{i + 1}</div>
+    ))}
+  </div>
+  <textarea
+    value={payloadContent}
+    onChange={(e) => setPayloadContent(e.target.value)}
+    className="flex-1 p-2 font-mono text-sm resize-none outline-none leading-6"
+    spellCheck="false"
+    style={{ lineHeight: '1.5rem' }}
+  />
+</div>
             </div>
           ) : (
             <>
