@@ -3,6 +3,8 @@ import React from 'react'
 
 // import SnaplogicPlayground3 from './SnaplogicPlayground4'
 import SnaplogicPlayground3 from './SnaplogicPlayground3'
+import UpdatedCode from './updatedCode'
+
 // import SnaplogicPlayground2 from './SnaplogicPlayground2'
 
 
@@ -20,7 +22,8 @@ function App() {
     //     <DataTransformPlayground />
     //   </div>
     // </ThemeProvider>
-    <SnaplogicPlayground3/>
+    // <SnaplogicPlayground3/>
+    <UpdatedCode/>
     // <Sample/>
 
 
