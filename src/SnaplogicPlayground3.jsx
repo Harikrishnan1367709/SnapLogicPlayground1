@@ -20,6 +20,8 @@ import FormatDropdown from './FormatDropdown';
 const SnapLogicPlayground3 = () => {
 
   
+
+  
   const [outputMatch, setOutputMatch] = useState(true);
 
 
@@ -392,9 +394,9 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   </div>
 )}
   
-  <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
+  <div className="h-5 w-[1px] bg-gray-500 mx-4 "></div>
   
-  <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative flex">
+  <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative flex items-center">
   <a 
     href="https://www.snaplogic.com/blog" 
     target="_blank" 
@@ -417,7 +419,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     href="https://www.youtube.com/snaplogic" 
     target="_blank" 
     rel="noopener noreferrer"
-    className={`text-black hover:text-blue-500 pb-3 relative ${
+    className={`text-black hover:text-blue-500 pb-0 relative ${
       activeNavItem === 'tutorial' ? 'border-b-2 border-blue-500 -mb-[2px]' : ''
     }`}
     onClick={() => setActiveNavItem('tutorial')}
