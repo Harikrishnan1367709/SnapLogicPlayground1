@@ -22,8 +22,8 @@ function App() {
     //     <DataTransformPlayground />
     //   </div>
     // </ThemeProvider>
-    // <SnaplogicPlayground3/>
-    <UpdatedCode/>
+    <SnaplogicPlayground3/>
+    // <UpdatedCode/>
     // <Sample/>
 
 
