@@ -10,10 +10,10 @@ import React, { useState } from 'react'
       <div className="relative">
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center bg-white space-x-2 focus:outline-none focus:ring-0 focus:border-none active:outline-none hover:outline-none border-none outline-none"
+          className="flex items-center h-[30px] bg-white space-x-2 focus:outline-none focus:ring-0 focus:border-none active:outline-none hover:outline-none border-none outline-none"
   style={{ WebkitTapHighlightColor: 'transparent' }}
         >
-          <span className="font-bold text-gray-600 text-xs mr-14">{selectedFormat}</span>
+          <span className="font-bold text-gray-600 hover:text-blue-500 text-xs mr-14">{selectedFormat}</span>
           <ChevronDown className="h-4 w-4 text-gray-400" />
         </button>
         

@@ -19,6 +19,7 @@ import FormatDropdown from './FormatDropdown';
 
 const SnapLogicPlayground3 = () => {
 
+  
   const [outputMatch, setOutputMatch] = useState(true);
 
 
@@ -413,11 +414,13 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
     DOCS
   </a>
   <a 
-    onClick={() => {
-      setCurrentView('tutorial');
-      setActiveNavItem('tutorial');
-    }} 
-    className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'tutorial' ? 'border-b-2 border-blue-500' : ''}`}
+    href="https://www.youtube.com/snaplogic" 
+    target="_blank" 
+    rel="noopener noreferrer"
+    className={`text-black hover:text-blue-500 pb-3 relative ${
+      activeNavItem === 'tutorial' ? 'border-b-2 border-blue-500 -mb-[2px]' : ''
+    }`}
+    onClick={() => setActiveNavItem('tutorial')}
   >
     TUTORIAL
   </a>
@@ -635,12 +638,12 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
       {outputMatch ? (
         <div className="flex items-center">
           <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-          <span className="text-green-500 text-[12px]">Success</span>
+          <span className="text-green-500 text-[12px]">SUCCESS</span>
         </div>
       ) : (
         <div className="flex items-center">
           <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-          <span className="text-red-500 text-xs">Failure</span>
+          <span className="text-red-500 text-xs">FAILURE</span>
         </div>
       )}
     </div>
@@ -686,11 +689,11 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
           {/* Actual Output Section */}
           <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
-              <div className="flex justify-between items-center min-h-[30px] px-4 ">
+              <div className="flex justify-between items-center h-[30px] px-4 ">
                 <span className="font-bold text-gray-600 text-xs">ACTUAL OUTPUT</span>
                 <div className="flex items-center space-x-2">
                   {/* <span className="font-bold text-gray-600 text-xs">JSON</span> */}
-                  <div className="flex items-center space-x-2 ">
+                  <div className="flex items-center space-x-2  ">
   <FormatDropdown />
 </div>
                 </div>
@@ -713,7 +716,7 @@ const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
           {/* Expected Output Section */}
           <div className="h-1/2">
             <div className="border-b">
-              <div className="flex justify-between items-center min-h-[30px] px-4">
+              <div className="flex justify-between items-center h-[30px] px-4">
                 <span className="font-bold text-gray-600 text-xs">EXPECTED OUTPUT</span>
                 <div className="flex items-center space-x-2 ">
                   {/* <span className="font-bold text-gray-600 text-xs">JSON</span> */}
