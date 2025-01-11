@@ -1,8 +1,20 @@
 import React from 'react'
+import SnaplogicPlayground3 from './SnaplogicPlayground3'
+import UpdatedCode from '@/UpdatedCode'
+// import Sample from './sample'
+
+// import SnaplogicPlayground3 from './SnaplogicPlayground4'
+// import SnaplogicPlayground3 from './SnaplogicPlayground3'
 
 
-import { DataTransformPlayground } from './components/ui/DataTransformPlayground'
-import { ThemeProvider } from './components/ui/theme-provider'
+
+// import SnaplogicPlayground2 from './SnaplogicPlayground2'
+
+
+
+
+// import { DataTransformPlayground } from './components/ui/DataTransformPlayground'
+// import { ThemeProvider } from './components/ui/theme-provider'
 
 
 function App() {
@@ -13,7 +25,12 @@ function App() {
     //     <DataTransformPlayground />
     //   </div>
     // </ThemeProvider>
-  );
+    // <SnaplogicPlayground3/>
+    <UpdatedCode/>
+    // <Sample/>
+
+
+  )
 }
 
 export default App
