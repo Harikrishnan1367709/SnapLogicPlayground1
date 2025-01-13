@@ -283,7 +283,7 @@ const [activeScript, setActiveScript] = useState(null);
 
       <div className="flex items-center justify-between px-6 py-3 border-b">
         <div className="flex items-center space-x-3">
-          <svg
+          {/* <svg
             viewBox="0 0 100 100"
             className="w-8 h-8"
             fill="none"
@@ -299,7 +299,17 @@ const [activeScript, setActiveScript] = useState(null);
           </svg>
           <div className="text-[21px] font-bold text-[#444444] font-['OpenSans']">
             SnapLogic 
-          </div>
+          </div> */}
+           <img
+  src="/sl-logo.svg"
+  alt="SnapLogic Logo"
+  className="w-8 h-8 object-contain"
+/>
+<img
+  src="/LogoN.svg"
+  alt="SnapLogic"
+  className="h-8 object-contain"
+/>
         </div>
         <div className="flex items-center">
           <button 
