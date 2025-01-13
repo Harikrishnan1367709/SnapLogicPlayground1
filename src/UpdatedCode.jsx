@@ -268,13 +268,14 @@ const [activeScript, setActiveScript] = useState(null);
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
       {showToast && (
-        <div className="bg-[#00A0DF] text-[#00044C] py-2 text-[12px] relative">
-          <div className="text-center px-12 font-bold tracking-[0.09em]">
-            EXPERIENCE INNOVATION, UNLEASHED. WATCH THE HIGHLIGHTS FROM CONNECT '22
+        <div className="bg-[#E9EEF4] text-[#00044C] py-2 text-[12px] relative">
+          <div className="text-center px-12 font-bold font-['Manrope'] text-[1rem] tracking-[0.09em]">
+           
+            Discover the Future of Integration. Explore SnapLogic Playground Highlights
           </div>
           <button
             onClick={() => setShowToast(false)}
-            className="absolute right-4 top-0 h-full bg-[#00A0DF] text-[#00044C] border-none outline-none focus:outline-none font-bold text-[18px] flex items-center justify-center font-bold"
+            className="absolute right-4 top-0 h-full bg-[#E9EEF4] text-[#00044C] border-none outline-none focus:outline-none font-bold text-[18px] flex items-center justify-center font-bold"
           >
             ×
           </button>
@@ -317,7 +318,7 @@ const [activeScript, setActiveScript] = useState(null);
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
           >
             <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-normal">Export</span>
+            <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] font-['Manrope']  font-normal">Export</span>
           </button>
 
           {showExportDialog && (
@@ -360,7 +361,7 @@ const [activeScript, setActiveScript] = useState(null);
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-normal">Import</span>
+            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope']  font-normal">Import</span>
           </button>
 
           {showImportDialog && (
@@ -397,7 +398,7 @@ const [activeScript, setActiveScript] = useState(null);
 
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
 
-          <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative flex items-center">
+          <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
             <a 
               href="https://www.snaplogic.com/blog" 
               target="_blank" 
@@ -411,7 +412,7 @@ const [activeScript, setActiveScript] = useState(null);
               href="https://docs.snaplogic.com/" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-blue-500' : ''}`}
+              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-blue-500' : ''}`}
               onClick={() => setActiveNavItem('docs')}
             >
               DOCS
@@ -437,6 +438,7 @@ const [activeScript, setActiveScript] = useState(null);
           </div>
         </div>
       </div>
+{/* main content */}
 
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]">
         <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full ">
@@ -448,12 +450,12 @@ const [activeScript, setActiveScript] = useState(null);
       <button onClick={handleBackClick} className="text-gray-600 border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <span className="font-bold text-gray-600 text-xs mr-4">PAYLOAD</span>
+      <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
     <FormatDropdown />
   </div>
 </div>
-<div className="flex flex-1">
+<div className="flex flex-1 ">
   <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
     {Array.from({ length: Math.max(2, payloadContent.split('\n').length) }, (_, i) => (
       <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">{i + 1}</div>
@@ -473,7 +475,7 @@ const [activeScript, setActiveScript] = useState(null);
             <div className="h-1/2 border-b">
             <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
-    <span className="font-bold text-gray-600 text-xs">INPUT EXPLORER</span>
+    <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
     <button 
       onClick={() => setShowInputContainer(true)} 
       className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
@@ -566,7 +568,7 @@ const [activeScript, setActiveScript] = useState(null);
               <div className="h-1/2">
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
-    <span className="font-bold text-gray-600 text-xs">SCRIPT EXPLORER</span>
+    <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
     <button 
       onClick={() => setShowScriptContainer(true)} 
       className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
@@ -671,17 +673,17 @@ const [activeScript, setActiveScript] = useState(null);
                 <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r  flex flex-col relative">
           <div className="border-b">
             <div className="flex items-center justify-between min-h-[30px] px-4">
-              <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
+              <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT</span>
               <div className="flex items-center">
                 {outputMatch ? (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                    <span className="text-green-500 text-[12px]">SUCCESS</span>
+                    <span className="text-green-500  font-['Manrope'] text-[12px]">SUCCESS</span>
                   </div>
                 ) : (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                    <span className="text-red-500 text-xs">FAILURE</span>
+                    <span className="text-red-500 font-['Manrope'] text-xs">FAILURE</span>
                   </div>
                 )}
               </div>
@@ -722,9 +724,9 @@ const [activeScript, setActiveScript] = useState(null);
           <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
               <div className="flex justify-between items-center h-[30px] px-4">
-                <span className="font-bold text-gray-600 text-xs">ACTUAL OUTPUT</span>
+                <span className="font-bold text-gray-600 font-['Manrope'] text-xs">ACTUAL OUTPUT</span>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
                   </div>
                 </div>
@@ -748,9 +750,9 @@ const [activeScript, setActiveScript] = useState(null);
           <div className="h-1/2">
             <div className="border-b">
               <div className="flex justify-between items-center h-[30px] px-4">
-                <span className="font-bold text-gray-600 text-xs">EXPECTED OUTPUT</span>
+                <span className="font-bold text-gray-600 font-['Manrope'] text-xs">EXPECTED OUTPUT</span>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
                   </div>
                 </div>
@@ -807,10 +809,10 @@ const [activeScript, setActiveScript] = useState(null);
         className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
       >
         <Book className="h-3 w-3" />
-        <span className='ml-2'>API REFERENCE</span>
+        <span className=" ml-2 font-['Manrope'] ">API REFERENCE</span>
       </button>
     </div>
-    <span className="text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full z-10">
+    <span className=" font-['Manrope'] text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full z-10">
       ©2023 Snaplogic LLC, a Salesforce company
     </span>
     {/* Resize Handle */}
@@ -833,7 +835,7 @@ const [activeScript, setActiveScript] = useState(null);
                       learn more about the
                       <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span>
                       function in the
-                      <span className="text-sky-500">  API Reference</span>
+                      <span className="text-sky-500 font-['Manrope']">  API Reference</span>
                     </p>
                   </>
                 )}
