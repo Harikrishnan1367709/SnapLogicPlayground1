@@ -16,9 +16,11 @@ import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
+  const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
-
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [focusedLine, setFocusedLine] = useState(null);
   const [wasChecked, setWasChecked] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -840,8 +842,8 @@ const [inputContents, setInputContents] = useState({
               </div>
             </div>
           </div>
-          <div className="p-2 flex flex-1 font-mono text-sm h-full font-['Manrope']">
-  <div className="w-12 text-right pr-4 select-none  ">
+          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope']">
+  <div className="w-12 text-right pr-4 select-none">
     {scriptContent.split('\n').map((_, i) => (
       <div key={i} className="text-blue-400 h-6 leading-6">
         {i + 1}
@@ -851,10 +853,23 @@ const [inputContents, setInputContents] = useState({
   <textarea
     value={scriptContent}
     onChange={handleScriptContentChange}
-    className="flex-1 outline-none resize-none  overflow-auto leading-6   "
-    style={{ lineHeight: '1.5rem' }}
+    onKeyUp={(e) => {
+      const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
+      setActiveLineIndex(lines.length - 1);
+    }}
+    onClick={(e) => {
+      const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
+      setActiveLineIndex(lines.length - 1);
+    }}
+    className={`flex-1 outline-none resize-none overflow-auto leading-6 relative w-full pr-0`}
+    style={{
+      lineHeight: '1.5rem',
+      backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
+    }}
   />
 </div>
+
+
         </div>
 
         {/* Right Resize Handle */}
