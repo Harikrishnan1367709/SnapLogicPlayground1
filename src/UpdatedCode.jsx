@@ -848,6 +848,7 @@ const [activeScript, setActiveScript] = useState(null);
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
+                    
                   </div>
                 </div>
               </div>

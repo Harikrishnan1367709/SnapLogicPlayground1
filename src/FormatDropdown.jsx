@@ -14,7 +14,13 @@ import React, { useState } from 'react'
   style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <span className="font-bold text-gray-600 hover:text-blue-500 text-xs mr-14">{selectedFormat}</span>
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          {/* <ChevronDown className="h-4 w-4 text-gray-400" />
+           */}
+           <img
+  src="/chevron_down_small.svg"
+  alt="SnapLogic Logo"
+ className="text-gray-500 h-3 w-3"
+/>
         </button>
         
         {isOpen && (
