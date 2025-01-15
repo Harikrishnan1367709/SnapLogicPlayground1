@@ -17,7 +17,7 @@ import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
 
-  
+  const [selectedFile, setSelectedFile] = useState(null);
 
 
     const [hoveredLine, setHoveredLine] = useState(null);
@@ -267,6 +267,27 @@ const [activeScript, setActiveScript] = useState(null);
     setOutputMatch(compareOutputs());
   }, [actualOutput, expectedOutput]);
 
+  // const [rightWidth, setRightWidth] = useState(() => 
+  //   parseInt(localStorage.getItem('rightWidth')) || 384
+  // );
+  
+  // Add the new functions here
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file && file.name.endsWith('.zip')) {
+      setSelectedFile(file);
+      setShowImportDialog(false);
+    }
+  };
+  
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.name.endsWith('.zip')) {
+      setSelectedFile(file);
+      setShowImportDialog(false);
+    }
+  };
   
 
   return (
@@ -361,7 +382,9 @@ const [activeScript, setActiveScript] = useState(null);
             </div>
           )}
                     <button 
-            onClick={() => setShowImportDialog(true)} 
+            onClick={() => {setShowImportDialog(true);
+              setSelectedFile(null); 
+                } }
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
@@ -369,36 +392,51 @@ const [activeScript, setActiveScript] = useState(null);
           </button>
 
           {showImportDialog && (
-            <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-              <div className="bg-white h-[28.5rem] w-[31rem]" style={{ borderRadius: 0 }}>
-                <div className="p-8 pt-10 flex flex-col h-full">
-                  <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
-                  <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
-                  <div className="mt-6 flex-1 font-['Manrope']">
-                    <div className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-sm text-center mt-2 text-gray-500">Drop project zip here or click to upload</p>
-                    </div>
-                    <div className="mt-4 w-[28rem] mx-auto mb-[2.2rem]">
-                      <p className="text-[#FF0000] text-sm">Upload functionality is only intended for playground exported projects</p>
-                      <p className="text-[#FF0000] text-sm mt-1 ml-[3.5rem]">Importing modified files may yield an invalid project.</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button 
-                      onClick={() => setShowImportDialog(false)}
-                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
-                      style={{ borderRadius: 0 }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+  <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+    <div className="bg-white h-[28.5rem] w-[31rem]" style={{ borderRadius: 0 }}>
+      <div className="p-8 pt-10 flex flex-col h-full">
+        <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
+        <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
+        <div className="mt-6 flex-1 font-['Manrope']">
+          <div 
+            className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400"
+            onClick={() => document.getElementById('fileInput').click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleFileDrop}
+          >
+            <input
+              id="fileInput"
+              type="file"
+              accept=".zip"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-sm text-center mt-2 text-gray-500">
+              {selectedFile ? selectedFile.name : "Drop project zip here or click to upload"}
+            </p>
+          </div>
+          <div className="mt-4 w-[28rem] mx-auto mb-[2.2rem]">
+            <p className="text-[#FF0000] text-sm">Upload functionality is only intended for playground exported projects</p>
+            <p className="text-[#FF0000] text-sm mt-1 ml-[3.5rem]">Importing modified files may yield an invalid project.</p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button 
+            onClick={() => setShowImportDialog(false)}
+            className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
+            style={{ borderRadius: 0 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
 
