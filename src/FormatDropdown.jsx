@@ -7,7 +7,7 @@ import React, { useState } from 'react'
     const formats = ['JSON', 'XML', 'CSV'];
     
     return (
-      <div className="relative">
+      <div className="relative ">
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center h-[30px] bg-white space-x-2 focus:outline-none focus:ring-0 focus:border-none active:outline-none hover:outline-none border-none outline-none"

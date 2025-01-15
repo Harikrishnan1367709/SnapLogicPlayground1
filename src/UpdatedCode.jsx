@@ -318,13 +318,13 @@ const [activeScript, setActiveScript] = useState(null);
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
           >
             <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] font-['Manrope']  font-normal">Export</span>
+            <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope']  font-normal">Export</span>
           </button>
 
           {showExportDialog && (
             <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
               <div className="bg-white h-[19rem] w-205" style={{ borderRadius: 0 }}>
-                <div className="p-6">
+                <div className="p-6 font-['Manrope']">
                   <h2 className="text-[1.9rem] font-bold mt-[1rem] mb-[2rem] text-gray-700">Open in Visual Studio Code</h2>
                   <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[1.8rem]"></div>
                   <p className="text-sm mb-3">
@@ -361,7 +361,7 @@ const [activeScript, setActiveScript] = useState(null);
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope']  font-normal">Import</span>
+            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
 
           {showImportDialog && (
@@ -370,7 +370,7 @@ const [activeScript, setActiveScript] = useState(null);
                 <div className="p-8 pt-10 flex flex-col h-full">
                   <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
                   <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
-                  <div className="mt-6 flex-1">
+                  <div className="mt-6 flex-1 font-['Manrope']">
                     <div className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400">
                       <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -446,7 +446,7 @@ const [activeScript, setActiveScript] = useState(null);
             <div className="flex flex-col h-full">
               <div className="border-b">
   <div className="flex justify-center items-center h-[30px] px-2">
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 bg-[#E6EEF4]">
       <button onClick={handleBackClick} className="text-gray-600 border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -474,7 +474,7 @@ const [activeScript, setActiveScript] = useState(null);
             <>
             <div className="h-1/2 border-b">
             <div className="border-b">
-  <div className="flex justify-between items-center h-[30px] px-4">
+  <div className="flex justify-between items-center h-[30px]  px-4">
     <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
     <button 
       onClick={() => setShowInputContainer(true)} 
@@ -494,7 +494,7 @@ const [activeScript, setActiveScript] = useState(null);
    <div className="fixed inset-0 bg-black/75 z-40" />
    <div className="fixed inset-0 z-50 flex items-center justify-center">
    <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md">
-      <div className="mb-3">
+      <div className="mb-3 font-['Manrope']">
         <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
           Create new input
         </h2>
@@ -583,7 +583,7 @@ const [activeScript, setActiveScript] = useState(null);
    <div className="fixed inset-0 bg-black/75 z-40" />
    <div className="fixed inset-0 z-50 flex items-center justify-center">
     <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md ">
-      <div className="mb-3">
+      <div className="mb-3 font-['Manrope']">
         <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
           Create new script
         </h2>
@@ -678,19 +678,19 @@ const [activeScript, setActiveScript] = useState(null);
                 {outputMatch ? (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                    <span className="text-green-500  font-['Manrope'] text-[12px]">SUCCESS</span>
+                    <span className="text-gray-500  font-['Manrope'] text-[12px]">SUCCESS</span>
                   </div>
                 ) : (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                    <span className="text-red-500 font-['Manrope'] text-xs">FAILURE</span>
+                    <span className="text-gray-500 font-['Manrope'] text-xs">FAILURE</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div className="p-2 flex flex-1 font-mono text-sm h-full">
-  <div className="w-12 text-right pr-4 select-none ">
+          <div className="p-2 flex flex-1 font-mono text-sm h-full font-['Manrope']">
+  <div className="w-12 text-right pr-4 select-none  ">
     {scriptContent.split('\n').map((_, i) => (
       <div key={i} className="text-blue-400 h-6 leading-6">
         {i + 1}
@@ -732,7 +732,7 @@ const [activeScript, setActiveScript] = useState(null);
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm">
+            <div className="p-4 font-mono text-sm font-['Manrope']">
               <div className="flex">
                 {renderLineNumbers(actualLines)}
                 <pre 
@@ -758,7 +758,7 @@ const [activeScript, setActiveScript] = useState(null);
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm">
+            <div className="p-4 font-mono text-sm font-['Manrope']">
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
@@ -775,13 +775,13 @@ const [activeScript, setActiveScript] = useState(null);
 
 {/* Bottom Bar */}
 <div 
-  className="border-t relative flex flex-col"
+  className="border-t relative flex flex-col   "
   style={{
     height: isBottomExpanded ? `${bottomHeight}px` : '32px',
     transition: 'height 0.2s ease-in-out'
   }}
 >
-  <div className="flex items-center justify-between h-8 bg-white relative">
+  <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
     <div className="flex space-x-4 pl-2 z-10">
       <button 
         onClick={() => {
@@ -792,10 +792,10 @@ const [activeScript, setActiveScript] = useState(null);
             setIsBottomExpanded(false);
           }
         }} 
-        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none`}
+        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer bg-[#E6EEF4] flex items-center px-2 py-1 rounded focus:outline-none border-none`}
       >
         <Terminal className="h-3 w-3" />
-        <span className='ml-2'>LOG VIEWER</span>
+        <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
       </button>
       <button 
         onClick={() => {
@@ -806,14 +806,15 @@ const [activeScript, setActiveScript] = useState(null);
             setIsBottomExpanded(false);
           }
         }} 
-        className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
+        className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center bg-[#E6EEF4] px-2 py-1 rounded focus:outline-none border-none h-6`}
       >
         <Book className="h-3 w-3" />
-        <span className=" ml-2 font-['Manrope'] ">API REFERENCE</span>
+        <span className=" ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em] ">API REFERENCE</span>
       </button>
     </div>
-    <span className=" font-['Manrope'] text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full z-10">
-      ©2023 Snaplogic LLC, a Salesforce company
+    <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(50%+50px)] tracking-[0.03em] flex items-center h-full z-10">
+      {/* ©2023 Snaplogic LLC, a Salesforce company */}
+      SnapLogic Playground – Redefining Integration.
     </span>
     {/* Resize Handle */}
     <div
@@ -830,12 +831,12 @@ const [activeScript, setActiveScript] = useState(null);
               <div className="flex flex-col justify-center items-center h-full">
                 {activeTab === 'log' && (
                   <>
-                    <h2 className="text-xl font-bold text-black mb-4">No Logs Available</h2>
-                    <p className="text-sm">
-                      learn more about the
-                      <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span>
+                    <h2 className="text-xl font-bold text-black mb-4 font-['Manrope'] ">No Logs Available</h2>
+                    <p className="text-sm font-['Manrope'] tracking-[0.04em]">
+                      Learn more about the
+                      <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none font-['Manrope'] tracking-[0.04em]">jsonPath</span>
                       function in the
-                      <span className="text-sky-500 font-['Manrope']">  API Reference</span>
+                      <span className="text-sky-500 font-['Manrope'] tracking-[0.04em]">  API Reference</span>
                     </p>
                   </>
                 )}
@@ -845,7 +846,7 @@ const [activeScript, setActiveScript] = useState(null);
                     {/* Left Navigation */}
                     <div className="w-64 border-r overflow-y-auto">
                       <nav className="p-4">
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 font-['Manrope']">
                           <li className="font-semibold text-sm">Getting Started</li>
                           <li className="text-blue-500 text-sm cursor-pointer pl-4">Understanding Expressions</li>
                           <li className="text-gray-600 text-sm cursor-pointer pl-4">Expression Types</li>
@@ -861,7 +862,7 @@ const [activeScript, setActiveScript] = useState(null);
 
                     {/* Right Content */}
                     <div className="flex-1 overflow-y-auto">
-                      <div className="p-6">
+                      <div className="p-6 font-['Manrope']">
                         <h1 className="text-2xl font-bold mb-6">Understanding Expressions</h1>
                         <div className="space-y-6">
                           <section>
