@@ -16,6 +16,9 @@ import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
+
+
+
   const [wasChecked, setWasChecked] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -29,7 +32,23 @@ const [highlightedLine, setHighlightedLine] = useState(null);
 const [activeScript, setActiveScript] = useState(null);
 
 
-    const [inputContents, setInputContents] = useState({});
+const [inputContents, setInputContents] = useState({
+  'Payload': `{
+    "firstName": "John",
+    "lastName": "Doe",
+    "age": 30,
+    "phoneNumbers": [
+      {
+        "type": "Phone",
+        "number": "123-456-7890"
+      },
+      {
+        "type": "Mobile",
+        "number": "987-654-3210"
+      }
+    ]
+  }`
+});
 
   const [isPayloadView, setIsPayloadView] = useState(false);
   const [selectedInputIndex, setSelectedInputIndex] = useState(null);
@@ -65,12 +84,19 @@ const [activeScript, setActiveScript] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isInputDialogOpen, setIsInputDialogOpen] = useState(false);
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
-  const [inputs, setInputs] = useState([]);
+  const [inputs, setInputs] = useState(['Payload']);
   const [newInput, setNewInput] = useState("");
   const [scriptContent, setScriptContent] = useState('$.phoneNumbers[:1].type');
   const [expectedOutput, setExpectedOutput] = useState('[\n  "Phone"\n]');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
-  const [scripts, setScripts] = useState([]);
+  const [scripts, setScripts] = useState([
+    {
+      id: 1,
+      name: 'main.dwl',
+      content: '$.phoneNumbers[:1].type',
+      lastModified: new Date()
+    }
+  ]);
   const [newScript, setNewScript] = useState("");
   const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
@@ -559,6 +585,7 @@ const [activeScript, setActiveScript] = useState(null);
   className="w-4 h-4 "
 />
       </button>
+      
       <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
     <FormatDropdown />
@@ -667,14 +694,14 @@ const [activeScript, setActiveScript] = useState(null);
   </div>
   </>
 )}
-              <div className="p-4">
+              <div className="w-full  pt-2">
   {inputs.map((input, index) => (
     <div
       key={index}
-      className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 p-1"
+      className="flex items-center  text-sm text-gray-600 cursor-pointer p-1 w-full  hover:bg-gray-100 p-1 hover:rounded-r-full"
       onClick={() => handleInputClick(input, index)}
     >
-      <span className="text-blue-500">json</span>
+      <span className="text-blue-500 px-4">json</span>
       <span>{input}</span>
     </div>
   ))}
@@ -760,17 +787,21 @@ const [activeScript, setActiveScript] = useState(null);
   </div>
   </>
 )}
-                <div className="p-4">
-  {scripts.map((script) => (
-    <div
-      key={script.id}
-      className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 p-1"
-      onClick={() => handleScriptSelect(script)}
-    >
-      {/* <span className="text-blue-500"></span> */}
-      <span>{script.name}</span>
-    </div>
-  ))}
+                <div className="w-full  pt-2 ">
+                {scripts.map((script) => (
+  <div
+    key={script.id}
+    className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer  w-full hover:bg-gray-100 hover:rounded-r-full  ${
+      activeScript?.id === script.id 
+      ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 hover:bg-gray-200' 
+      : 'hover:bg-gray-200'
+  }`}
+    onClick={() => handleScriptSelect(script)}
+  >
+    <span className="px-4">{script.name}</span>
+  </div>
+))}
+
 </div>
               </div>
             </>
@@ -820,7 +851,7 @@ const [activeScript, setActiveScript] = useState(null);
   <textarea
     value={scriptContent}
     onChange={handleScriptContentChange}
-    className="flex-1 outline-none resize-none  overflow-auto leading-6 "
+    className="flex-1 outline-none resize-none  overflow-auto leading-6   "
     style={{ lineHeight: '1.5rem' }}
   />
 </div>
