@@ -17,6 +17,8 @@ import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
 
+  
+
 
     const [hoveredLine, setHoveredLine] = useState(null);
 const [highlightedLine, setHighlightedLine] = useState(null);
@@ -264,6 +266,8 @@ const [activeScript, setActiveScript] = useState(null);
   useEffect(() => {
     setOutputMatch(compareOutputs());
   }, [actualOutput, expectedOutput]);
+
+  
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -782,7 +786,7 @@ const [activeScript, setActiveScript] = useState(null);
   }}
 >
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
-    <div className="flex space-x-4 pl-2 z-10">
+    <div className="flex space-x-4 pl-2 z-10 ">
       <button 
         onClick={() => {
           if (!isBottomExpanded || activeTab !== 'log') {
@@ -820,6 +824,7 @@ const [activeScript, setActiveScript] = useState(null);
     <div
       className="absolute left-0 right-0 top-0 h-8 cursor-ns-resize"
       onMouseDown={(e) => handleMouseDown(e, false, true)}
+      
     >
       <div className="w-full h-[2px] mx-auto hover:bg-blue-500" />
     </div>
