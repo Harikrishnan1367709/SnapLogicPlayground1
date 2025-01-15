@@ -16,6 +16,7 @@ import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
+  const [wasChecked, setWasChecked] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -38,7 +39,9 @@ const [activeScript, setActiveScript] = useState(null);
   const [currentView, setCurrentView] = useState('playground');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(() => 
+    localStorage.getItem('showExportDialog') !== 'false'
+  );
   const [leftWidth, setLeftWidth] = useState(() => 
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
@@ -289,6 +292,28 @@ const [activeScript, setActiveScript] = useState(null);
     }
   };
   
+  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() => 
+    localStorage.getItem('showExportDialog') !== 'false'
+  );
+
+  const handleExport = () => {
+    const blob = new Blob(['Demo content'], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'snaplogic-playground-export.zip');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+  
+  const handleCheckboxChange = () => {
+    setIsChecked(!isChecked);
+    localStorage.setItem('showExportDialog', 'false');
+    setShouldShowExportDialog(false);
+  };
+  
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -338,13 +363,37 @@ const [activeScript, setActiveScript] = useState(null);
 />
         </div>
         <div className="flex items-center">
-          <button 
-            onClick={() => setShowExportDialog(true)} 
-            className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
-          >
-            <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope']  font-normal">Export</span>
-          </button>
+        <button 
+  onClick={() => {
+    // Always download the file
+    const blob = new Blob(['Demo content'], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'snaplogic-playground-export.zip');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    // Show dialog if not checked in current session
+    if (!wasChecked) {
+      setShowExportDialog(true);
+    }
+  }}
+  className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
+>
+<img
+  src="/cloud-upload-Hover.svg"
+  alt="SnapLogic Logo"
+ className="mr-2 text-gray-700 group-hover:text-blue-500 text-gray-500 h-4 w-4"
+/>
+  {/* <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
+  <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope'] font-normal">Export</span>
+</button>
+
+
+
 
           {showExportDialog && (
             <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
@@ -359,19 +408,27 @@ const [activeScript, setActiveScript] = useState(null);
                     Don't forget to install the <span className="text-blue-500">DataWeave Playground</span> extension
                   </p>
                   <div className="flex justify-between items-center">
-                    <label className="flex items-center text-sm cursor-pointer select-none" onClick={() => setIsChecked(!isChecked)}>
-                      <div className="w-5 h-5 mr-2 border border-gray-300 flex items-center justify-center bg-white hover:border-gray-400 cursor-pointer" style={{ borderRadius: 0 }}>
-                        {isChecked && (
-                          <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      Don't show popup again
-                    </label>
+                  <label 
+  className="flex items-center text-sm cursor-pointer select-none" 
+  onClick={() => {
+    setIsChecked(!isChecked);
+    setWasChecked(true);
+    // setShowExportDialog(false);
+  }}
+>
+  <div className="w-5 h-5 mr-2 border border-gray-300 flex items-center justify-center bg-white hover:border-gray-400 cursor-pointer" style={{ borderRadius: 0 }}>
+    {isChecked && (
+      <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+    )}
+  </div>
+  Don't show popup again
+</label>
+
                     <button 
                       onClick={() => setShowExportDialog(false)}
-                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
+                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
                       style={{ borderRadius: 0 }}
                     >
                       Cancel
@@ -387,7 +444,12 @@ const [activeScript, setActiveScript] = useState(null);
                 } }
             className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
-            <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
+            <img
+  src="/cloud-download-Hover.svg"
+  alt="SnapLogic Logo"
+ className="mr-2 group-hover:text-blue-500 text-gray-500 h-4 w-4"
+/>
+            {/* <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
             <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
 
@@ -426,7 +488,7 @@ const [activeScript, setActiveScript] = useState(null);
         <div className="flex justify-end">
           <button 
             onClick={() => setShowImportDialog(false)}
-            className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
+            className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
             style={{ borderRadius: 0 }}
           >
             Cancel
@@ -488,9 +550,14 @@ const [activeScript, setActiveScript] = useState(null);
             <div className="flex flex-col h-full">
               <div className="border-b">
   <div className="flex justify-center items-center h-[30px] px-2">
-    <div className="flex items-center gap-1 bg-[#E6EEF4]">
-      <button onClick={handleBackClick} className="text-gray-600 border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
-        <ChevronLeft className="h-4 w-4" />
+    <div className="flex items-center gap-1 ">
+      <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
+        {/* <ChevronLeft className="h-4 w-4" /> */}
+        <img
+  src="/toolbarExpand-Active.svg"
+  alt="SnapLogic Logo"
+  className="w-4 h-4 "
+/>
       </button>
       <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
@@ -523,7 +590,13 @@ const [activeScript, setActiveScript] = useState(null);
       className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
-      +
+      {/* + */}
+      <img
+  src="/add-Hover.svg"
+  alt="SnapLogic Logo"
+ className="text-gray-500 h-3 w-3"
+/>
+
     </button>
   </div>
 </div>
@@ -616,7 +689,12 @@ const [activeScript, setActiveScript] = useState(null);
       className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
-      +
+      {/* + */}
+      <img
+  src="/add-Hover.svg"
+  alt="SnapLogic Logo"
+ className="text-gray-500 h-3 w-3"
+/>
     </button>
   </div>
 </div>
