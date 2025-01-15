@@ -507,7 +507,7 @@ const [activeScript, setActiveScript] = useState(null);
               href="https://www.snaplogic.com/blog" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-blue-500' : ''}`}
+              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-[#E6EEF4]' : ''}`}
               onClick={() => setActiveNavItem('blogs')}
             >
               BLOGS
@@ -516,7 +516,7 @@ const [activeScript, setActiveScript] = useState(null);
               href="https://docs.snaplogic.com/" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-blue-500' : ''}`}
+              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-[#E6EEF4]' : ''}`}
               onClick={() => setActiveNavItem('docs')}
             >
               DOCS
@@ -525,7 +525,7 @@ const [activeScript, setActiveScript] = useState(null);
               href="https://www.youtube.com/snaplogic" 
               target="_blank" 
               rel="noopener noreferrer"
-              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-blue-500 -mb-[2px]' : ''}`}
+              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-[#E6EEF4] -mb-[2px]' : ''}`}
               onClick={() => setActiveNavItem('tutorial')}
             >
               TUTORIAL
@@ -535,7 +535,7 @@ const [activeScript, setActiveScript] = useState(null);
                 setCurrentView('playground');
                 setActiveNavItem('playground');
               }} 
-              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-blue-500' : ''}`}
+              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-[#E6EEF4]' : ''}`}
             >
               PLAYGROUND
             </a>
