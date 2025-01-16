@@ -84,7 +84,7 @@ const [inputContents, setInputContents] = useState({
     localStorage.setItem('rightWidth', rightWidth);
   }, [leftWidth, middleWidth, rightWidth]);
 
-  const [bottomHeight, setBottomHeight] = useState(300);
+  const [bottomHeight, setBottomHeight] = useState(32);
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [showToast, setShowToast] = useState(true);
@@ -346,7 +346,28 @@ const [inputContents, setInputContents] = useState({
     localStorage.setItem('showExportDialog', 'false');
     setShouldShowExportDialog(false);
   };
-  
+
+  const getNavLink = (item) => {
+    const links = {
+      blogs: 'https://www.snaplogic.com/blog',
+      docs: 'https://docs.snaplogic.com/',
+      tutorial: 'https://www.youtube.com/snaplogic',
+      playground: '#'
+    };
+    return links[item];
+  };
+
+  const handleNavClick = (item) => {
+    if (item === 'playground') {
+      setCurrentView('playground');
+    }
+    setActiveNavItem(item);
+  };
+  useEffect(() => {
+    setIsBottomExpanded(false);
+    setBottomHeight(32);
+    setActiveTab(null);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -365,7 +386,7 @@ const [inputContents, setInputContents] = useState({
         </div>
       )}
 
-      <div className="flex items-center justify-between px-6 py-3 border-b">
+      <div className="flex items-center justify-between px-6 py-2 border-b">
         <div className="flex items-center space-x-3">
           {/* <svg
             viewBox="0 0 100 100"
@@ -414,7 +435,7 @@ const [inputContents, setInputContents] = useState({
       setShowExportDialog(true);
     }
   }}
-  className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
+  className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
 >
 <img
   src="/cloud-upload-Hover.svg"
@@ -475,7 +496,7 @@ const [inputContents, setInputContents] = useState({
             onClick={() => {setShowImportDialog(true);
               setSelectedFile(null); 
                 } }
-            className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
+            className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <img
   src="/cloud-download-Hover.svg"
@@ -536,43 +557,23 @@ const [inputContents, setInputContents] = useState({
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
 
           <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
-            <a 
-              href="https://www.snaplogic.com/blog" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-[#1B4E8D]' : ''}`}
-              onClick={() => setActiveNavItem('blogs')}
-            >
-              BLOGS
-            </a>
-            <a 
-              href="https://docs.snaplogic.com/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-[#1B4E8D]' : ''}`}
-              onClick={() => setActiveNavItem('docs')}
-            >
-              DOCS
-            </a>
-            <a 
-              href="https://www.youtube.com/snaplogic" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-[#1B4E8D] -mb-[2px]' : ''}`}
-              onClick={() => setActiveNavItem('tutorial')}
-            >
-              TUTORIAL
-            </a>
-            <a 
-              onClick={() => {
-                setCurrentView('playground');
-                setActiveNavItem('playground');
-              }} 
-              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-[#1B4E8D]' : ''}`}
-            >
-              PLAYGROUND
-            </a>
-          </div>
+      {['blogs', 'docs', 'tutorial', 'playground'].map(item => (
+        <a 
+          key={item}
+          href={getNavLink(item)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-black hover:text-blue-500 px-2 py-2 relative ${
+            activeNavItem === item 
+              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[1px] z-10' 
+              : ''
+          }`}
+          onClick={() => handleNavClick(item)}
+        >
+          {item.toUpperCase()}
+        </a>
+      ))}
+    </div>
         </div>
       </div>
 {/* main content */}
