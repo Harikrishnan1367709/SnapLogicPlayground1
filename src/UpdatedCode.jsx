@@ -949,16 +949,39 @@ const [inputContents, setInputContents] = useState({
 <div 
   className="border-t relative flex flex-col   "
   style={{
-    height: isBottomExpanded ? `${Math.min(bottomHeight, 500)}px` : '32px', // Limit maximum height
-      transition: 'height 0.2s ease-in-out'
+    height: `${bottomHeight}px`,
+    transition: isDragging ? 'none' : 'height 0.2s ease-in-out'
   }}
 >
+
 <div
-    className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
-    onMouseDown={(e) => handleMouseDown(e, false, true)}
-  >
-    <div className="w-full h-[2px] group-hover:bg-blue-500 transition-colors" />
-  </div>
+  className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
+  onMouseDown={(e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const startY = e.clientY;
+    const startHeight = bottomHeight;
+
+    const handleMouseMove = (e) => {
+      const deltaY = startY - e.clientY;
+      const newHeight = startHeight + deltaY;
+      // Set maximum height to 250px to prevent collision with input explorer
+      setBottomHeight(Math.max(32, Math.min(250, newHeight)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }}
+>
+  <div className="w-full h-[2px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
+</div>
+
 
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
   <div className="flex space-x-4 pl-2 pr-8 z-10">
@@ -973,6 +996,7 @@ const [inputContents, setInputContents] = useState({
               setBottomHeight(300);
             } else {
               setIsBottomExpanded(false);
+              setBottomHeight(32);
             }
           }}
           className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
@@ -994,6 +1018,7 @@ const [inputContents, setInputContents] = useState({
               setBottomHeight(300);
             } else {
               setIsBottomExpanded(false);
+              setBottomHeight(32);
             }
           }}
           className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
