@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./components/ui/tooltip"
 import {
   Dialog,
   DialogContent,
@@ -535,7 +540,7 @@ const [inputContents, setInputContents] = useState({
               href="https://www.snaplogic.com/blog" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-[#E6EEF4]' : ''}`}
+              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-[#1B4E8D]' : ''}`}
               onClick={() => setActiveNavItem('blogs')}
             >
               BLOGS
@@ -544,7 +549,7 @@ const [inputContents, setInputContents] = useState({
               href="https://docs.snaplogic.com/" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-[#E6EEF4]' : ''}`}
+              className={`text-black  hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-[#1B4E8D]' : ''}`}
               onClick={() => setActiveNavItem('docs')}
             >
               DOCS
@@ -553,7 +558,7 @@ const [inputContents, setInputContents] = useState({
               href="https://www.youtube.com/snaplogic" 
               target="_blank" 
               rel="noopener noreferrer"
-              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-[#E6EEF4] -mb-[2px]' : ''}`}
+              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-[#1B4E8D] -mb-[2px]' : ''}`}
               onClick={() => setActiveNavItem('tutorial')}
             >
               TUTORIAL
@@ -563,7 +568,7 @@ const [inputContents, setInputContents] = useState({
                 setCurrentView('playground');
                 setActiveNavItem('playground');
               }} 
-              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-[#E6EEF4]' : ''}`}
+              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-[#1B4E8D]' : ''}`}
             >
               PLAYGROUND
             </a>
@@ -949,37 +954,56 @@ const [inputContents, setInputContents] = useState({
   }}
 >
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
-    <div className="flex space-x-4 pl-2 z-10 ">
-      <button 
-        onClick={() => {
-          if (!isBottomExpanded || activeTab !== 'log') {
-            setIsBottomExpanded(true);
-            setActiveTab('log');
-          } else {
-            setIsBottomExpanded(false);
-          }
-        }} 
-        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer bg-[#E6EEF4] flex items-center px-2 py-1 rounded focus:outline-none border-none`}
-      >
-        <Terminal className="h-3 w-3" />
-        <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
-      </button>
-      <button 
-        onClick={() => {
-          if (!isBottomExpanded || activeTab !== 'api') {
-            setIsBottomExpanded(true);
-            setActiveTab('api');
-          } else {
-            setIsBottomExpanded(false);
-          }
-        }} 
-        className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center bg-[#E6EEF4] px-2 py-1 rounded focus:outline-none border-none h-6`}
-      >
-        <Book className="h-3 w-3" />
-        <span className=" ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em] ">API REFERENCE</span>
-      </button>
-    </div>
-    <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(50%+50px)] tracking-[0.03em] flex items-center h-full z-10">
+  <div className="flex space-x-4 pl-2 pr-8 z-10">
+  <TooltipProvider delayDuration={50}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => {
+            if (!isBottomExpanded || activeTab !== 'log') {
+              setIsBottomExpanded(true);
+              setActiveTab('log');
+            } else {
+              setIsBottomExpanded(false);
+            }
+          }}
+          className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+        >
+          <Terminal className="h-3 w-3" />
+          <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-black p-0 border-0" />
+    </Tooltip>
+
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => {
+            if (!isBottomExpanded || activeTab !== 'api') {
+              setIsBottomExpanded(true);
+              setActiveTab('api');
+            } else {
+              setIsBottomExpanded(false);
+            }
+          }}
+          className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+        >
+          <Book className="h-3 w-3" />
+          <span className="ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em]">API REFERENCE</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-black p-0 border-0" />
+    </Tooltip>
+  </TooltipProvider>
+</div>
+
+
+
+
+
+
+    <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(45%+0px)] tracking-[0.03em] flex items-center h-full z-10">
       {/* ©2023 Snaplogic LLC, a Salesforce company */}
       SnapLogic Playground – Redefining Integration.
     </span>
