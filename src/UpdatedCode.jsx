@@ -949,10 +949,17 @@ const [inputContents, setInputContents] = useState({
 <div 
   className="border-t relative flex flex-col   "
   style={{
-    height: isBottomExpanded ? `${bottomHeight}px` : '32px',
-    transition: 'height 0.2s ease-in-out'
+    height: isBottomExpanded ? `${Math.min(bottomHeight, 500)}px` : '32px', // Limit maximum height
+      transition: 'height 0.2s ease-in-out'
   }}
 >
+<div
+    className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
+    onMouseDown={(e) => handleMouseDown(e, false, true)}
+  >
+    <div className="w-full h-[2px] group-hover:bg-blue-500 transition-colors" />
+  </div>
+
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
   <div className="flex space-x-4 pl-2 pr-8 z-10">
   <TooltipProvider delayDuration={50}>
@@ -963,6 +970,7 @@ const [inputContents, setInputContents] = useState({
             if (!isBottomExpanded || activeTab !== 'log') {
               setIsBottomExpanded(true);
               setActiveTab('log');
+              setBottomHeight(300);
             } else {
               setIsBottomExpanded(false);
             }
@@ -983,6 +991,7 @@ const [inputContents, setInputContents] = useState({
             if (!isBottomExpanded || activeTab !== 'api') {
               setIsBottomExpanded(true);
               setActiveTab('api');
+              setBottomHeight(300);
             } else {
               setIsBottomExpanded(false);
             }
@@ -1008,13 +1017,7 @@ const [inputContents, setInputContents] = useState({
       SnapLogic Playground – Redefining Integration.
     </span>
     {/* Resize Handle */}
-    <div
-      className="absolute left-0 right-0 top-0 h-8 cursor-ns-resize"
-      onMouseDown={(e) => handleMouseDown(e, false, true)}
-      
-    >
-      <div className="w-full h-[2px] mx-auto hover:bg-blue-500" />
-    </div>
+    
   </div>
           {/* Content */}
           {isBottomExpanded && (
