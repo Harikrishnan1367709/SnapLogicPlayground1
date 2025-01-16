@@ -579,18 +579,18 @@ const [inputContents, setInputContents] = useState({
 {/* main content */}
 
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]">
-        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full ">
+        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
           {isPayloadView ? (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full overflow-auto">
               <div className="border-b">
-  <div className="flex justify-center items-center h-[30px] px-2">
+  <div className="flex justify-center items-center h-[30px] px-2 min-w-[200px]">
     <div className="flex items-center gap-1 ">
-      <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
+      <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none flex-shrink-0">
         {/* <ChevronLeft className="h-4 w-4" /> */}
         <img
   src="/toolbarExpand-Active.svg"
   alt="SnapLogic Logo"
-  className="w-4 h-4 "
+  className="w-3 h-3 flex-shrink-0 "
 />
       </button>
       
@@ -599,10 +599,12 @@ const [inputContents, setInputContents] = useState({
     <FormatDropdown />
   </div>
 </div>
-<div className="flex flex-1 ">
+<div className="flex flex-1  ">
   <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
-    {Array.from({ length: Math.max(2, payloadContent.split('\n').length) }, (_, i) => (
-      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">{i + 1}</div>
+  {Array.from({ length: payloadContent.split('\n').length }, (_, i) => (
+      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">
+        {i + 1}
+      </div>
     ))}
   </div>
   <textarea
@@ -616,7 +618,7 @@ const [inputContents, setInputContents] = useState({
             </div>
           ) : (
             <>
-            <div className="h-1/2 border-b">
+            <div className="h-1/2 border-b overflow-auto">
             <div className="border-b">
   <div className="flex justify-between items-center h-[30px]  px-4">
     <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
@@ -662,7 +664,7 @@ const [inputContents, setInputContents] = useState({
         <input
   value={newInput}
   onChange={handleInputChange}
-  className="w-full text-[15px] ml-1 h-11 px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  className="w-full text-[15px] ml-1 h-11 px-3  outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
   style={{
     borderTop: "0",
     borderBottom: "0",
@@ -715,7 +717,7 @@ const [inputContents, setInputContents] = useState({
   ))}
 </div>
               </div>
-              <div className="h-1/2">
+              <div className="h-1/2 overflow-auto">
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
     <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
@@ -756,7 +758,7 @@ const [inputContents, setInputContents] = useState({
   <input
   value={newScript}
   onChange={handleScriptChange}
-  className="w-full ml-1 h-11 text-[15px] px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  className="w-full ml-1 h-11 text-[14px] px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
   style={{
     borderTop: "0",
     borderBottom: "0",
@@ -848,9 +850,9 @@ const [inputContents, setInputContents] = useState({
               </div>
             </div>
           </div>
-          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope']">
-  <div className="w-12 text-right pr-4 select-none">
-    {scriptContent.split('\n').map((_, i) => (
+          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
+  <div className="w-12 text-right pr-4 select-none flex-shrink-0">
+  {Array.from({ length: scriptContent.split('\n').length }, (_, i) => (
       <div key={i} className="text-blue-400 h-6 leading-6">
         {i + 1}
       </div>
@@ -873,6 +875,38 @@ const [inputContents, setInputContents] = useState({
       backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
   />
+ <canvas 
+  className="decorationsOverviewRuler" 
+  aria-hidden="true" 
+  width="28" 
+  height={scriptContent.split('\n').length * 24}
+  style={{
+    position: 'absolute',
+    willChange: 'transform',
+    top: '8px', // Reduced top spacing to align with script start
+    right: 0,
+    width: '14px',
+    height: 'calc(100% - 8px)',
+    backgroundColor: '',
+    zIndex: 10,
+    borderLeft: '1px solid #e5e7eb'
+  }}
+/>
+
+  
+  {/* Active line indicator on canvas */}
+  <div 
+  style={{
+    position: 'absolute',
+    right: 0,
+    top: `${32 + (activeLineIndex * 24) - 24}px`, // Subtract full line height to move to top
+    width: '14px',
+    height: '2px',
+    backgroundColor: 'black',
+    zIndex: 11
+  }}
+/>
+
 </div>
 
 
@@ -980,7 +1014,7 @@ const [inputContents, setInputContents] = useState({
     document.addEventListener('mouseup', handleMouseUp);
   }}
 >
-  <div className="w-full h-[2px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
+  <div className="w-full h-[1.5px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
 </div>
 
 
@@ -1006,7 +1040,7 @@ const [inputContents, setInputContents] = useState({
           <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-black p-0 border-0" />
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
     </Tooltip>
 
     <Tooltip>
@@ -1028,7 +1062,7 @@ const [inputContents, setInputContents] = useState({
           <span className="ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em]">API REFERENCE</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-black p-0 border-0" />
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
     </Tooltip>
   </TooltipProvider>
 </div>
