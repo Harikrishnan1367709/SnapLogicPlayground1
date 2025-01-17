@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import {
   Tooltip,
@@ -21,6 +21,10 @@ import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
 
 const UpdatedCode = () => {
+
+
+  
+  const canvasRef = useRef(null);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
@@ -277,6 +281,8 @@ const [inputContents, setInputContents] = useState({
 
   const handleScriptContentChange = (e) => {
     setScriptContent(e.target.value);
+    const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
+    setActiveLineIndex(lines.length - 1);
     if (activeScript) {
       const updatedScripts = scripts.map(s => 
         s.id === activeScript.id 
@@ -368,6 +374,38 @@ const [inputContents, setInputContents] = useState({
     setBottomHeight(32);
     setActiveTab(null);
   }, []);
+
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, canvas.height);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.stroke();
+    }
+  }, [scriptContent]);
+
+  // Create active line border element
+  const ActiveLineBorder = () => {
+    const top = 8 + (activeLineIndex * 24); // 24px is line height
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: `${top}px`,
+          left: '48px', // Adjust based on line numbers width
+          right: '0', // Extend all the way to the right
+          height: '24px', // Line height
+          border: '1px solid #e5e7eb',
+          pointerEvents: 'none',
+          zIndex: 5
+        }}
+      />
+    );
+  };
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -852,12 +890,13 @@ const [inputContents, setInputContents] = useState({
           </div>
           <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
   <div className="w-12 text-right pr-4 select-none flex-shrink-0">
-  {Array.from({ length: scriptContent.split('\n').length }, (_, i) => (
-      <div key={i} className="text-blue-400 h-6 leading-6">
-        {i + 1}
-      </div>
-    ))}
+  {scriptContent.split('\n').map((_, i) => (
+            <div key={i} className="text-blue-400 h-6 leading-6">
+              {i + 1}
+            </div>
+          ))}
   </div>
+  <ActiveLineBorder />
   <textarea
     value={scriptContent}
     onChange={handleScriptContentChange}
@@ -872,40 +911,38 @@ const [inputContents, setInputContents] = useState({
     className={`flex-1 outline-none resize-none overflow-auto leading-6 relative w-full pr-0`}
     style={{
       lineHeight: '1.5rem',
-      backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
+      // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
   />
- <canvas 
-  className="decorationsOverviewRuler" 
-  aria-hidden="true" 
-  width="28" 
-  height={scriptContent.split('\n').length * 24}
-  style={{
-    position: 'absolute',
-    willChange: 'transform',
-    top: '8px', // Reduced top spacing to align with script start
-    right: 0,
-    width: '14px',
-    height: 'calc(100% - 8px)',
-    backgroundColor: '',
-    zIndex: 10,
-    borderLeft: '1px solid #e5e7eb'
-  }}
-/>
+ <canvas
+          ref={canvasRef}
+          className="decorationsOverviewRuler"
+          aria-hidden="true"
+          width="14"
+          height={scriptContent.split('\n').length * 24}
+          style={{
+            position: 'absolute',
+            willChange: 'transform',
+            top: '8px',
+            right: 0,
+            width: '14px',
+            height: 'calc(100% - 8px)',
+            zIndex: 10
+          }}
+        />
 
-  
-  {/* Active line indicator on canvas */}
-  <div 
-  style={{
-    position: 'absolute',
-    right: 0,
-    top: `${32 + (activeLineIndex * 24) - 24}px`, // Subtract full line height to move to top
-    width: '14px',
-    height: '2px',
-    backgroundColor: 'black',
-    zIndex: 11
-  }}
-/>
+        {/* Active Line Indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: `${8 + (activeLineIndex * 24)}px`,
+            width: '14px',
+            height: '2px',
+            backgroundColor: '#1e1e1e',
+            zIndex: 11
+          }}
+        />
 
 </div>
 
