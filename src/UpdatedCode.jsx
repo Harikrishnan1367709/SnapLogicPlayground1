@@ -90,7 +90,7 @@ const [inputContents, setInputContents] = useState({
     localStorage.setItem('middleWidth', middleWidth);
     localStorage.setItem('rightWidth', rightWidth);
   }, [leftWidth, middleWidth, rightWidth]);
-
+ 
   const [bottomHeight, setBottomHeight] = useState(32);
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
@@ -187,6 +187,7 @@ const [inputContents, setInputContents] = useState({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
+  const [editorLines, setEditorLines] = useState(['']);
   const scriptLines = scriptContent.split('\n');
   const expectedLines = expectedOutput.split('\n');
   const actualLines = actualOutput.split('\n');
@@ -286,6 +287,8 @@ const [inputContents, setInputContents] = useState({
     if (script.includes('match')) return 'match';
     return 'general';
   };
+
+  
 
   const handleScriptContentChange = (e) => {
     const newScript = e.target.value || '';
@@ -539,31 +542,28 @@ const evaluateArrayOperation = (script, data) => {
 };
 
 const evaluateMatch = (script, data) => {
-  const matchPattern = script.match(/match\s+(.*?)\s*{([\s\S]*?)}/);
-  if (!matchPattern) return null;
-
-  const [_, selector, patterns] = matchPattern;
-  const value = evaluateJsonPath(selector, data);
+  // Extract the value using JSONPath
+  const value = Number(evaluateJsonPath('$.age', data));
+  console.log('Matching value:', value); // Debug log
   
-  const patternLines = patterns.trim().split('\n');
+  // Parse the patterns
+  const patterns = script.split('{')[1].split('}')[0].trim().split('\n');
   
-  for (const line of patternLines) {
-      const [pattern, result] = line.split('=>').map(s => s.trim());
+  for (const pattern of patterns) {
+      if (!pattern.trim()) continue;
       
-      if (pattern === '_') return eval(result);
+      const [condition, result] = pattern.split('=>').map(p => p.trim());
+      console.log('Checking condition:', condition); // Debug log
       
-      if (pattern.includes('..=')) {
-          const [min, max] = pattern.split('..=').map(Number);
-          if (value >= min && value <= max) return eval(result);
-      }
-      
-      if (pattern.includes('..<')) {
-          const [min, max] = pattern.split('..<').map(Number);
-          if (value >= min && value < max) return eval(result);
+      if (condition.includes('..=')) {
+          const [min, max] = condition.split('..=').map(Number);
+          if (value >= min && value <= max) {
+              return result.replace(/"/g, '');
+          }
+      } else if (condition === '_') {
+          return result.replace(/"/g, '');
       }
   }
-  
-  return null;
 };
 
 const evaluateDateOperation = (script, data) => {
@@ -783,7 +783,7 @@ const evaluateDateOperation = (script, data) => {
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
             activeNavItem === item 
-              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[9.2px] z-10' 
+              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[9.3px] z-10' 
               : ''
           }`}
           onClick={() => handleNavClick(item)}
@@ -1070,7 +1070,7 @@ const evaluateDateOperation = (script, data) => {
           </div>
           <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
   <div className="w-12 text-right pr-4 select-none flex-shrink-0">
-  {scriptContent.split('\n').map((_, i) => (
+  {(scriptContent || '' ).split('\n').map((_, i) => (
             <div key={i} className="text-blue-400 h-6 leading-6">
               {i + 1}
             </div>
@@ -1156,11 +1156,11 @@ const evaluateDateOperation = (script, data) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope']">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
               <div className="flex">
                 {renderLineNumbers(actualLines)}
                 <pre 
-                  className="text-red-500 text-sm"
+                  className="text-red-500 text-sm overflow-auto"
                   onChange={handleActualOutputChange}
                 >
                   {actualLines.map((line, index) => (
