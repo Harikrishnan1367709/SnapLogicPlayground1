@@ -32,7 +32,9 @@ const UpdatedCode = () => {
 
   const [cursorPosition, setCursorPosition] = useState(0);
   const [focusedLine, setFocusedLine] = useState(null);
-  const [wasChecked, setWasChecked] = useState(false);
+  const [wasChecked, setWasChecked] = useState(() => 
+    localStorage.getItem('wasChecked') === 'true'
+);
 
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -71,9 +73,8 @@ const [inputContents, setInputContents] = useState({
   const [currentView, setCurrentView] = useState('playground');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(() => 
-    localStorage.getItem('showExportDialog') !== 'false'
-  );
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
   const [leftWidth, setLeftWidth] = useState(() => 
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
@@ -287,58 +288,34 @@ const [inputContents, setInputContents] = useState({
   };
 
   const handleScriptContentChange = (e) => {
-    const newScript = e.target.value;
+    const newScript = e.target.value || '';
     setScriptContent(newScript);
     
-    const lines = newScript.substr(0, e.target.selectionStart).split('\n');
-    setActiveLineIndex(lines.length - 1);
+    // Safely handle line tracking
+    const lines = newScript ? newScript.substr(0, e.target.selectionStart || 0).split('\n') : [''];
+    setActiveLineIndex(Math.max(0, lines.length - 1));
+
     try {
-      const parsedData = JSON.parse(inputContents['Payload']);
-      const result = evaluateJsonPath(newScript, parsedData);
-      setActualOutput(JSON.stringify(result, null, 2));
-  } catch (error) {
-      console.error('Evaluation Error:', error);
-      setActualOutput(JSON.stringify({
-          error: "Evaluation failed",
-          details: error.message
-      }, null, 2));
-  }
-    // console.log('Sending script:', newScript);
-    // console.log('Sending payload:', inputContents['Payload']);
-    
-    // fetch('http://localhost:8081/api/execute', {
-    //     method: 'POST',
-    //     headers: {
-    //         'Content-Type': 'application/json',
-    //         'Accept': 'application/json'
-    //     },
-    //     body: JSON.stringify({
-    //         script: newScript,
-    //         payload: inputContents['Payload']
-    //     })
-    // })
-    // .then(response => response.json())
-    // .then(data => {
-    //     console.log('API Response:', data);
-    //     setActualOutput(JSON.stringify(data.data.result, null, 2));
-    // })
-    // .catch(error => {
-    //     console.error('API Error:', error);
-    //     setActualOutput(JSON.stringify({
-    //         error: "Evaluation failed",
-    //         details: error.message
-    //     }, null, 2));
-    // });
-  
-  
-    if (activeScript) {
-      const updatedScripts = scripts.map(s =>
-        s.id === activeScript.id ? { ...s, content: newScript } : s
-      );
-      setScripts(updatedScripts);
+        const parsedData = JSON.parse(inputContents['Payload']);
+        const result = executeScript(newScript, parsedData);
+        setActualOutput(JSON.stringify(result, null, 2));
+    } catch (error) {
+        console.log('Script evaluation:', error);
+        setActualOutput(JSON.stringify({
+            result: null,
+            details: 'Processing script...'
+        }, null, 2));
     }
-  };
-  
+
+    // Update script state
+    if (activeScript) {
+        const updatedScripts = scripts.map(s =>
+            s.id === activeScript.id ? { ...s, content: newScript } : s
+        );
+        setScripts(updatedScripts);
+    }
+};
+
   
   const textAreaStyles = {
     minHeight: '100px',
@@ -396,9 +373,11 @@ const [inputContents, setInputContents] = useState({
   
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
-    localStorage.setItem('showExportDialog', 'false');
-    setShouldShowExportDialog(false);
-  };
+    setWasChecked(true);
+    localStorage.setItem('wasChecked', 'true');
+    setShowExportDialog(false);
+};
+
 
   const getNavLink = (item) => {
     const links = {
@@ -514,6 +493,98 @@ const evaluateFilter = (condition, data) => {
       }
   });
 };
+
+// Add these new function implementations
+
+const evaluateStringOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1); // Remove trailing ')'
+  
+  switch(operation) {
+      case 'camelCase':
+          return data.replace(/(?:^\w|[A-Z]|\b\w)/g, (letter, index) => 
+              index === 0 ? letter.toLowerCase() : letter.toUpperCase()
+          ).replace(/\s+/g, '');
+      case 'capitalize':
+          return data.charAt(0).toUpperCase() + data.slice(1);
+      case 'toLowerCase':
+          return data.toLowerCase();
+      case 'toUpperCase':
+          return data.toUpperCase();
+      case 'trim':
+          return data.trim();
+      default:
+          return data;
+  }
+};
+
+const evaluateArrayOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1);
+
+  switch(operation) {
+      case 'filter':
+          return data.filter(eval(`(item) => ${cleanArgs}`));
+      case 'map':
+          return data.map(eval(`(item) => ${cleanArgs}`));
+      case 'sort':
+          return [...data].sort();
+      case 'reverse':
+          return [...data].reverse();
+      case 'join':
+          return data.join(cleanArgs || ',');
+      default:
+          return data;
+  }
+};
+
+const evaluateMatch = (script, data) => {
+  const matchPattern = script.match(/match\s+(.*?)\s*{([\s\S]*?)}/);
+  if (!matchPattern) return null;
+
+  const [_, selector, patterns] = matchPattern;
+  const value = evaluateJsonPath(selector, data);
+  
+  const patternLines = patterns.trim().split('\n');
+  
+  for (const line of patternLines) {
+      const [pattern, result] = line.split('=>').map(s => s.trim());
+      
+      if (pattern === '_') return eval(result);
+      
+      if (pattern.includes('..=')) {
+          const [min, max] = pattern.split('..=').map(Number);
+          if (value >= min && value <= max) return eval(result);
+      }
+      
+      if (pattern.includes('..<')) {
+          const [min, max] = pattern.split('..<').map(Number);
+          if (value >= min && value < max) return eval(result);
+      }
+  }
+  
+  return null;
+};
+
+const evaluateDateOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1);
+  const date = new Date(data);
+
+  switch(operation) {
+      case 'getDate':
+          return date.getDate();
+      case 'getMonth':
+          return date.getMonth() + 1;
+      case 'getFullYear':
+          return date.getFullYear();
+      case 'format':
+          return date.toLocaleDateString();
+      default:
+          return data;
+  }
+};
+
 
 
   return (
