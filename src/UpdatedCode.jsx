@@ -293,74 +293,141 @@ const [inputContents, setInputContents] = useState({
 
   // Update handleScriptContentChange
   const handleScriptContentChange = (e) => {
-    const newScript = e.target.value;
-    setScriptContent(newScript || '');
+    const newScript = e.target.value
+    setScriptContent(newScript)
 
     try {
-        const activeInput = inputs[selectedInputIndex] || 'Payload';
-        const inputData = inputContents[activeInput];
-        const parsedData = JSON.parse(inputData);
-        let result;
+      const activeInput = inputs[selectedInputIndex] || "Payload"
+      const inputData = inputContents[activeInput]
+      const parsedData = JSON.parse(inputData)
+      let result
 
-        if (!newScript.trim()) {
-            setActualOutput(JSON.stringify({
-                message: "Enter an expression",
-                examples: [
-                    "$.phoneNumbers[*].type",
-                    "Array.map($.phoneNumbers, x => x.type)",
-                ]
-            }, null, 2));
-            return;
-        }
+      console.log("Input data:", parsedData) // Debugging log
 
-        if (newScript.startsWith('$')) {
-            result = JSONPath({ path: newScript, json: parsedData });
-        } 
-        else if (newScript.startsWith('Array.')) {
-          const match = newScript.match(/Array\.(\w+)\((\$\.[^,]+),\s*(.+)\)/);
-          if (match) {
-              const [_, method, path, callback] = match;
-              const arrayData = JSONPath({ path, json: parsedData });
-              switch(method) {
-                  case 'map':
-                      result = arrayData.map(eval(`(x) => ${callback}`));
-                      break;
-                  case 'filter':
-                      result = arrayData.filter(eval(`(x) => ${callback}`));
-                      break;
-                  default:
-                      result = arrayData;
-              }
+      if (!newScript.trim()) {
+        setActualOutput(
+          JSON.stringify(
+            {
+              message: "Enter an expression",
+              examples: [
+                "$.phoneNumbers[*].type",
+                "Array.map($.phoneNumbers, x => x.type)",
+                "String.toLowerCase($.firstName)",
+                "Math.abs(-5)",
+                "Date.now()",
+              ],
+            },
+            null,
+            2,
+          ),
+        )
+        return
+      }
+
+      console.log("Executing script:", newScript) // Debugging log
+
+      if (newScript.startsWith("$")) {
+        result = JSONPath({ path: newScript, json: parsedData })
+      } else if (newScript.startsWith("Array.")) {
+        const match = newScript.match(/Array\.(\w+)$$([^,]+),\s*(.+)$$/)
+        console.log("Array function match:", match) // Debugging log
+        if (match) {
+          const [_, method, path, callback] = match
+          console.log("Array function detected:", method, path, callback) // Debugging log
+          const arrayData = JSONPath({ path, json: parsedData })
+          console.log("Array data:", arrayData) // Debugging log
+          if (Array.isArray(arrayData)) {
+            switch (method) {
+              case "map":
+                result = arrayData.map(eval(`(x) => ${callback}`))
+                break
+              case "filter":
+                result = arrayData.filter(eval(`(x) => ${callback}`))
+                break
+              case "find":
+                result = arrayData.find(eval(`(x) => ${callback}`))
+                break
+              default:
+                throw new Error(`Unsupported Array method: ${method}`)
+            }
           } else {
-              result = {
-                  message: "Complete the Array function",
-                  examples: [
-                      "Array.map($.phoneNumbers, x => x.type)",
-                      "Array.filter($.phoneNumbers, x => x.type === 'Mobile')"
-                  ]
-              };
+            throw new Error("JSONPath did not return an array")
           }
+        } else {
+          throw new Error("Invalid Array function syntax")
         }
-        else {
-            result = {
-                message: "Start with $ or Array.",
-                examples: [
-                    "$.phoneNumbers[*].type",
-                    "Array.map($.phoneNumbers, x => x.type)"
-                ]
-            };
+      } else if (newScript.startsWith("String.")) {
+        const match = newScript.match(/String\.(\w+)$$(.+)$$/)
+        if (match) {
+          const [_, method, args] = match
+          const stringData = eval(`(${args})`)
+          switch (method) {
+            case "toLowerCase":
+              result = stringData.toLowerCase()
+              break
+            case "toUpperCase":
+              result = stringData.toUpperCase()
+              break
+            case "trim":
+              result = stringData.trim()
+              break
+            case "split":
+              result = stringData.split(eval(`(${args.split(",")[1]})`))
+              break
+            default:
+              throw new Error(`Unsupported String method: ${method}`)
+          }
+        } else {
+          throw new Error("Invalid String function syntax")
         }
+      } else if (newScript.startsWith("Math.")) {
+        const match = newScript.match(/Math\.(\w+)$$(.+)$$/)
+        if (match) {
+          const [_, method, args] = match
+          switch (method) {
+            case "abs":
+              result = Math.abs(eval(`(${args})`))
+              break
+            case "ceil":
+              result = Math.ceil(eval(`(${args})`))
+              break
+            case "floor":
+              result = Math.floor(eval(`(${args})`))
+              break
+            case "round":
+              result = Math.round(eval(`(${args})`))
+              break
+            default:
+              result = eval(`Math.${method}(${args})`)
+          }
+        } else {
+          throw new Error("Invalid Math function syntax")
+        }
+      } else {
+        throw new Error("Unsupported expression type")
+      }
 
-        setActualOutput(JSON.stringify(result, null, 2));
+      console.log("Result:", result) // Debugging log
+      setActualOutput(JSON.stringify(result, null, 2))
     } catch (error) {
-        setActualOutput(JSON.stringify({
-            message: "Type a valid expression",
-            input: newScript
-        }, null, 2));
+      console.error("Error:", error) // Debugging log
+      setActualOutput(
+        JSON.stringify(
+          {
+            message: "Error evaluating expression",
+            error: error.message,
+            input: newScript,
+          },
+          null,
+          2,
+        ),
+      )
     }
-};
-
-
+  }
+  useEffect(() => {
+    console.log("Actual output updated:", actualOutput) // Debugging log
+  }, [actualOutput])
+  
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
@@ -583,29 +650,26 @@ const evaluateArrayOperation = (script, data) => {
 };
 
 const evaluateMatch = (script, data) => {
-  // Extract the value using JSONPath
-  const value = Number(evaluateJsonPath('$.age', data));
-  console.log('Matching value:', value); // Debug log
-  
-  // Parse the patterns
-  const patterns = script.split('{')[1].split('}')[0].trim().split('\n');
-  
-  for (const pattern of patterns) {
-      if (!pattern.trim()) continue;
-      
-      const [condition, result] = pattern.split('=>').map(p => p.trim());
-      console.log('Checking condition:', condition); // Debug log
-      
-      if (condition.includes('..=')) {
-          const [min, max] = condition.split('..=').map(Number);
-          if (value >= min && value <= max) {
-              return result.replace(/"/g, '');
-          }
-      } else if (condition === '_') {
-          return result.replace(/"/g, '');
+  const matchPattern = script.match(/match\s*{([^}]*)}/)[1]
+  const conditions = matchPattern.split("\n").filter((line) => line.trim())
+
+  for (const condition of conditions) {
+    const [pattern, result] = condition.split("=>").map((s) => s.trim())
+    if (pattern === "_") {
+      return eval(result)
+    } else {
+      try {
+        const patternValue = JSONPath({ path: pattern, json: data })
+        if (patternValue && patternValue.length > 0) {
+          return eval(result)
+        }
+      } catch (error) {
+        console.error("Error evaluating pattern:", error)
       }
+    }
   }
-};
+  return null
+}
 
 const evaluateDateOperation = (script, data) => {
   const [operation, ...args] = script.split('(');
