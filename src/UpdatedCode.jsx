@@ -21,6 +21,7 @@ import { Input } from "./components/ui/input"
 import { Label } from "./components/ui/label"
 import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
+import { handleJSON } from './utils/jsonHandler';
 
 const UpdatedCode = () => {
 
@@ -48,21 +49,7 @@ const [activeScript, setActiveScript] = useState(null);
 
 
 const [inputContents, setInputContents] = useState({
-  'Payload': `{
-    "firstName": "John",
-    "lastName": "Doe",
-    "age": 30,
-    "phoneNumbers": [
-      {
-        "type": "Phone",
-        "number": "123-456-7890"
-      },
-      {
-        "type": "Mobile",
-        "number": "987-654-3210"
-      }
-    ]
-  }`
+  'Payload': '{}'  // Start with an empty JSON object as default
 });
 
   const [isPayloadView, setIsPayloadView] = useState(false);
@@ -207,8 +194,17 @@ const [inputContents, setInputContents] = useState({
     );
   };
 
-  const handleInputChange = (e) => {
-    setNewInput(e.target.value);
+  const handleInputChange = (newPayload) => {
+    try {
+      // Validate that the input is valid JSON
+      JSON.parse(newPayload); // This will throw an error if invalid JSON
+      setInputContents({
+        'Payload': newPayload
+      });
+    } catch (error) {
+      console.error('Invalid JSON input:', error);
+      // Optionally show an error message to the user
+    }
   };
 
   const handleInputClick = (input, index) => {
@@ -291,35 +287,57 @@ const [inputContents, setInputContents] = useState({
   
 
   const handleScriptContentChange = (e) => {
-    const newScript = e.target.value || '';
-    setScriptContent(newScript);
-    
-    // Safely handle line tracking
-    const lines = newScript ? newScript.substr(0, e.target.selectionStart || 0).split('\n') : [''];
-    setActiveLineIndex(Math.max(0, lines.length - 1));
-
-    try {
-        const parsedData = JSON.parse(inputContents['Payload']);
-        const result = executeScript(newScript, parsedData);
-        setActualOutput(JSON.stringify(result, null, 2));
-    } catch (error) {
-        console.log('Script evaluation:', error);
-        setActualOutput(JSON.stringify({
-            result: null,
-            details: 'Processing script...'
-        }, null, 2));
-    }
-
-    // Update script state
-    if (activeScript) {
-        const updatedScripts = scripts.map(s =>
-            s.id === activeScript.id ? { ...s, content: newScript } : s
-        );
-        setScripts(updatedScripts);
-    }
-};
-
-  
+        const newScript = e.target.value;
+        setScriptContent(newScript);
+       
+        const lines = newScript.substr(0, e.target.selectionStart).split('\n');
+        setActiveLineIndex(lines.length - 1);
+        try {
+          const parsedData = JSON.parse(inputContents['Payload']);
+          const result = evaluateJsonPath(newScript, parsedData);
+          setActualOutput(JSON.stringify(result, null, 2));
+      } catch (error) {
+          console.error('Evaluation Error:', error);
+          setActualOutput(JSON.stringify({
+              error: "Evaluation failed",
+              details: error.message
+          }, null, 2));
+      }
+        // console.log('Sending script:', newScript);
+        // console.log('Sending payload:', inputContents['Payload']);
+       
+        // fetch('http://localhost:8081/api/execute', {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'Accept': 'application/json'
+        //     },
+        //     body: JSON.stringify({
+        //         script: newScript,
+        //         payload: inputContents['Payload']
+        //     })
+        // })
+        // .then(response => response.json())
+        // .then(data => {
+        //     console.log('API Response:', data);
+        //     setActualOutput(JSON.stringify(data.data.result, null, 2));
+        // })
+        // .catch(error => {
+        //     console.error('API Error:', error);
+        //     setActualOutput(JSON.stringify({
+        //         error: "Evaluation failed",
+        //         details: error.message
+        //     }, null, 2));
+        // });
+     
+     
+        if (activeScript) {
+          const updatedScripts = scripts.map(s =>
+            s.id === activeScript.id ? { ...s, content: newScript } : s
+     );
+          setScripts(updatedScripts);
+        }
+      };
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
