@@ -49,7 +49,21 @@ const [activeScript, setActiveScript] = useState(null);
 
 
 const [inputContents, setInputContents] = useState({
-  'Payload': '{}'  // Start with an empty JSON object as default
+  'Payload': `{
+    "firstName": "John",
+    "lastName": "Doe",
+    "age": 30,
+    "phoneNumbers": [
+      {
+        "type": "Phone",
+        "number": "123-456-7890"
+      },
+      {
+        "type": "Mobile",
+        "number": "987-654-3210"
+      }
+    ]
+  }`
 });
 
   const [isPayloadView, setIsPayloadView] = useState(false);
@@ -87,7 +101,7 @@ const [inputContents, setInputContents] = useState({
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
   const [inputs, setInputs] = useState(['Payload']);
   const [newInput, setNewInput] = useState("");
-  const [scriptContent, setScriptContent] = useState('$.phoneNumbers[:1].type');
+  const [scriptContent, setScriptContent] = useState('$');
   const [expectedOutput, setExpectedOutput] = useState('[\n  "Phone"\n]');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
   const [scripts, setScripts] = useState([
@@ -175,7 +189,7 @@ const [inputContents, setInputContents] = useState({
     document.addEventListener('mouseup', handleMouseUp);
   };
   const [editorLines, setEditorLines] = useState(['']);
-  const scriptLines = scriptContent.split('\n');
+  const scriptLines = scriptContent?.split('\n') || [''];
   const expectedLines = expectedOutput.split('\n');
   const actualLines = actualOutput.split('\n');
 
@@ -194,17 +208,8 @@ const [inputContents, setInputContents] = useState({
     );
   };
 
-  const handleInputChange = (newPayload) => {
-    try {
-      // Validate that the input is valid JSON
-      JSON.parse(newPayload); // This will throw an error if invalid JSON
-      setInputContents({
-        'Payload': newPayload
-      });
-    } catch (error) {
-      console.error('Invalid JSON input:', error);
-      // Optionally show an error message to the user
-    }
+  const handleInputChange = (e) => {
+    setNewInput(e.target.value);
   };
 
   const handleInputClick = (input, index) => {
@@ -286,58 +291,76 @@ const [inputContents, setInputContents] = useState({
 
   
 
+  // Update handleScriptContentChange
   const handleScriptContentChange = (e) => {
-        const newScript = e.target.value;
-        setScriptContent(newScript);
-       
-        const lines = newScript.substr(0, e.target.selectionStart).split('\n');
-        setActiveLineIndex(lines.length - 1);
-        try {
-          const parsedData = JSON.parse(inputContents['Payload']);
-          const result = evaluateJsonPath(newScript, parsedData);
-          setActualOutput(JSON.stringify(result, null, 2));
-      } catch (error) {
-          console.error('Evaluation Error:', error);
-          setActualOutput(JSON.stringify({
-              error: "Evaluation failed",
-              details: error.message
-          }, null, 2));
-      }
-        // console.log('Sending script:', newScript);
-        // console.log('Sending payload:', inputContents['Payload']);
-       
-        // fetch('http://localhost:8081/api/execute', {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         'Accept': 'application/json'
-        //     },
-        //     body: JSON.stringify({
-        //         script: newScript,
-        //         payload: inputContents['Payload']
-        //     })
-        // })
-        // .then(response => response.json())
-        // .then(data => {
-        //     console.log('API Response:', data);
-        //     setActualOutput(JSON.stringify(data.data.result, null, 2));
-        // })
-        // .catch(error => {
-        //     console.error('API Error:', error);
-        //     setActualOutput(JSON.stringify({
-        //         error: "Evaluation failed",
-        //         details: error.message
-        //     }, null, 2));
-        // });
-     
-     
-        if (activeScript) {
-          const updatedScripts = scripts.map(s =>
-            s.id === activeScript.id ? { ...s, content: newScript } : s
-     );
-          setScripts(updatedScripts);
-        }
-      };
+    const newScript = e.target.value;
+    setScriptContent(newScript || '');
+
+    try {
+        const activeInput = inputs[selectedInputIndex] || 'Payload';
+        const inputData = inputContents[activeInput];
+        const parsedData = JSON.parse(inputData);
+        let result;
+
+        if (!newScript.trim()) {
+            setActualOutput(JSON.stringify({
+                message: "Enter an expression",
+                examples: [
+                    "$.phoneNumbers[*].type",
+                    "Array.map($.phoneNumbers, x => x.type)",
+                ]
+            }, null, 2));
+            return;
+        }
+
+        if (newScript.startsWith('$')) {
+            result = JSONPath({ path: newScript, json: parsedData });
+        } 
+        else if (newScript.startsWith('Array.')) {
+          const match = newScript.match(/Array\.(\w+)\((\$\.[^,]+),\s*(.+)\)/);
+          if (match) {
+              const [_, method, path, callback] = match;
+              const arrayData = JSONPath({ path, json: parsedData });
+              switch(method) {
+                  case 'map':
+                      result = arrayData.map(eval(`(x) => ${callback}`));
+                      break;
+                  case 'filter':
+                      result = arrayData.filter(eval(`(x) => ${callback}`));
+                      break;
+                  default:
+                      result = arrayData;
+              }
+          } else {
+              result = {
+                  message: "Complete the Array function",
+                  examples: [
+                      "Array.map($.phoneNumbers, x => x.type)",
+                      "Array.filter($.phoneNumbers, x => x.type === 'Mobile')"
+                  ]
+              };
+          }
+        }
+        else {
+            result = {
+                message: "Start with $ or Array.",
+                examples: [
+                    "$.phoneNumbers[*].type",
+                    "Array.map($.phoneNumbers, x => x.type)"
+                ]
+            };
+        }
+
+        setActualOutput(JSON.stringify(result, null, 2));
+    } catch (error) {
+        setActualOutput(JSON.stringify({
+            message: "Type a valid expression",
+            input: newScript
+        }, null, 2));
+    }
+};
+
+
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
@@ -603,6 +626,79 @@ const evaluateDateOperation = (script, data) => {
   }
 };
 
+const executeArrayFunction = (data, method, params) => {
+  switch(method) {
+      case 'filter': return data.filter(eval(`(x) => ${params}`));
+      case 'map': return data.map(eval(`(x) => ${params}`));
+      case 'find': return data.find(eval(`(x) => ${params}`));
+      case 'sort': return [...data].sort();
+      case 'reverse': return [...data].reverse();
+      case 'reduce': return data.reduce(eval(`(acc, curr) => ${params}`));
+      default: return data;
+  }
+};
+
+const executeStringFunction = (data, method, params) => {
+  switch(method) {
+      case 'camelCase': return data.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+      case 'capitalize': return data.charAt(0).toUpperCase() + data.slice(1);
+      case 'toLowerCase': return data.toLowerCase();
+      case 'toUpperCase': return data.toUpperCase();
+      case 'split': return data.split(eval(params));
+      case 'replace': return data.replace(...eval(`[${params}]`));
+      default: return data;
+  }
+};
+
+const executeDateFunction = (method, params) => {
+  const date = params ? new Date(eval(params)) : new Date();
+  switch(method) {
+      case 'now': return new Date();
+      case 'plusDays': return new Date(date.setDate(date.getDate() + Number(params)));
+      case 'minusDays': return new Date(date.setDate(date.getDate() - Number(params)));
+      case 'format': return date.toLocaleString();
+      default: return date;
+  }
+};
+
+const executeMathFunction = (method, params) => {
+  switch(method) {
+      case 'abs': return Math.abs(Number(params));
+      case 'round': return Math.round(Number(params));
+      case 'ceil': return Math.ceil(Number(params));
+      case 'floor': return Math.floor(Number(params));
+      case 'random': return Math.random();
+      default: return Number(params);
+  }
+};
+
+const executeObjectFunction = (data, method, params) => {
+  switch(method) {
+      case 'keys': return Object.keys(data);
+      case 'values': return Object.values(data);
+      case 'entries': return Object.entries(data);
+      case 'get': return _.get(data, params.replace(/['"]/g, ''));
+      default: return data;
+  }
+};
+
+const executeMatchPattern = (data, pattern) => {
+  const matchPattern = pattern.match(/match\s*{([^}]*)}/)[1];
+  const conditions = matchPattern.split('\n').filter(line => line.trim());
+  
+  for (const condition of conditions) {
+      const [pattern, result] = condition.split('=>').map(s => s.trim());
+      if (eval(`(x) => ${pattern}`)(data)) {
+          return eval(result);
+      }
+  }
+  return null;
+};
+
+const getLineCount = (content) => {
+  if (!content) return 1;
+  return content.split('\n').length;
+};
 
 
   return (
@@ -1088,11 +1184,11 @@ const evaluateDateOperation = (script, data) => {
           </div>
           <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
   <div className="w-12 text-right pr-4 select-none flex-shrink-0">
-  {(scriptContent || '' ).split('\n').map((_, i) => (
-            <div key={i} className="text-blue-400 h-6 leading-6">
-              {i + 1}
-            </div>
-          ))}
+  {Array.from({ length: getLineCount(scriptContent) }, (_, i) => (
+    <div key={i} className="text-blue-400 h-6 leading-6">
+      {i + 1}
+    </div>
+  ))}
   </div>
   <ActiveLineBorder />
   <textarea
@@ -1174,19 +1270,23 @@ const evaluateDateOperation = (script, data) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
-              <div className="flex">
-                {renderLineNumbers(actualLines)}
-                <pre 
-                  className="text-red-500 text-sm overflow-auto"
-                  onChange={handleActualOutputChange}
-                >
-                  {actualLines.map((line, index) => (
-                    <div key={index} className="h-6">{line}</div>
-                  ))}
-                </pre>
-              </div>
-            </div>
+            <div className="p-4 font-mono text-sm font-['Manrope']">
+    <div className="flex">
+        {renderLineNumbers(actualLines)}
+        <textarea
+            value={actualOutput}
+            readOnly={true}
+            spellCheck="false"
+            className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono text-sm cursor-text"
+            style={{
+                ...textAreaStyles,
+                WebkitUserModify: 'read-only',
+                userModify: 'read-only'
+            }}
+        />
+    </div>
+</div>
+
           </div>
           {/* Expected Output Section */}
           <div className="h-1/2">
@@ -1200,13 +1300,13 @@ const evaluateDateOperation = (script, data) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope']">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
                   onChange={handleExpectedOutputChange}
-                  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono text-sm"
+                  className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm"
                   style={textAreaStyles}
                 />
               </div>
