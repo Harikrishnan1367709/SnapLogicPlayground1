@@ -383,6 +383,20 @@ const handleScriptContentChange = (e) => {
           if (!Array.isArray(arr)) return [];
           return arr.map(item => {
             if (typeof mapping === 'string') return item[mapping];
+            if (typeof mapping === 'object') {
+              const result = {};
+              Object.entries(mapping).forEach(([key, value]) => {
+                if (typeof value === 'boolean') {
+                  result[key] = value;
+                } else if (typeof value === 'string' && value.includes('===')) {
+                  const [left, right] = value.split('===').map(part => part.trim());
+                  result[key] = item[left] === right.slice(1, -1);
+                } else {
+                  result[key] = item[value];
+                }
+              });
+              return result;
+            }
             return mapping;
           });
         },
@@ -401,84 +415,179 @@ const handleScriptContentChange = (e) => {
       }
     };
 
+    // Parse template object for array.map
+    const parseMapTemplate = (template) => {
+      const lines = template.split('\n');
+      const result = {};
+      
+      lines.forEach(line => {
+        line = line.trim();
+        if (line && !line.startsWith('{') && !line.startsWith('}')) {
+          const [key, value] = line.split(':').map(part => part.trim());
+          if (key && value) {
+            // Remove trailing comma if present
+            result[key] = value.replace(/,$/, '');
+          }
+        }
+      });
+      
+      return result;
+    };
+
     // Safe helper function evaluation
     const evaluateHelper = (expr) => {
-      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/);
+      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
       if (!match) return expr;
 
       const [, helper, method, argsString] = match;
       if (!helpers[helper]?.[method]) return expr;
 
-      const args = argsString.split(',')
-        .map(arg => arg.trim())
-        .map(arg => {
-          if (arg.startsWith('$.')) return evaluateJsonPath(arg);
-          if (arg.startsWith("'") || arg.startsWith('"')) {
-            return arg.slice(1, -1);
+      // Parse arguments
+      let args = [];
+      let currentArg = '';
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+
+      for (let i = 0; i < argsString.length; i++) {
+        const char = argsString[i];
+
+        // Handle strings
+        if ((char === '"' || char === "'") && argsString[i - 1] !== '\\') {
+          if (!inString) {
+            inString = true;
+            stringChar = char;
+          } else if (char === stringChar) {
+            inString = false;
           }
-          return arg;
-        });
+        }
+
+        // Handle nested structures
+        if (!inString) {
+          if (char === '{') depth++;
+          if (char === '}') depth--;
+        }
+
+        // Handle argument separation
+        if (char === ',' && depth === 0 && !inString) {
+          args.push(currentArg.trim());
+          currentArg = '';
+          continue;
+        }
+
+        currentArg += char;
+      }
+
+      if (currentArg.trim()) {
+        args.push(currentArg.trim());
+      }
+
+      // Process arguments
+      args = args.map(arg => {
+        arg = arg.trim();
+        if (arg.startsWith('$.')) {
+          return evaluateJsonPath(arg);
+        }
+        if (arg.startsWith('{')) {
+          return parseMapTemplate(arg);
+        }
+        if (arg === "' '" || arg === '" "') {
+          return ' ';
+        }
+        if (arg.startsWith("'") || arg.startsWith('"')) {
+          return arg.slice(1, -1);
+        }
+        return arg;
+      });
 
       return helpers[helper][method](...args);
     };
 
-    // Parse object notation
-    const parseObjectNotation = (str) => {
-      // Remove outer braces
-      const content = str.slice(1, -1).trim();
+    // Parse unquoted object notation
+    const parseScript = (script) => {
+      script = script.trim();
+      if (!script.startsWith('{') || !script.endsWith('}')) {
+        return script;
+      }
+
+      const content = script.slice(1, -1).trim();
       if (!content) return {};
 
       const result = {};
-      let key = '';
-      let value = '';
+      let currentKey = '';
+      let currentValue = '';
       let depth = 0;
-      let inKey = true;
+      let inString = false;
+      let stringChar = '';
+      let collectingKey = true;
 
       for (let i = 0; i < content.length; i++) {
         const char = content[i];
 
+        // Handle strings
+        if ((char === '"' || char === "'") && content[i - 1] !== '\\') {
+          if (!inString) {
+            inString = true;
+            stringChar = char;
+          } else if (char === stringChar) {
+            inString = false;
+          }
+        }
+
         // Handle nested structures
-        if (char === '{') depth++;
-        if (char === '}') depth--;
+        if (!inString) {
+          if (char === '{' || char === '(') depth++;
+          if (char === '}' || char === ')') depth--;
+        }
 
         // Key-value separator
-        if (char === ':' && depth === 0 && inKey) {
-          inKey = false;
+        if (char === ':' && depth === 0 && !inString && collectingKey) {
+          collectingKey = false;
           continue;
         }
 
         // Property separator
-        if (char === ',' && depth === 0) {
-          if (key) {
-            result[key.trim()] = value.trim();
+        if (char === ',' && depth === 0 && !inString) {
+          if (currentKey) {
+            const key = currentKey.trim();
+            const value = currentValue.trim();
+
+            if (value.startsWith('$.')) {
+              result[key] = evaluateJsonPath(value);
+            } else if (value.startsWith('$')) {
+              result[key] = evaluateHelper(value);
+            } else {
+              result[key] = value;
+            }
           }
-          key = '';
-          value = '';
-          inKey = true;
+
+          currentKey = '';
+          currentValue = '';
+          collectingKey = true;
           continue;
         }
 
-        // Build key or value
-        if (inKey) {
-          key += char;
+        // Collect characters
+        if (collectingKey) {
+          currentKey += char;
         } else {
-          value += char;
+          currentValue += char;
         }
       }
 
-      // Handle last pair
-      if (key) {
-        result[key.trim()] = value.trim();
-      }
+      // Handle last property
+      if (currentKey) {
+        const key = currentKey.trim();
+        const value = currentValue.trim();
 
-      // Process values
-      Object.entries(result).forEach(([k, v]) => {
-        if (v.startsWith('$.')) {
-          result[k] = evaluateJsonPath(v);
-        } else if (v.startsWith('$')) {
-          result[k] = evaluateHelper(v);
+        if (value.startsWith('$.')) {
+          result[key] = evaluateJsonPath(value);
+        } else if (value.startsWith('$')) {
+          result[key] = evaluateHelper(value);
+        } else {
+          result[key] = value;
         }
-      });
+      }
 
       return result;
     };
@@ -489,7 +598,7 @@ const handleScriptContentChange = (e) => {
     if (!newScript.trim()) {
       result = { message: "Enter an expression" };
     } else if (newScript.startsWith('{')) {
-      result = parseObjectNotation(newScript);
+      result = parseScript(newScript);
     } else if (newScript.startsWith('$.')) {
       result = evaluateJsonPath(newScript);
     } else if (newScript.startsWith('$')) {
