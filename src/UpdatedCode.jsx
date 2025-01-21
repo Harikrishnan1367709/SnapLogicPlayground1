@@ -295,112 +295,221 @@ const [inputContents, setInputContents] = useState({
   
 
   // Update handleScriptContentChange
-  const handleScriptContentChange = (e) => {
-    const newScript = e.target.value;
-    setScriptContent(newScript);
-  
-    try {
-      const activeInput = inputs[selectedInputIndex] || "Payload";
-      const inputData = inputContents[activeInput];
-      const parsedData = JSON.parse(inputData);
-      let result;
-  
-      console.log("Input data:", parsedData);
-  
-      if (!newScript.trim()) {
-        setActualOutput(
-          JSON.stringify(
-            {
-              message: "Enter an expression",
-              examples: [
-                "$.phoneNumbers[*].type",
-                "_.map($.phoneNumbers, 'type')",
-                "String.toLowerCase($.firstName)",
-                "Math.abs(-5)",
-                "Date.now()",
-              ],
-            },
-            null,
-            2
-          )
-        );
-        return;
-      }
-  
-      console.log("Executing script:", newScript);
-  
-      const libraryHandlers = {
-        "$": () => JSONPath({ path: newScript, json: parsedData }),
-        "_": () => {
-          const [method, ...args] = newScript.slice(2).split(".");
-          return _[method](parsedData, ...args.map(arg => eval(arg)));
-        },
-        "moment": () => {
-          const [method, ...args] = newScript.split(".");
-          return moment[method](...args.map(eval));
-        },
-        "Math": () => eval(newScript),
-        "String": () => {
-          const [method, ...args] = newScript.split(".");
-          return String.prototype[method].apply(args[0], args.slice(1));
-        },
-        "Array": () => {
-          const [method, ...args] = newScript.split(".");
-          return Array.prototype[method].apply(eval(args[0]), args.slice(1));
-        },
-        "Object": () => {
-          const [method, ...args] = newScript.split(".");
-          return Object[method](...args.map((arg) => eval(arg)));
-        },
-        "JSON": () => {
-          const [method, ...args] = newScript.split(".");
-          return JSON[method](...args.map((arg) => eval(arg)));
-        },
-        "Date": () => {
-          const [method, ...args] = newScript.split(".");
-          if (method === "now") {
-            return Date.now();
+  // First, define the helper functions
+const $string = {
+  concat: (...args) => args.join(''),
+  toUpper: (str) => str.toUpperCase(),
+  toLower: (str) => str.toLowerCase(),
+  substring: (str, start, end) => str.substring(start, end),
+  trim: (str) => str.trim(),
+  replace: (str, search, replace) => str.replace(search, replace)
+};
+
+const $array = {
+  length: (arr) => arr.length,
+  distinct: (arr) => Array.from(new Set(arr)),
+  join: (arr, separator) => arr.join(separator),
+  contains: (arr, value) => arr.includes(value),
+  first: (arr) => arr[0],
+  last: (arr) => arr[arr.length - 1],
+  filter: (arr, predicate) => arr.filter(predicate),
+  map: (arr, mapping) => {
+    if (typeof mapping === 'object') {
+      return arr.map(item => {
+        const result = {};
+        Object.entries(mapping).forEach(([key, value]) => {
+          if (typeof value === 'string' && value.startsWith('$string.')) {
+            const [, method] = value.match(/\$string\.(\w+)/);
+            result[key] = $string[method](item[key]);
+          } else if (value.includes('===')) {
+            const [left, right] = value.split('===').map(x => x.trim());
+            result[key] = item[left] === right.replace(/['"]/g, '');
+          } else {
+            result[key] = item[value];
           }
-          return Date[method](...args.map((arg) => eval(arg)));
-        },
-        "Number": () => {
-          const [method, ...args] = newScript.split(".");
-          return Number[method](...args.map((arg) => eval(arg)));
-        },
-        "randomUUID": () => uuidv4(),
-        "R": () => {
-          const [method, ...args] = newScript.split(".");
-          return R[method](...args.map((arg) => eval(arg)));
-        },
-      };
-  
-      const prefix = Object.keys(libraryHandlers).find((key) =>
-        newScript.startsWith(key)
-      );
-  
-      if (prefix) {
-        result = libraryHandlers[prefix]();
-      } else {
-        result = eval(newScript);
-      }
-  
-      console.log("Result:", result);
-      setActualOutput(JSON.stringify(result, null, 2));
-    } catch (error) {
-      console.error("Error:", error);
-      setActualOutput(
-        JSON.stringify(
-          {
-            message: "Error evaluating expression",
-            error: error.message,
-            input: newScript,
-          },
-          null,
-          2
-        )
-      );
+        });
+        return result;
+      });
     }
-  };
+    return arr.map(mapping);
+  }
+};
+
+const $date = {
+  now: () => moment().format(),
+  format: (date, format) => moment(date).format(format),
+  add: (date, unit, amount) => moment(date).add(amount, unit).format(),
+  subtract: (date, unit, amount) => moment(date).subtract(amount, unit).format(),
+  parse: (dateStr) => moment(dateStr).format()
+};
+
+const $math = {
+  round: Math.round,
+  sum: (arr) => arr.reduce((a, b) => a + b, 0),
+  avg: (arr) => arr.reduce((a, b) => a + b, 0) / arr.length,
+  min: Math.min,
+  max: Math.max,
+  abs: Math.abs
+};
+
+const handleScriptContentChange = (e) => {
+  if (!e?.target) return;
+  
+  const newScript = e.target.value || '';
+  setScriptContent(newScript);
+
+  try {
+    const activeInput = inputs[selectedInputIndex] || "Payload";
+    const inputData = inputContents[activeInput];
+    let parsedData;
+    
+    try {
+      parsedData = JSON.parse(inputData);
+    } catch (error) {
+      throw new Error("Invalid input data format");
+    }
+
+    // Helper functions
+    const helpers = {
+      string: {
+        concat: (...args) => args.filter(Boolean).join(''),
+        toLower: (str) => String(str || '').toLowerCase(),
+        toUpper: (str) => String(str || '').toUpperCase(),
+        trim: (str) => String(str || '').trim()
+      },
+      array: {
+        length: (arr) => Array.isArray(arr) ? arr.length : 0,
+        map: (arr, mapping) => {
+          if (!Array.isArray(arr)) return [];
+          return arr.map(item => {
+            if (typeof mapping === 'string') return item[mapping];
+            return mapping;
+          });
+        },
+        contains: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false
+      }
+    };
+
+    // Safe JSONPath evaluation
+    const evaluateJsonPath = (path) => {
+      if (!path?.startsWith('$.')) return undefined;
+      try {
+        const result = JSONPath({ path, json: parsedData });
+        return Array.isArray(result) && result.length === 1 ? result[0] : result;
+      } catch {
+        return undefined;
+      }
+    };
+
+    // Safe helper function evaluation
+    const evaluateHelper = (expr) => {
+      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/);
+      if (!match) return expr;
+
+      const [, helper, method, argsString] = match;
+      if (!helpers[helper]?.[method]) return expr;
+
+      const args = argsString.split(',')
+        .map(arg => arg.trim())
+        .map(arg => {
+          if (arg.startsWith('$.')) return evaluateJsonPath(arg);
+          if (arg.startsWith("'") || arg.startsWith('"')) {
+            return arg.slice(1, -1);
+          }
+          return arg;
+        });
+
+      return helpers[helper][method](...args);
+    };
+
+    // Parse object notation
+    const parseObjectNotation = (str) => {
+      // Remove outer braces
+      const content = str.slice(1, -1).trim();
+      if (!content) return {};
+
+      const result = {};
+      let key = '';
+      let value = '';
+      let depth = 0;
+      let inKey = true;
+
+      for (let i = 0; i < content.length; i++) {
+        const char = content[i];
+
+        // Handle nested structures
+        if (char === '{') depth++;
+        if (char === '}') depth--;
+
+        // Key-value separator
+        if (char === ':' && depth === 0 && inKey) {
+          inKey = false;
+          continue;
+        }
+
+        // Property separator
+        if (char === ',' && depth === 0) {
+          if (key) {
+            result[key.trim()] = value.trim();
+          }
+          key = '';
+          value = '';
+          inKey = true;
+          continue;
+        }
+
+        // Build key or value
+        if (inKey) {
+          key += char;
+        } else {
+          value += char;
+        }
+      }
+
+      // Handle last pair
+      if (key) {
+        result[key.trim()] = value.trim();
+      }
+
+      // Process values
+      Object.entries(result).forEach(([k, v]) => {
+        if (v.startsWith('$.')) {
+          result[k] = evaluateJsonPath(v);
+        } else if (v.startsWith('$')) {
+          result[k] = evaluateHelper(v);
+        }
+      });
+
+      return result;
+    };
+
+    // Main transformation logic
+    let result;
+    
+    if (!newScript.trim()) {
+      result = { message: "Enter an expression" };
+    } else if (newScript.startsWith('{')) {
+      result = parseObjectNotation(newScript);
+    } else if (newScript.startsWith('$.')) {
+      result = evaluateJsonPath(newScript);
+    } else if (newScript.startsWith('$')) {
+      result = evaluateHelper(newScript);
+    } else {
+      result = newScript;
+    }
+
+    setActualOutput(JSON.stringify(result, null, 2));
+
+  } catch (error) {
+    console.error("Transformation Error:", error);
+    setActualOutput(JSON.stringify({
+      error: "Transformation Error",
+      message: error.message || "Unknown error occurred",
+      input: newScript,
+      hint: "Check syntax and ensure all referenced paths exist"
+    }, null, 2));
+  }
+};
   useEffect(() => {
     console.log("Actual output updated:", actualOutput) // Debugging log
   }, [actualOutput])
@@ -417,6 +526,8 @@ const [inputContents, setInputContents] = useState({
     const normalizedExpected = expectedOutput.trim();
     return normalizedActual === normalizedExpected;
   };
+
+  
   useEffect(() => {
     setOutputMatch(compareOutputs());
   }, [actualOutput, expectedOutput]);
