@@ -24,6 +24,7 @@ import FormatDropdown from './FormatDropdown';
 import { handleJSON } from './utils/jsonHandler';
 import _ from 'lodash';
 import moment from 'moment';
+import * as R from 'ramda';
 
 const UpdatedCode = () => {
 
@@ -104,7 +105,7 @@ const [inputContents, setInputContents] = useState({
   const [inputs, setInputs] = useState(['Payload']);
   const [newInput, setNewInput] = useState("");
   const [scriptContent, setScriptContent] = useState('$');
-  const [expectedOutput, setExpectedOutput] = useState('[\n  "Phone"\n]');
+  const [expectedOutput, setExpectedOutput] = useState('');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
   const [scripts, setScripts] = useState([
     {
@@ -304,7 +305,7 @@ const [inputContents, setInputContents] = useState({
       const parsedData = JSON.parse(inputData);
       let result;
   
-      console.log("Input data:", parsedData); // Debugging log
+      console.log("Input data:", parsedData);
   
       if (!newScript.trim()) {
         setActualOutput(
@@ -326,14 +327,13 @@ const [inputContents, setInputContents] = useState({
         return;
       }
   
-      console.log("Executing script:", newScript); // Debugging log
+      console.log("Executing script:", newScript);
   
-      // Registry for library-based transformations
       const libraryHandlers = {
         "$": () => JSONPath({ path: newScript, json: parsedData }),
         "_": () => {
           const [method, ...args] = newScript.slice(2).split(".");
-          return _[method](...eval(`[${args.join(".")}]`));
+          return _[method](parsedData, ...args.map(arg => eval(arg)));
         },
         "moment": () => {
           const [method, ...args] = newScript.split(".");
@@ -356,15 +356,24 @@ const [inputContents, setInputContents] = useState({
           const [method, ...args] = newScript.split(".");
           return JSON[method](...args.map((arg) => eval(arg)));
         },
-        "Date": () => eval(newScript),
+        "Date": () => {
+          const [method, ...args] = newScript.split(".");
+          if (method === "now") {
+            return Date.now();
+          }
+          return Date[method](...args.map((arg) => eval(arg)));
+        },
         "Number": () => {
           const [method, ...args] = newScript.split(".");
           return Number[method](...args.map((arg) => eval(arg)));
         },
         "randomUUID": () => uuidv4(),
+        "R": () => {
+          const [method, ...args] = newScript.split(".");
+          return R[method](...args.map((arg) => eval(arg)));
+        },
       };
   
-      // Execute based on prefix
       const prefix = Object.keys(libraryHandlers).find((key) =>
         newScript.startsWith(key)
       );
@@ -372,14 +381,13 @@ const [inputContents, setInputContents] = useState({
       if (prefix) {
         result = libraryHandlers[prefix]();
       } else {
-        // For global functions
         result = eval(newScript);
       }
   
-      console.log("Result:", result); // Debugging log
+      console.log("Result:", result);
       setActualOutput(JSON.stringify(result, null, 2));
     } catch (error) {
-      console.error("Error:", error); // Debugging log
+      console.error("Error:", error);
       setActualOutput(
         JSON.stringify(
           {
@@ -1303,18 +1311,21 @@ const getLineCount = (content) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope']">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
     <div className="flex">
         {renderLineNumbers(actualLines)}
+        
         <textarea
             value={actualOutput}
             readOnly={true}
             spellCheck="false"
-            className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono text-sm cursor-text"
+            className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm cursor-text "
             style={{
                 ...textAreaStyles,
                 WebkitUserModify: 'read-only',
-                userModify: 'read-only'
+                userModify: 'read-only',
+                height: 'auto',
+                minHeight: '100%'
             }}
         />
     </div>
