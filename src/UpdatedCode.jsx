@@ -366,16 +366,22 @@ const handleScriptContentChange = (e) => {
     try {
       parsedData = JSON.parse(inputData);
     } catch (error) {
-      throw new Error("Invalid input data format");
+      // Allow string inputs as well
+      parsedData = inputData;
     }
 
-    // Helper functions
+    // Enhanced helper functions to match SnapLogic functionality
     const helpers = {
       string: {
         concat: (...args) => args.filter(Boolean).join(''),
         toLower: (str) => String(str || '').toLowerCase(),
         toUpper: (str) => String(str || '').toUpperCase(),
-        trim: (str) => String(str || '').trim()
+        trim: (str) => String(str || '').trim(),
+        split: (str, delimiter) => String(str || '').split(delimiter),
+        replace: (str, search, replacement) => String(str || '').replace(new RegExp(search, 'g'), replacement),
+        substring: (str, start, end) => String(str || '').substring(start, end),
+        charAt: (str, index) => String(str || '').charAt(index),
+        indexOf: (str, searchStr) => String(str || '').indexOf(searchStr)
       },
       array: {
         length: (arr) => Array.isArray(arr) ? arr.length : 0,
@@ -388,11 +394,15 @@ const handleScriptContentChange = (e) => {
               Object.entries(mapping).forEach(([key, value]) => {
                 if (typeof value === 'boolean') {
                   result[key] = value;
-                } else if (typeof value === 'string' && value.includes('===')) {
-                  const [left, right] = value.split('===').map(part => part.trim());
-                  result[key] = item[left] === right.slice(1, -1);
-                } else {
-                  result[key] = item[value];
+                } else if (typeof value === 'string') {
+                  if (value.includes('===')) {
+                    const [left, right] = value.split('===').map(part => part.trim());
+                    result[key] = item[left] === right.slice(1, -1);
+                  } else if (value.startsWith('$.')) {
+                    result[key] = evaluateJsonPath(value, item);
+                  } else {
+                    result[key] = item[value];
+                  }
                 }
               });
               return result;
@@ -400,41 +410,85 @@ const handleScriptContentChange = (e) => {
             return mapping;
           });
         },
-        contains: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false
+        contains: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
+        filter: (arr, condition) => Array.isArray(arr) ? arr.filter(item => evaluateCondition(condition, item)) : [],
+        sort: (arr, key) => Array.isArray(arr) ? [...arr].sort((a, b) => a[key] > b[key] ? 1 : -1) : [],
+        flatten: (arr) => Array.isArray(arr) ? arr.flat() : [],
+        sum: (arr) => Array.isArray(arr) ? arr.reduce((sum, val) => sum + (Number(val) || 0), 0) : 0
+      },
+      math: {
+        round: (num) => Math.round(Number(num) || 0),
+        floor: (num) => Math.floor(Number(num) || 0),
+        ceil: (num) => Math.ceil(Number(num) || 0),
+        abs: (num) => Math.abs(Number(num) || 0),
+        min: (...args) => Math.min(...args.map(n => Number(n) || 0)),
+        max: (...args) => Math.max(...args.map(n => Number(n) || 0))
+      },
+      date: {
+        now: () => new Date().toISOString(),
+        format: (date, format) => {
+          const d = new Date(date);
+          return format.replace(/yyyy|MM|dd|HH|mm|ss/g, match => {
+            switch (match) {
+              case 'yyyy': return d.getFullYear();
+              case 'MM': return String(d.getMonth() + 1).padStart(2, '0');
+              case 'dd': return String(d.getDate()).padStart(2, '0');
+              case 'HH': return String(d.getHours()).padStart(2, '0');
+              case 'mm': return String(d.getMinutes()).padStart(2, '0');
+              case 'ss': return String(d.getSeconds()).padStart(2, '0');
+              default: return match;
+            }
+          });
+        },
+        addDays: (date, days) => {
+          const d = new Date(date);
+          d.setDate(d.getDate() + Number(days));
+          return d.toISOString();
+        }
       }
     };
 
-    // Safe JSONPath evaluation
-    const evaluateJsonPath = (path) => {
+    // Enhanced JSONPath evaluation with support for custom functions
+    const evaluateJsonPath = (path, contextData = parsedData) => {
       if (!path?.startsWith('$.')) return undefined;
       try {
-        const result = JSONPath({ path, json: parsedData });
+        const result = JSONPath({ 
+          path, 
+          json: contextData,
+          // Add custom functions support
+          functions: {
+            concat: (arr) => arr.join(''),
+            length: (val) => Array.isArray(val) ? val.length : String(val).length,
+            toLowerCase: (val) => String(val).toLowerCase(),
+            toUpperCase: (val) => String(val).toUpperCase()
+          }
+        });
         return Array.isArray(result) && result.length === 1 ? result[0] : result;
       } catch {
         return undefined;
       }
     };
 
-    // Parse template object for array.map
-    const parseMapTemplate = (template) => {
-      const lines = template.split('\n');
-      const result = {};
-      
-      lines.forEach(line => {
-        line = line.trim();
-        if (line && !line.startsWith('{') && !line.startsWith('}')) {
-          const [key, value] = line.split(':').map(part => part.trim());
-          if (key && value) {
-            // Remove trailing comma if present
-            result[key] = value.replace(/,$/, '');
-          }
+    // Evaluate conditions for array filtering
+    const evaluateCondition = (condition, item) => {
+      if (typeof condition === 'string') {
+        if (condition.includes('===')) {
+          const [left, right] = condition.split('===').map(part => part.trim());
+          return item[left] === right.slice(1, -1);
         }
-      });
-      
-      return result;
+        if (condition.includes('>')) {
+          const [left, right] = condition.split('>').map(part => part.trim());
+          return Number(item[left]) > Number(right);
+        }
+        if (condition.includes('<')) {
+          const [left, right] = condition.split('<').map(part => part.trim());
+          return Number(item[left]) < Number(right);
+        }
+      }
+      return false;
     };
 
-    // Safe helper function evaluation
+    // Enhanced helper function evaluation with support for nested calls
     const evaluateHelper = (expr) => {
       const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
       if (!match) return expr;
@@ -442,8 +496,8 @@ const handleScriptContentChange = (e) => {
       const [, helper, method, argsString] = match;
       if (!helpers[helper]?.[method]) return expr;
 
-      // Parse arguments
-      let args = [];
+      // Parse arguments with support for nested function calls
+      const args = [];
       let currentArg = '';
       let depth = 0;
       let inString = false;
@@ -464,8 +518,8 @@ const handleScriptContentChange = (e) => {
 
         // Handle nested structures
         if (!inString) {
-          if (char === '{') depth++;
-          if (char === '}') depth--;
+          if (char === '{' || char === '(' || char === '[') depth++;
+          if (char === '}' || char === ')' || char === ']') depth--;
         }
 
         // Handle argument separation
@@ -482,14 +536,17 @@ const handleScriptContentChange = (e) => {
         args.push(currentArg.trim());
       }
 
-      // Process arguments
-      args = args.map(arg => {
+      // Process arguments recursively
+      const processedArgs = args.map(arg => {
         arg = arg.trim();
         if (arg.startsWith('$.')) {
           return evaluateJsonPath(arg);
         }
+        if (arg.startsWith('$')) {
+          return evaluateHelper(arg);
+        }
         if (arg.startsWith('{')) {
-          return parseMapTemplate(arg);
+          return parseScript(arg);
         }
         if (arg === "' '" || arg === '" "') {
           return ' ';
@@ -500,16 +557,25 @@ const handleScriptContentChange = (e) => {
         return arg;
       });
 
-      return helpers[helper][method](...args);
+      return helpers[helper][method](...processedArgs);
     };
 
-    // Parse unquoted object notation
+    // Enhanced script parsing with support for nested structures
     const parseScript = (script) => {
       script = script.trim();
-      if (!script.startsWith('{') || !script.endsWith('}')) {
+      
+      // Handle non-object scripts (direct expressions)
+      if (!script.startsWith('{')) {
+        if (script.startsWith('$.')) {
+          return evaluateJsonPath(script);
+        }
+        if (script.startsWith('$')) {
+          return evaluateHelper(script);
+        }
         return script;
       }
 
+      // Parse object notation
       const content = script.slice(1, -1).trim();
       if (!content) return {};
 
@@ -536,8 +602,8 @@ const handleScriptContentChange = (e) => {
 
         // Handle nested structures
         if (!inString) {
-          if (char === '{' || char === '(') depth++;
-          if (char === '}' || char === ')') depth--;
+          if (char === '{' || char === '[' || char === '(') depth++;
+          if (char === '}' || char === ']' || char === ')') depth--;
         }
 
         // Key-value separator
@@ -546,28 +612,16 @@ const handleScriptContentChange = (e) => {
           continue;
         }
 
-        // Property separator
+        // Handle key-value pairs and break on comma if depth is zero
         if (char === ',' && depth === 0 && !inString) {
-          if (currentKey) {
-            const key = currentKey.trim();
-            const value = currentValue.trim();
-
-            if (value.startsWith('$.')) {
-              result[key] = evaluateJsonPath(value);
-            } else if (value.startsWith('$')) {
-              result[key] = evaluateHelper(value);
-            } else {
-              result[key] = value;
-            }
-          }
-
+          result[currentKey.trim()] = parseScript(currentValue.trim());
           currentKey = '';
           currentValue = '';
           collectingKey = true;
           continue;
         }
 
-        // Collect characters
+        // Collecting the key or value
         if (collectingKey) {
           currentKey += char;
         } else {
@@ -575,36 +629,21 @@ const handleScriptContentChange = (e) => {
         }
       }
 
-      // Handle last property
       if (currentKey) {
-        const key = currentKey.trim();
-        const value = currentValue.trim();
-
-        if (value.startsWith('$.')) {
-          result[key] = evaluateJsonPath(value);
-        } else if (value.startsWith('$')) {
-          result[key] = evaluateHelper(value);
-        } else {
-          result[key] = value;
-        }
+        result[currentKey.trim()] = parseScript(currentValue.trim());
       }
 
       return result;
     };
 
-    // Main transformation logic
+    // Main transformation logic with enhanced error handling
     let result;
-    
+
     if (!newScript.trim()) {
       result = { message: "Enter an expression" };
-    } else if (newScript.startsWith('{')) {
-      result = parseScript(newScript);
-    } else if (newScript.startsWith('$.')) {
-      result = evaluateJsonPath(newScript);
-    } else if (newScript.startsWith('$')) {
-      result = evaluateHelper(newScript);
     } else {
-      result = newScript;
+      // Parse the script to evaluate JSONPaths correctly
+      result = parseScript(newScript);
     }
 
     setActualOutput(JSON.stringify(result, null, 2));
@@ -619,6 +658,9 @@ const handleScriptContentChange = (e) => {
     }, null, 2));
   }
 };
+
+
+
   useEffect(() => {
     console.log("Actual output updated:", actualOutput) // Debugging log
   }, [actualOutput])
