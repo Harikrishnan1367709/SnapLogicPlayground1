@@ -1298,7 +1298,7 @@ const getLineCount = (content) => {
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
             activeNavItem === item 
-              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[9.31px] z-10' 
+              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[9.311px] z-10' 
               : ''
           }`}
           onClick={() => handleNavClick(item)}
