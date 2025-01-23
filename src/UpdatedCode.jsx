@@ -1039,6 +1039,7 @@ const executeArrayFunction = (data, method, params) => {
   }
 };
 
+
 const executeStringFunction = (data, method, params) => {
   switch(method) {
       case 'camelCase': return data.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
