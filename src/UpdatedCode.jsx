@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"
+
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +26,7 @@ import { handleJSON } from './utils/jsonHandler';
 import _ from 'lodash';
 import moment from 'moment';
 import * as R from 'ramda';
+import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
 
 const UpdatedCode = () => {
 
@@ -353,7 +355,10 @@ const $math = {
 };
 
 const handleScriptContentChange = (e) => {
-  if (!e?.target) return;
+  if (!e?.target) {
+    setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
+    return;
+  }
   
   const newScript = e.target.value || '';
   setScriptContent(newScript);
@@ -366,137 +371,227 @@ const handleScriptContentChange = (e) => {
     try {
       parsedData = JSON.parse(inputData);
     } catch (error) {
-      // Allow string inputs as well
-      parsedData = inputData;
+      setActualOutput(JSON.stringify({
+        error: "Invalid Input",
+        message: "Input data must be valid JSON",
+        input: inputData
+      }, null, 2));
+      return;
     }
 
-    // Enhanced helper functions to match SnapLogic functionality
+    // Special case: handle bare $ to return full input
+    if (newScript.trim() === '$') {
+      setActualOutput(JSON.stringify(parsedData, null, 2));
+      return;
+    }
+
+    // Helper functions
     const helpers = {
       string: {
-        concat: (...args) => args.filter(Boolean).join(''),
-        toLower: (str) => String(str || '').toLowerCase(),
-        toUpper: (str) => String(str || '').toUpperCase(),
-        trim: (str) => String(str || '').trim(),
-        split: (str, delimiter) => String(str || '').split(delimiter),
-        replace: (str, search, replacement) => String(str || '').replace(new RegExp(search, 'g'), replacement),
-        substring: (str, start, end) => String(str || '').substring(start, end),
-        charAt: (str, index) => String(str || '').charAt(index),
-        indexOf: (str, searchStr) => String(str || '').indexOf(searchStr)
+        fromCharCode: (...codes) => {
+          const validCodes = codes.map(code => Number(code) || 0);
+          return String.fromCharCode(...validCodes);
+        },
+        camelCase: (str) => {
+          if (str == null) return '';
+          return _.camelCase(String(str));
+        },
+        capitalize: (str) => {
+          if (str == null) return '';
+          return _.capitalize(String(str));
+        },
+        charAt: (str, index) => {
+          if (str == null) return '';
+          return String(str).charAt(Number(index) || 0);
+        },
+        charCodeAt: (str, index) => {
+          if (str == null) return NaN;
+          return String(str).charCodeAt(Number(index) || 0);
+        },
+        concat: (...args) => {
+          return args.filter(arg => arg != null).map(String).join('');
+        },
+        contains: (str, searchString, position = 0) => {
+          if (str == null || searchString == null) return false;
+          return String(str).includes(String(searchString), Number(position));
+        },
+        endsWith: (str, searchString, length) => {
+          if (str == null || searchString == null) return false;
+          return String(str).endsWith(String(searchString), length);
+        },
+        indexOf: (str, searchValue, fromIndex = 0) => {
+          if (str == null || searchValue == null) return -1;
+          return String(str).indexOf(String(searchValue), Number(fromIndex));
+        },
+        kebabCase: (str) => {
+          if (str == null) return '';
+          return _.kebabCase(String(str));
+        },
+        lastIndexOf: (str, searchValue, fromIndex) => {
+          if (str == null || searchValue == null) return -1;
+          return String(str).lastIndexOf(String(searchValue), fromIndex);
+        },
+        length: (str) => {
+          if (str == null) return 0;
+          return String(str).length;
+        },
+        localeCompare: (str, compareString) => {
+          if (str == null || compareString == null) return 0;
+          return String(str).localeCompare(String(compareString));
+        },
+        lowerFirst: (str) => {
+          if (str == null) return '';
+          return _.lowerFirst(String(str));
+        },
+        match: (str, regexp) => {
+          if (str == null || regexp == null) return null;
+          const regex = typeof regexp === 'string' ? new RegExp(regexp) : regexp;
+          return String(str).match(regex);
+        },
+        repeat: (str, count) => {
+          if (str == null) return '';
+          return String(str).repeat(Number(count) || 0);
+        },
+        replace: (str, find, replaceWith) => {
+          if (str == null || find == null) return '';
+          return String(str).replace(find, replaceWith);
+        },
+        replaceAll: (str, find, replaceWith) => {
+          if (str == null || find == null) return '';
+          return String(str).replaceAll(find, replaceWith);
+        },
+        search: (str, regex) => {
+          if (str == null || regex == null) return -1;
+          return String(str).search(regex);
+        },
+        slice: (str, beginIndex, endIndex) => {
+          if (str == null) return '';
+          return String(str).slice(beginIndex, endIndex);
+        },
+        snakeCase: (str) => {
+          if (str == null) return '';
+          return _.snakeCase(String(str));
+        },
+        split: (str, separator, limit) => {
+          if (str == null) return [];
+          return String(str).split(separator, limit);
+        },
+        startsWith: (str, searchString, position = 0) => {
+          if (str == null || searchString == null) return false;
+          return String(str).startsWith(String(searchString), Number(position));
+        },
+        substr: (str, start, length) => {
+          if (str == null) return '';
+          return String(str).substr(start, length);
+        },
+        substring: (str, start, end) => {
+          if (str == null) return '';
+          return String(str).substring(start, end);
+        },
+        toLowerCase: (str) => {
+          if (str == null) return '';
+          return String(str).toLowerCase();
+        },
+        toUpperCase: (str) => {
+          if (str == null) return '';
+          return String(str).toUpperCase();
+        },
+        trim: (str) => {
+          if (str == null) return '';
+          return String(str).trim();
+        },
+        trimLeft: (str) => {
+          if (str == null) return '';
+          return String(str).trimStart();
+        },
+        trimRight: (str) => {
+          if (str == null) return '';
+          return String(str).trimEnd();
+        },
+        upperFirst: (str) => {
+          if (str == null) return '';
+          return _.upperFirst(String(str));
+        }
       },
       array: {
-        length: (arr) => Array.isArray(arr) ? arr.length : 0,
         map: (arr, mapping) => {
           if (!Array.isArray(arr)) return [];
           return arr.map(item => {
-            if (typeof mapping === 'string') return item[mapping];
             if (typeof mapping === 'object') {
               const result = {};
               Object.entries(mapping).forEach(([key, value]) => {
-                if (typeof value === 'boolean') {
-                  result[key] = value;
-                } else if (typeof value === 'string') {
-                  if (value.includes('===')) {
-                    const [left, right] = value.split('===').map(part => part.trim());
-                    result[key] = item[left] === right.slice(1, -1);
-                  } else if (value.startsWith('$.')) {
-                    result[key] = evaluateJsonPath(value, item);
+                if (typeof value === 'string') {
+                  if (value.startsWith('$string.')) {
+                    const [, method] = value.match(/\$string\.(\w+)/);
+                    result[key] = helpers.string[method](item[key]);
+                  } else if (value.includes('===')) {
+                    const [left, right] = value.split('===').map(x => x.trim());
+                    result[key] = item[left] === right.replace(/['"]/g, '');
                   } else {
                     result[key] = item[value];
                   }
+                } else {
+                  result[key] = value;
                 }
               });
               return result;
             }
-            return mapping;
+            return item[mapping];
           });
         },
-        contains: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
-        filter: (arr, condition) => Array.isArray(arr) ? arr.filter(item => evaluateCondition(condition, item)) : [],
-        sort: (arr, key) => Array.isArray(arr) ? [...arr].sort((a, b) => a[key] > b[key] ? 1 : -1) : [],
-        flatten: (arr) => Array.isArray(arr) ? arr.flat() : [],
-        sum: (arr) => Array.isArray(arr) ? arr.reduce((sum, val) => sum + (Number(val) || 0), 0) : 0
+        filter: (arr, predicate) => Array.isArray(arr) ? arr.filter(predicate) : [],
+        find: (arr, predicate) => Array.isArray(arr) ? arr.find(predicate) : undefined,
+        length: (arr) => Array.isArray(arr) ? arr.length : 0,
+        join: (arr, separator) => Array.isArray(arr) ? arr.join(separator) : '',
+        slice: (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [],
+        includes: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
+        indexOf: (arr, value) => Array.isArray(arr) ? arr.indexOf(value) : -1,
+        some: (arr, predicate) => Array.isArray(arr) ? arr.some(predicate) : false,
+        every: (arr, predicate) => Array.isArray(arr) ? arr.every(predicate) : false
       },
       math: {
-        round: (num) => Math.round(Number(num) || 0),
-        floor: (num) => Math.floor(Number(num) || 0),
-        ceil: (num) => Math.ceil(Number(num) || 0),
-        abs: (num) => Math.abs(Number(num) || 0),
-        min: (...args) => Math.min(...args.map(n => Number(n) || 0)),
-        max: (...args) => Math.max(...args.map(n => Number(n) || 0))
-      },
-      date: {
-        now: () => new Date().toISOString(),
-        format: (date, format) => {
-          const d = new Date(date);
-          return format.replace(/yyyy|MM|dd|HH|mm|ss/g, match => {
-            switch (match) {
-              case 'yyyy': return d.getFullYear();
-              case 'MM': return String(d.getMonth() + 1).padStart(2, '0');
-              case 'dd': return String(d.getDate()).padStart(2, '0');
-              case 'HH': return String(d.getHours()).padStart(2, '0');
-              case 'mm': return String(d.getMinutes()).padStart(2, '0');
-              case 'ss': return String(d.getSeconds()).padStart(2, '0');
-              default: return match;
-            }
-          });
-        },
-        addDays: (date, days) => {
-          const d = new Date(date);
-          d.setDate(d.getDate() + Number(days));
-          return d.toISOString();
-        }
+        abs: Math.abs,
+        ceil: Math.ceil,
+        floor: Math.floor,
+        max: Math.max,
+        min: Math.min,
+        pow: Math.pow,
+        round: Math.round,
+        sqrt: Math.sqrt
       }
     };
 
-    // Enhanced JSONPath evaluation with support for custom functions
     const evaluateJsonPath = (path, contextData = parsedData) => {
-      if (!path?.startsWith('$.')) return undefined;
+      if (!path?.startsWith('$.')) {
+        throw new Error("Invalid JSONPath: Must start with '$.'");
+      }
       try {
         const result = JSONPath({ 
           path, 
           json: contextData,
-          // Add custom functions support
           functions: {
-            concat: (arr) => arr.join(''),
-            length: (val) => Array.isArray(val) ? val.length : String(val).length,
-            toLowerCase: (val) => String(val).toLowerCase(),
-            toUpperCase: (val) => String(val).toUpperCase()
+            ...helpers.string,
+            concat: helpers.string.concat,
+            length: helpers.string.length,
+            toLowerCase: helpers.string.toLowerCase,
+            toUpperCase: helpers.string.toUpperCase
           }
         });
         return Array.isArray(result) && result.length === 1 ? result[0] : result;
-      } catch {
-        return undefined;
+      } catch (error) {
+        throw new Error(`JSONPath evaluation failed: ${error.message}`);
       }
     };
 
-    // Evaluate conditions for array filtering
-    const evaluateCondition = (condition, item) => {
-      if (typeof condition === 'string') {
-        if (condition.includes('===')) {
-          const [left, right] = condition.split('===').map(part => part.trim());
-          return item[left] === right.slice(1, -1);
-        }
-        if (condition.includes('>')) {
-          const [left, right] = condition.split('>').map(part => part.trim());
-          return Number(item[left]) > Number(right);
-        }
-        if (condition.includes('<')) {
-          const [left, right] = condition.split('<').map(part => part.trim());
-          return Number(item[left]) < Number(right);
-        }
-      }
-      return false;
-    };
-
-    // Enhanced helper function evaluation with support for nested calls
     const evaluateHelper = (expr) => {
       const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
       if (!match) return expr;
 
       const [, helper, method, argsString] = match;
-      if (!helpers[helper]?.[method]) return expr;
+      if (!helpers[helper]?.[method]) {
+        throw new Error(`Unknown helper method: ${helper}.${method}`);
+      }
 
-      // Parse arguments with support for nested function calls
       const args = [];
       let currentArg = '';
       let depth = 0;
@@ -506,7 +601,6 @@ const handleScriptContentChange = (e) => {
       for (let i = 0; i < argsString.length; i++) {
         const char = argsString[i];
 
-        // Handle strings
         if ((char === '"' || char === "'") && argsString[i - 1] !== '\\') {
           if (!inString) {
             inString = true;
@@ -516,13 +610,11 @@ const handleScriptContentChange = (e) => {
           }
         }
 
-        // Handle nested structures
         if (!inString) {
           if (char === '{' || char === '(' || char === '[') depth++;
           if (char === '}' || char === ')' || char === ']') depth--;
         }
 
-        // Handle argument separation
         if (char === ',' && depth === 0 && !inString) {
           args.push(currentArg.trim());
           currentArg = '';
@@ -535,8 +627,6 @@ const handleScriptContentChange = (e) => {
       if (currentArg.trim()) {
         args.push(currentArg.trim());
       }
-
-      // Process arguments recursively
       const processedArgs = args.map(arg => {
         arg = arg.trim();
         if (arg.startsWith('$.')) {
@@ -560,22 +650,20 @@ const handleScriptContentChange = (e) => {
       return helpers[helper][method](...processedArgs);
     };
 
-    // Enhanced script parsing with support for nested structures
     const parseScript = (script) => {
       script = script.trim();
       
-      // Handle non-object scripts (direct expressions)
-      if (!script.startsWith('{')) {
+      if (script.startsWith('$')) {
         if (script.startsWith('$.')) {
           return evaluateJsonPath(script);
         }
-        if (script.startsWith('$')) {
-          return evaluateHelper(script);
-        }
+        return evaluateHelper(script);
+      }
+      
+      if (!script.startsWith('{')) {
         return script;
       }
 
-      // Parse object notation
       const content = script.slice(1, -1).trim();
       if (!content) return {};
 
@@ -590,7 +678,6 @@ const handleScriptContentChange = (e) => {
       for (let i = 0; i < content.length; i++) {
         const char = content[i];
 
-        // Handle strings
         if ((char === '"' || char === "'") && content[i - 1] !== '\\') {
           if (!inString) {
             inString = true;
@@ -600,19 +687,16 @@ const handleScriptContentChange = (e) => {
           }
         }
 
-        // Handle nested structures
         if (!inString) {
           if (char === '{' || char === '[' || char === '(') depth++;
           if (char === '}' || char === ']' || char === ')') depth--;
         }
 
-        // Key-value separator
         if (char === ':' && depth === 0 && !inString && collectingKey) {
           collectingKey = false;
           continue;
         }
 
-        // Handle key-value pairs and break on comma if depth is zero
         if (char === ',' && depth === 0 && !inString) {
           result[currentKey.trim()] = parseScript(currentValue.trim());
           currentKey = '';
@@ -621,7 +705,6 @@ const handleScriptContentChange = (e) => {
           continue;
         }
 
-        // Collecting the key or value
         if (collectingKey) {
           currentKey += char;
         } else {
@@ -636,14 +719,30 @@ const handleScriptContentChange = (e) => {
       return result;
     };
 
-    // Main transformation logic with enhanced error handling
-    let result;
+    // Handle array mapping with arrow functions
+    const handleArrayMapping = (arr, mappingFn) => {
+      if (typeof mappingFn === 'string' && mappingFn.includes('=>')) {
+        const fnMatch = mappingFn.match(/\((.*?)\)\s*=>\s*({[\s\S]*})/);
+        if (fnMatch) {
+          const [, param, body] = fnMatch;
+          return arr.map(item => {
+            const context = { [param.trim()]: item };
+            return parseScript(body, context);
+          });
+        }
+      }
+      return arr.map(item => parseScript(mappingFn, { item }));
+    };
 
+    let result;
     if (!newScript.trim()) {
       result = { message: "Enter an expression" };
     } else {
-      // Parse the script to evaluate JSONPaths correctly
-      result = parseScript(newScript);
+      try {
+        result = parseScript(newScript);
+      } catch (error) {
+        throw new Error(`Script parsing failed: ${error.message}`);
+      }
     }
 
     setActualOutput(JSON.stringify(result, null, 2));
@@ -658,7 +757,6 @@ const handleScriptContentChange = (e) => {
     }, null, 2));
   }
 };
-
 
 
   useEffect(() => {
