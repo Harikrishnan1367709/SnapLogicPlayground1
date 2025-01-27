@@ -362,11 +362,11 @@ const handleScriptContentChange = (e) => {
 
   const newScript = e.target.value || '';
   setScriptContent(newScript);
-  const newContent = e.target.value || '';
-  setScriptContent(newContent);
-  setScripts(prevScripts => 
-    prevScripts.map(script => 
-      script.id === activeScript.id 
+  
+  // Update script content in scripts array
+  setScripts(prevScripts =>
+    prevScripts.map(script =>
+      script.id === activeScript.id
         ? { ...script, content: newScript, lastModified: new Date() }
         : script
     )
@@ -375,46 +375,44 @@ const handleScriptContentChange = (e) => {
   try {
     const handler = new SnapLogicFunctionsHandler();
 
-     if(inputs.length >1 && newScript.trim()==='$'){
-          setActualOutput(
-            "Not valid,access with the help of input name"
-          );
+    // Handle multiple inputs case
+    if (inputs.length > 1 && newScript.trim() === '$') {
+      setActualOutput("Not valid, access with the help of input name");
+      return;
+    }
+
+    // Handle single input case
+    if (inputs.length === 1 && newScript.trim() === '$') {
+      setActualOutput(inputContents[inputs[0]]);
+      return;
+    }
+
+    // For multiple inputs case
+    const inputMatch = newScript.match(/^\$(\w+)/);
+    if (inputMatch) {
+      const requestedInput = inputMatch[1];
+      if (inputContents[requestedInput]) {
+        // Just show input content for $inputName
+        if (newScript === `$${requestedInput}`) {
+          setActualOutput(inputContents[requestedInput]);
           return;
         }
-        if (inputs.length === 1 && newScript.trim() === '$') {
-          setActualOutput(inputContents[inputs[0]]);
-          return;
-        }
-    
-        // For multiple inputs case
-        const inputMatch = newScript.match(/^\$(\w+)/);
-        if (inputMatch) {
-          const requestedInput = inputMatch[1];
-          if (inputContents[requestedInput]) {
-            // Just show input content for $inputName
-            if (newScript === `$${requestedInput}`) {
-              setActualOutput(inputContents[requestedInput]);
-              return;
-            }
-            
-            // Get string value for property access like $inputName.property
-            const path = newScript.replace(`$${requestedInput}`, '$');
-            const inputData = JSON.parse(inputContents[requestedInput]);
-            const result = JSONPath({ path, json: inputData });
-            // Convert array result to single value if possible
-            const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
-            setActualOutput(JSON.stringify(finalResult, null, 2));
-            return;
-          }
+
+        // Execute script with specific input
+        const path = newScript.replace(`$${requestedInput}`, '$');
+        const inputData = JSON.parse(inputContents[requestedInput]);
+        const result = handler.executeScript(path, inputData);
+        setActualOutput(JSON.stringify(result, null, 2));
+        return;
+      }
     }
 
     // Default to active input
     const activeInput = inputs[selectedInputIndex] || inputs[0];
-    const inputData = inputContents[activeInput];
-    let parsedData = JSON.parse(inputData);
+    let inputData;
     
     try {
-      parsedData = JSON.parse(inputData);
+      inputData = JSON.parse(inputContents[activeInput]);
     } catch (error) {
       setActualOutput(JSON.stringify({
         error: "Invalid Input",
