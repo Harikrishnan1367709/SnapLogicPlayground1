@@ -351,13 +351,6 @@ const $math = {
   abs: Math.abs
 };
 
-/*************  ✨ Codeium Command ⭐  *************/
-/**
- * Handles changes to the script content, parses and evaluates the script
- * against the current input data, and updates the actual output accordingly.
- *
-
-/******  2a986881-7396-4a68-9bd0-e41916a861b3  *******/
 const handleScriptContentChange = (e) => {
   if (!e?.target) {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
@@ -370,7 +363,9 @@ const handleScriptContentChange = (e) => {
   try {
     // For single input case
     if(inputs.length >1 && newScript.trim()==='$'){
-      setActualOutput("Not valid,access with the help of input name");
+      setActualOutput(
+        "Not valid,access with the help of input name"
+      );
       return;
     }
     if (inputs.length === 1 && newScript.trim() === '$') {
@@ -1138,6 +1133,66 @@ const getLineCount = (content) => {
   return content.split('\n').length;
 };
 
+// Add these responsive width calculations
+const getResponsiveWidths = () => {
+  const screenWidth = window.innerWidth;
+  
+  if (screenWidth >= 1024) { // Laptop
+    return {
+      leftWidth: Math.floor(screenWidth * 0.25),
+      middleWidth: Math.floor(screenWidth * 0.45),
+      rightWidth: Math.floor(screenWidth * 0.30)
+    };
+  } else if (screenWidth >= 768) { // Tablet
+    return {
+      leftWidth: Math.floor(screenWidth * 0.30),
+      middleWidth: Math.floor(screenWidth * 0.40),
+      rightWidth: Math.floor(screenWidth * 0.30)
+    };
+  }
+  return { leftWidth, middleWidth, rightWidth }; // Default widths
+};
+
+// Add resize listener
+useEffect(() => {
+  const handleResize = () => {
+    const { leftWidth: newLeft, middleWidth: newMiddle, rightWidth: newRight } = getResponsiveWidths();
+    setLeftWidth(newLeft);
+    setMiddleWidth(newMiddle);
+    setRightWidth(newRight);
+  };
+
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
+// Add responsive styles
+const responsiveStyles = {
+  mainContainer: {
+    minWidth: '768px',
+    maxWidth: '100vw',
+    overflow: 'auto'
+  },
+  panels: {
+    minWidth: '250px'
+  }
+  
+};
+const useMediaQuery = (query) => {
+  const [matches, setMatches] = useState(window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [query]);
+
+  return matches;
+};
+
+// In your component
+const isTablet = useMediaQuery('(max-width: 1024px)');
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -1178,12 +1233,19 @@ const getLineCount = (content) => {
            <img
   src="/sl-logo.svg"
   alt="SnapLogic Logo"
-  className="w-8 h-8 object-contain"
+  className=" object-contain"
+  style={{
+    width: isTablet ? '22px' : '32px',
+    height: isTablet ? '22px' : '32px'
+  }}
 />
 <img
   src="/LogoN.svg"
   alt="SnapLogic"
-  className="h-8 object-contain"
+  className=" object-contain"
+  style={{
+    height: isTablet ? '20px' : '32px'
+  }}
 />
         </div>
         <div className="flex items-center">
@@ -1348,10 +1410,11 @@ const getLineCount = (content) => {
       </div>
 {/* main content */}
 
-      <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]">
-        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]" style={responsiveStyles.mainContainer}>
+        <div style={{...resizableStyles(leftWidth,'left'),...responsiveStyles.panels}} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
           {isPayloadView ? (
-            <div className="flex flex-col h-full overflow-auto">
+            <div className="flex flex-col h-full overflow-auto"
+            style={{...scrollbarStyle}}>
               <div className="border-b">
   <div className="flex justify-center items-center h-[30px] px-2 min-w-[200px]">
     <div className="flex items-center gap-1 ">
@@ -1377,6 +1440,7 @@ const getLineCount = (content) => {
       </div>
     ))}
   </div>
+  
   <textarea
     value={payloadContent}
     onChange={(e) => setPayloadContent(e.target.value)}
@@ -1390,7 +1454,7 @@ const getLineCount = (content) => {
             </div>
           ) : (
             <>
-            <div className="h-1/2 border-b overflow-auto">
+            <div className="h-1/2 border-b overflow-auto" style={responsiveStyles.panels}>
             <div className="border-b">
   <div className="flex justify-between items-center h-[30px]  px-4">
     <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
@@ -1489,7 +1553,7 @@ const getLineCount = (content) => {
   ))}
 </div>
               </div>
-              <div className="h-1/2 overflow-auto">
+              <div className="h-1/2 overflow-auto" style={responsiveStyles.panels}>
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
     <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
@@ -1603,7 +1667,7 @@ const getLineCount = (content) => {
           </div>
         </div>
                 {/* Middle Panel */}
-                <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r  flex flex-col relative">
+                <div style={{...resizableStyles(middleWidth,'middle'), ...responsiveStyles.panels}} className="flex-1 border-r  flex flex-col relative">
           <div className="border-b">
             <div className="flex items-center justify-between min-h-[30px] px-4">
               <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT</span>
@@ -1697,7 +1761,7 @@ const getLineCount = (content) => {
           </div>
         </div>
                 {/* Right Panel */}
-                <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0  flex flex-col h-full relative">
+                <div style={{...resizableStyles(rightWidth,'right'), ...responsiveStyles.panels}} className="flex-shrink-0  flex flex-col h-full relative overflow-hidden">
           {/* Actual Output Section */}
           <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
@@ -1767,7 +1831,8 @@ const getLineCount = (content) => {
   className="border-t relative flex flex-col   "
   style={{
     height: `${bottomHeight}px`,
-    transition: isDragging ? 'none' : 'height 0.2s ease-in-out'
+    transition: isDragging ? 'none' : 'height 0.2s ease-in-out',
+    ...responsiveStyles.panels
   }}
 >
 
@@ -1882,7 +1947,7 @@ const getLineCount = (content) => {
                   <div className="w-full h-full flex">
                     {/* Left Navigation */}
                     <div className="w-64 border-r overflow-y-auto"
-                    style={scrollbarStyle}>
+                    style={{...scrollbarStyle, ...responsiveStyles.panels}}>
                       <nav className="p-4">
                         <ul className="space-y-2 font-['Manrope']">
                           <li className="font-semibold text-sm">Getting Started</li>
