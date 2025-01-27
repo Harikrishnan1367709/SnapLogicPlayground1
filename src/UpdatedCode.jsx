@@ -80,6 +80,7 @@ const [inputContents, setInputContents] = useState({
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [activeInput, setActiveInput] = useState('Payload');
 
   const [leftWidth, setLeftWidth] = useState(() => 
     parseInt(localStorage.getItem('leftWidth')) || 288
@@ -364,10 +365,37 @@ const handleScriptContentChange = (e) => {
   setScriptContent(newScript);
 
   try {
+    const inputIdentifiers = inputs.map(input => input.toLowerCase());
+    
+    // Check if script starts with $ followed by an input identifier
+    const inputMatch = newScript.match(/^\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+    
+    if (inputMatch) {
+      const requestedInput = inputMatch[1].toLowerCase();
+      const inputIndex = inputIdentifiers.indexOf(requestedInput);
+      
+      if (inputIndex !== -1) {
+        // If just the input identifier is requested (e.g., "$a")
+        if (newScript === `$${requestedInput}`) {
+          const inputData = inputContents[inputs[inputIndex]];
+          setActualOutput(inputData);
+          return;
+        }
+        
+        // For accessing properties (e.g., "$a.name")
+        const path = newScript.replace(`$${requestedInput}`, '$');
+        const inputData = JSON.parse(inputContents[inputs[inputIndex]]);
+        const result = JSONPath({ path, json: inputData });
+        setActualOutput(JSON.stringify(result, null, 2));
+        return;
+      }
+    }
+    
+    // Default to active input if no specific input is referenced
     const activeInput = inputs[selectedInputIndex] || "Payload";
     const inputData = inputContents[activeInput];
-    let parsedData;
-    
+    let parsedData = JSON.parse(inputData);
+
     try {
       parsedData = JSON.parse(inputData);
     } catch (error) {
@@ -1299,7 +1327,7 @@ const getLineCount = (content) => {
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
             activeNavItem === item 
-              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[9.311px] z-10' 
+              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
               : ''
           }`}
           onClick={() => handleNavClick(item)}
@@ -1604,7 +1632,7 @@ const getLineCount = (content) => {
       const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
       setActiveLineIndex(lines.length - 1);
     }}
-    className={`flex-1 outline-none resize-none overflow-auto leading-6 relative w-full pr-0`}
+    className={`flex-1 outline-none bg-white resize-none overflow-auto leading-6 relative w-full pr-0`}
     style={{
       lineHeight: '1.5rem',
       // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
@@ -1774,7 +1802,7 @@ const getLineCount = (content) => {
               setBottomHeight(32);
             }
           }}
-          className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+          className="text-[11px] h-7 px-2 bg-white flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
         >
           <Terminal className="h-3 w-3" />
           <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
@@ -1796,7 +1824,7 @@ const getLineCount = (content) => {
               setBottomHeight(32);
             }
           }}
-          className="text-[11px] h-7 px-2 flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+          className="text-[11px] h-7 px-2 bg-white flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
         >
           <Book className="h-3 w-3" />
           <span className="ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em]">API REFERENCE</span>
