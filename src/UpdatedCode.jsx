@@ -50,7 +50,7 @@ const [highlightedLine, setHighlightedLine] = useState(null);
 
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
-const [activeScript, setActiveScript] = useState(null);
+   
 const [inputs, setInputs] = useState(['Payload']);
 
 const [inputContents, setInputContents] = useState({
@@ -93,18 +93,20 @@ const [inputContents, setInputContents] = useState({
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
  
   const [newInput, setNewInput] = useState("");
-  const [scriptContent, setScriptContent] = useState('$');
+  
   const [expectedOutput, setExpectedOutput] = useState('');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
   const [scripts, setScripts] = useState([
     {
       id: 1,
       name: 'main.dwl',
-      content: '$.phoneNumbers[:1].type',
+      content: '$',
       lastModified: new Date()
     }
   ]);
+  const [activeScript, setActiveScript] = useState(scripts[0]);
   const [newScript, setNewScript] = useState("");
+  const [scriptContent, setScriptContent] = useState(scripts[0].content);
   const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
     minWidth: '250px', // Increased minimum width
@@ -359,6 +361,15 @@ const handleScriptContentChange = (e) => {
   
   const newScript = e.target.value || '';
   setScriptContent(newScript);
+  const newContent = e.target.value || '';
+  setScriptContent(newContent);
+  setScripts(prevScripts => 
+    prevScripts.map(script => 
+      script.id === activeScript.id 
+        ? { ...script, content: newScript, lastModified: new Date() }
+        : script
+    )
+  );
 
   try {
     // For single input case
