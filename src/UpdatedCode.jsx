@@ -1647,16 +1647,18 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                 <div className="w-full  pt-2 ">
                 {scripts.map((script) => (
   <div
-    key={script.id}
-    className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer  w-full hover:bg-gray-100 hover:rounded-r-full  ${
-      activeScript?.id === script.id 
-      ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 hover:bg-gray-200' 
-      : 'hover:bg-gray-200'
+  key={script.id}
+  className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer w-full group ${
+    activeScript?.id === script.id
+      ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 after:rounded-r-full group-hover:rounded-r-full after:group-hover:rounded-r-full hover:bg-gray-200'
+      : 'hover:bg-gray-200 hover:rounded-r-full'
   }`}
-    onClick={() => handleScriptSelect(script)}
-  >
-    <span className="px-4">{script.name}</span>
-  </div>
+  onClick={() => handleScriptSelect(script)}
+>
+  <span className="px-4">{script.name}</span>
+</div>
+
+
 ))}
 
 </div>
