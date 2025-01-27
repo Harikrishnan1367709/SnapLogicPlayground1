@@ -285,6 +285,24 @@ const [inputContents, setInputContents] = useState({
     setActualOutput(e.target.value);
     compareOutputs();
   };
+  const scrollbarStyle = {
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#ffffff #f1f1f1',
+    '&::-webkit-scrollbar': {
+      width: '8px',
+      height: '8px',
+    },
+    '&::-webkit-scrollbar-track': {
+      background: '#f1f1f1',
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: '#ffffff',
+      border: '1px solid #e0e0e0',
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+      background: '#f8f8f8',
+    }
+  };
 
   const handleExpectedOutputChange = (e) => {
     setExpectedOutput(e.target.value);
@@ -1327,7 +1345,7 @@ const getLineCount = (content) => {
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
             activeNavItem === item 
-              ? 'after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
+              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
               : ''
           }`}
           onClick={() => handleNavClick(item)}
@@ -1372,9 +1390,11 @@ const getLineCount = (content) => {
   <textarea
     value={payloadContent}
     onChange={(e) => setPayloadContent(e.target.value)}
-    className="flex-1 p-2 font-mono text-sm resize-none outline-none leading-6"
+    className="flex-1 p-2 font-mono text-sm resize-none outline-none bg-white leading-6"
     spellCheck="false"
-    style={{ lineHeight: '1.5rem' }}
+    style={{ lineHeight: '1.5rem' ,
+      ...scrollbarStyle
+    }}
   />
 </div>
             </div>
@@ -1635,6 +1655,7 @@ const getLineCount = (content) => {
     className={`flex-1 outline-none bg-white resize-none overflow-auto leading-6 relative w-full pr-0`}
     style={{
       lineHeight: '1.5rem',
+      ...scrollbarStyle
       // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
   />
@@ -1700,7 +1721,8 @@ const getLineCount = (content) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
+            style={scrollbarStyle}>
     <div className="flex">
         {renderLineNumbers(actualLines)}
         
@@ -1710,6 +1732,7 @@ const getLineCount = (content) => {
             spellCheck="false"
             className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm cursor-text "
             style={{
+            
                 ...textAreaStyles,
                 WebkitUserModify: 'read-only',
                 userModify: 'read-only',
@@ -1733,14 +1756,15 @@ const getLineCount = (content) => {
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
+            style={scrollbarStyle}>
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
                   onChange={handleExpectedOutputChange}
                   className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm"
-                  style={textAreaStyles}
+                  style={{textAreaStyles}}
                 />
               </div>
             </div>
@@ -1867,7 +1891,8 @@ const getLineCount = (content) => {
                 {activeTab === 'api' && (
                   <div className="w-full h-full flex">
                     {/* Left Navigation */}
-                    <div className="w-64 border-r overflow-y-auto">
+                    <div className="w-64 border-r overflow-y-auto"
+                    style={scrollbarStyle}>
                       <nav className="p-4">
                         <ul className="space-y-2 font-['Manrope']">
                           <li className="font-semibold text-sm">Getting Started</li>
@@ -1884,7 +1909,8 @@ const getLineCount = (content) => {
                     </div>
 
                     {/* Right Content */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto"
+                    style={scrollbarStyle}>
                       <div className="p-6 font-['Manrope']">
                         <h1 className="text-2xl font-bold mb-6">Understanding Expressions</h1>
                         <div className="space-y-6">
