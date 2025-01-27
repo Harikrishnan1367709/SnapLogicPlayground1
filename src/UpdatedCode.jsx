@@ -28,6 +28,7 @@ import moment from 'moment';
 import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
 
+
 const UpdatedCode = () => {
 
 
@@ -358,7 +359,7 @@ const handleScriptContentChange = (e) => {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
     return;
   }
-  
+
   const newScript = e.target.value || '';
   setScriptContent(newScript);
   const newContent = e.target.value || '';
@@ -372,421 +373,59 @@ const handleScriptContentChange = (e) => {
   );
 
   try {
-    // For single input case
-    if(inputs.length >1 && newScript.trim()==='$'){
-      setActualOutput(
-        "Not valid,access with the help of input name"
-      );
-      return;
-    }
-    if (inputs.length === 1 && newScript.trim() === '$') {
-      setActualOutput(inputContents[inputs[0]]);
-      return;
-    }
+    const handler = new SnapLogicFunctionsHandler();
 
-    // For multiple inputs case
-    const inputMatch = newScript.match(/^\$(\w+)/);
-    if (inputMatch) {
-      const requestedInput = inputMatch[1];
-      if (inputContents[requestedInput]) {
-        // Just show input content for $inputName
-        if (newScript === `$${requestedInput}`) {
-          setActualOutput(inputContents[requestedInput]);
+     if(inputs.length >1 && newScript.trim()==='$'){
+          setActualOutput(
+            "Not valid,access with the help of input name"
+          );
           return;
         }
-        
-        // Get string value for property access like $inputName.property
-        const path = newScript.replace(`$${requestedInput}`, '$');
-        const inputData = JSON.parse(inputContents[requestedInput]);
-        const result = JSONPath({ path, json: inputData });
-        // Convert array result to single value if possible
-        const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
-        setActualOutput(JSON.stringify(finalResult, null, 2));
-        return;
-      }
+        if (inputs.length === 1 && newScript.trim() === '$') {
+          setActualOutput(inputContents[inputs[0]]);
+          return;
+        }
+    
+        // For multiple inputs case
+        const inputMatch = newScript.match(/^\$(\w+)/);
+        if (inputMatch) {
+          const requestedInput = inputMatch[1];
+          if (inputContents[requestedInput]) {
+            // Just show input content for $inputName
+            if (newScript === `$${requestedInput}`) {
+              setActualOutput(inputContents[requestedInput]);
+              return;
+            }
+            
+            // Get string value for property access like $inputName.property
+            const path = newScript.replace(`$${requestedInput}`, '$');
+            const inputData = JSON.parse(inputContents[requestedInput]);
+            const result = JSONPath({ path, json: inputData });
+            // Convert array result to single value if possible
+            const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
+            setActualOutput(JSON.stringify(finalResult, null, 2));
+            return;
+          }
     }
-    // Default to active input if no specific input is referenced
+
+    // Default to active input
     const activeInput = inputs[selectedInputIndex] || inputs[0];
     const inputData = inputContents[activeInput];
     let parsedData = JSON.parse(inputData);
-
+    
     try {
       parsedData = JSON.parse(inputData);
     } catch (error) {
       setActualOutput(JSON.stringify({
         error: "Invalid Input",
         message: "Input data must be valid JSON",
-        input: inputData
+        input: inputContents[activeInput]
       }, null, 2));
       return;
     }
 
-    // Special case: handle bare $ to return full input
-    if (newScript.trim() === '$') {
-      setActualOutput(JSON.stringify(parsedData, null, 2));
-      return;
-    }
-
-    // Helper functions
-    const helpers = {
-      string: {
-        fromCharCode: (...codes) => {
-          const validCodes = codes.map(code => Number(code) || 0);
-          return String.fromCharCode(...validCodes);
-        },
-        camelCase: (str) => {
-          if (str == null) return '';
-          return _.camelCase(String(str));
-        },
-        capitalize: (str) => {
-          if (str == null) return '';
-          return _.capitalize(String(str));
-        },
-        charAt: (str, index) => {
-          if (str == null) return '';
-          return String(str).charAt(Number(index) || 0);
-        },
-        charCodeAt: (str, index) => {
-          if (str == null) return NaN;
-          return String(str).charCodeAt(Number(index) || 0);
-        },
-        concat: (...args) => {
-          return args.filter(arg => arg != null).map(String).join('');
-        },
-        contains: (str, searchString, position = 0) => {
-          if (str == null || searchString == null) return false;
-          return String(str).includes(String(searchString), Number(position));
-        },
-        endsWith: (str, searchString, length) => {
-          if (str == null || searchString == null) return false;
-          return String(str).endsWith(String(searchString), length);
-        },
-        indexOf: (str, searchValue, fromIndex = 0) => {
-          if (str == null || searchValue == null) return -1;
-          return String(str).indexOf(String(searchValue), Number(fromIndex));
-        },
-        kebabCase: (str) => {
-          if (str == null) return '';
-          return _.kebabCase(String(str));
-        },
-        lastIndexOf: (str, searchValue, fromIndex) => {
-          if (str == null || searchValue == null) return -1;
-          return String(str).lastIndexOf(String(searchValue), fromIndex);
-        },
-        length: (str) => {
-          if (str == null) return 0;
-          return String(str).length;
-        },
-        localeCompare: (str, compareString) => {
-          if (str == null || compareString == null) return 0;
-          return String(str).localeCompare(String(compareString));
-        },
-        lowerFirst: (str) => {
-          if (str == null) return '';
-          return _.lowerFirst(String(str));
-        },
-        match: (str, regexp) => {
-          if (str == null || regexp == null) return null;
-          const regex = typeof regexp === 'string' ? new RegExp(regexp) : regexp;
-          return String(str).match(regex);
-        },
-        repeat: (str, count) => {
-          if (str == null) return '';
-          return String(str).repeat(Number(count) || 0);
-        },
-        replace: (str, find, replaceWith) => {
-          if (str == null || find == null) return '';
-          return String(str).replace(find, replaceWith);
-        },
-        replaceAll: (str, find, replaceWith) => {
-          if (str == null || find == null) return '';
-          return String(str).replaceAll(find, replaceWith);
-        },
-        search: (str, regex) => {
-          if (str == null || regex == null) return -1;
-          return String(str).search(regex);
-        },
-        slice: (str, beginIndex, endIndex) => {
-          if (str == null) return '';
-          return String(str).slice(beginIndex, endIndex);
-        },
-        snakeCase: (str) => {
-          if (str == null) return '';
-          return _.snakeCase(String(str));
-        },
-        split: (str, separator, limit) => {
-          if (str == null) return [];
-          return String(str).split(separator, limit);
-        },
-        startsWith: (str, searchString, position = 0) => {
-          if (str == null || searchString == null) return false;
-          return String(str).startsWith(String(searchString), Number(position));
-        },
-        substr: (str, start, length) => {
-          if (str == null) return '';
-          return String(str).substr(start, length);
-        },
-        substring: (str, start, end) => {
-          if (str == null) return '';
-          return String(str).substring(start, end);
-        },
-        toLowerCase: (str) => {
-          if (str == null) return '';
-          return String(str).toLowerCase();
-        },
-        toUpperCase: (str) => {
-          if (str == null) return '';
-          return String(str).toUpperCase();
-        },
-        trim: (str) => {
-          if (str == null) return '';
-          return String(str).trim();
-        },
-        trimLeft: (str) => {
-          if (str == null) return '';
-          return String(str).trimStart();
-        },
-        trimRight: (str) => {
-          if (str == null) return '';
-          return String(str).trimEnd();
-        },
-        upperFirst: (str) => {
-          if (str == null) return '';
-          return _.upperFirst(String(str));
-        }
-      },
-      array: {
-        map: (arr, mapping) => {
-          if (!Array.isArray(arr)) return [];
-          return arr.map(item => {
-            if (typeof mapping === 'object') {
-              const result = {};
-              Object.entries(mapping).forEach(([key, value]) => {
-                if (typeof value === 'string') {
-                  if (value.startsWith('$string.')) {
-                    const [, method] = value.match(/\$string\.(\w+)/);
-                    result[key] = helpers.string[method](item[key]);
-                  } else if (value.includes('===')) {
-                    const [left, right] = value.split('===').map(x => x.trim());
-                    result[key] = item[left] === right.replace(/['"]/g, '');
-                  } else {
-                    result[key] = item[value];
-                  }
-                } else {
-                  result[key] = value;
-                }
-              });
-              return result;
-            }
-            return item[mapping];
-          });
-        },
-        filter: (arr, predicate) => Array.isArray(arr) ? arr.filter(predicate) : [],
-        find: (arr, predicate) => Array.isArray(arr) ? arr.find(predicate) : undefined,
-        length: (arr) => Array.isArray(arr) ? arr.length : 0,
-        join: (arr, separator) => Array.isArray(arr) ? arr.join(separator) : '',
-        slice: (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [],
-        includes: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
-        indexOf: (arr, value) => Array.isArray(arr) ? arr.indexOf(value) : -1,
-        some: (arr, predicate) => Array.isArray(arr) ? arr.some(predicate) : false,
-        every: (arr, predicate) => Array.isArray(arr) ? arr.every(predicate) : false
-      },
-      math: {
-        abs: Math.abs,
-        ceil: Math.ceil,
-        floor: Math.floor,
-        max: Math.max,
-        min: Math.min,
-        pow: Math.pow,
-        round: Math.round,
-        sqrt: Math.sqrt
-      }
-    };
-
-    const evaluateJsonPath = (path, contextData = parsedData) => {
-      if (!path?.startsWith('$.')) {
-        throw new Error("Invalid JSONPath: Must start with '$.'");
-      }
-      try {
-        const result = JSONPath({ 
-          path, 
-          json: contextData,
-          functions: {
-            ...helpers.string,
-            concat: helpers.string.concat,
-            length: helpers.string.length,
-            toLowerCase: helpers.string.toLowerCase,
-            toUpperCase: helpers.string.toUpperCase
-          }
-        });
-        return Array.isArray(result) && result.length === 1 ? result[0] : result;
-      } catch (error) {
-        throw new Error(`JSONPath evaluation failed: ${error.message}`);
-      }
-    };
-
-    const evaluateHelper = (expr) => {
-      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
-      if (!match) return expr;
-
-      const [, helper, method, argsString] = match;
-      if (!helpers[helper]?.[method]) {
-        throw new Error(`Unknown helper method: ${helper}.${method}`);
-      }
-
-      const args = [];
-      let currentArg = '';
-      let depth = 0;
-      let inString = false;
-      let stringChar = '';
-
-      for (let i = 0; i < argsString.length; i++) {
-        const char = argsString[i];
-
-        if ((char === '"' || char === "'") && argsString[i - 1] !== '\\') {
-          if (!inString) {
-            inString = true;
-            stringChar = char;
-          } else if (char === stringChar) {
-            inString = false;
-          }
-        }
-
-        if (!inString) {
-          if (char === '{' || char === '(' || char === '[') depth++;
-          if (char === '}' || char === ')' || char === ']') depth--;
-        }
-
-        if (char === ',' && depth === 0 && !inString) {
-          args.push(currentArg.trim());
-          currentArg = '';
-          continue;
-        }
-
-        currentArg += char;
-      }
-
-      if (currentArg.trim()) {
-        args.push(currentArg.trim());
-      }
-      const processedArgs = args.map(arg => {
-        arg = arg.trim();
-        if (arg.startsWith('$.')) {
-          return evaluateJsonPath(arg);
-        }
-        if (arg.startsWith('$')) {
-          return evaluateHelper(arg);
-        }
-        if (arg.startsWith('{')) {
-          return parseScript(arg);
-        }
-        if (arg === "' '" || arg === '" "') {
-          return ' ';
-        }
-        if (arg.startsWith("'") || arg.startsWith('"')) {
-          return arg.slice(1, -1);
-        }
-        return arg;
-      });
-
-      return helpers[helper][method](...processedArgs);
-    };
-
-    const parseScript = (script) => {
-      script = script.trim();
-      
-      if (script.startsWith('$')) {
-        if (script.startsWith('$.')) {
-          return evaluateJsonPath(script);
-        }
-        return evaluateHelper(script);
-      }
-      
-      if (!script.startsWith('{')) {
-        return script;
-      }
-
-      const content = script.slice(1, -1).trim();
-      if (!content) return {};
-
-      const result = {};
-      let currentKey = '';
-      let currentValue = '';
-      let depth = 0;
-      let inString = false;
-      let stringChar = '';
-      let collectingKey = true;
-
-      for (let i = 0; i < content.length; i++) {
-        const char = content[i];
-
-        if ((char === '"' || char === "'") && content[i - 1] !== '\\') {
-          if (!inString) {
-            inString = true;
-            stringChar = char;
-          } else if (char === stringChar) {
-            inString = false;
-          }
-        }
-
-        if (!inString) {
-          if (char === '{' || char === '[' || char === '(') depth++;
-          if (char === '}' || char === ']' || char === ')') depth--;
-        }
-
-        if (char === ':' && depth === 0 && !inString && collectingKey) {
-          collectingKey = false;
-          continue;
-        }
-
-        if (char === ',' && depth === 0 && !inString) {
-          result[currentKey.trim()] = parseScript(currentValue.trim());
-          currentKey = '';
-          currentValue = '';
-          collectingKey = true;
-          continue;
-        }
-
-        if (collectingKey) {
-          currentKey += char;
-        } else {
-          currentValue += char;
-        }
-      }
-
-      if (currentKey) {
-        result[currentKey.trim()] = parseScript(currentValue.trim());
-      }
-
-      return result;
-    };
-
-    // Handle array mapping with arrow functions
-    const handleArrayMapping = (arr, mappingFn) => {
-      if (typeof mappingFn === 'string' && mappingFn.includes('=>')) {
-        const fnMatch = mappingFn.match(/\((.*?)\)\s*=>\s*({[\s\S]*})/);
-        if (fnMatch) {
-          const [, param, body] = fnMatch;
-          return arr.map(item => {
-            const context = { [param.trim()]: item };
-            return parseScript(body, context);
-          });
-        }
-      }
-      return arr.map(item => parseScript(mappingFn, { item }));
-    };
-
-    let result;
-    if (!newScript.trim()) {
-      result = { message: "Enter an expression" };
-    } else {
-      try {
-        result = parseScript(newScript);
-      } catch (error) {
-        throw new Error(`Script parsing failed: ${error.message}`);
-      }
-    }
-
+    // Execute script with handler
+    const result = handler.executeScript(newScript, inputData);
     setActualOutput(JSON.stringify(result, null, 2));
 
   } catch (error) {

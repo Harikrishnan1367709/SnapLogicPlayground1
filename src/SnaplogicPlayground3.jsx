@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
+import { v4 as uuidv4 } from "uuid"
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./components/ui/tooltip"
 import {
   Dialog,
   DialogContent,
@@ -14,8 +22,28 @@ import { Input } from "./components/ui/input"
 import { Label } from "./components/ui/label"
 import { Button } from './components/ui/button';
 import FormatDropdown from './FormatDropdown';
+import { handleJSON } from './utils/jsonHandler';
+import _ from 'lodash';
+import moment from 'moment';
+import * as R from 'ramda';
+import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
+
 
 const UpdatedCode = () => {
+
+
+  
+  const canvasRef = useRef(null);
+  const [activeLineIndex, setActiveLineIndex] = useState(null);
+
+
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [focusedLine, setFocusedLine] = useState(null);
+  const [wasChecked, setWasChecked] = useState(() => 
+    localStorage.getItem('wasChecked') === 'true'
+);
+
+  const [selectedFile, setSelectedFile] = useState(null);
 
 
     const [hoveredLine, setHoveredLine] = useState(null);
@@ -23,10 +51,12 @@ const [highlightedLine, setHighlightedLine] = useState(null);
 
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
-const [activeScript, setActiveScript] = useState(null);
+   
+const [inputs, setInputs] = useState(['Payload']);
 
-
-    const [inputContents, setInputContents] = useState({});
+const [inputContents, setInputContents] = useState({
+  [inputs[0]]: '{}'  // Now we can safely use inputs[0]
+});
 
   const [isPayloadView, setIsPayloadView] = useState(false);
   const [selectedInputIndex, setSelectedInputIndex] = useState(null);
@@ -37,6 +67,8 @@ const [activeScript, setActiveScript] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [activeInput, setActiveInput] = useState('Payload');
+
   const [leftWidth, setLeftWidth] = useState(() => 
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
@@ -52,21 +84,30 @@ const [activeScript, setActiveScript] = useState(null);
     localStorage.setItem('middleWidth', middleWidth);
     localStorage.setItem('rightWidth', rightWidth);
   }, [leftWidth, middleWidth, rightWidth]);
-
-  const [bottomHeight, setBottomHeight] = useState(300);
+ 
+  const [bottomHeight, setBottomHeight] = useState(32);
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [showToast, setShowToast] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [isInputDialogOpen, setIsInputDialogOpen] = useState(false);
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
-  const [inputs, setInputs] = useState([]);
+ 
   const [newInput, setNewInput] = useState("");
-  const [scriptContent, setScriptContent] = useState('$.phoneNumbers[:1].type');
-  const [expectedOutput, setExpectedOutput] = useState('[\n  "Phone"\n]');
+  
+  const [expectedOutput, setExpectedOutput] = useState('');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
-  const [scripts, setScripts] = useState([]);
+  const [scripts, setScripts] = useState([
+    {
+      id: 1,
+      name: 'main.dwl',
+      content: '$',
+      lastModified: new Date()
+    }
+  ]);
+  const [activeScript, setActiveScript] = useState(scripts[0]);
   const [newScript, setNewScript] = useState("");
+  const [scriptContent, setScriptContent] = useState(scripts[0].content);
   const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
     minWidth: '250px', // Increased minimum width
@@ -142,7 +183,8 @@ const [activeScript, setActiveScript] = useState(null);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
-  const scriptLines = scriptContent.split('\n');
+  const [editorLines, setEditorLines] = useState(['']);
+  const scriptLines = scriptContent?.split('\n') || [''];
   const expectedLines = expectedOutput.split('\n');
   const actualLines = actualOutput.split('\n');
 
@@ -232,23 +274,538 @@ const [activeScript, setActiveScript] = useState(null);
     setActualOutput(e.target.value);
     compareOutputs();
   };
-
+  const scrollbarStyle = {
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#ffffff #f1f1f1',
+    WebkitScrollbarWidth: '8px',
+    WebkitScrollbarTrack: { background: '#f1f1f1' },
+    WebkitScrollbarThumb: { 
+      background: '#ffffff',
+      border: '1px solid #e0e0e0'
+    },
+    WebkitScrollbarThumbHover: { background: '#f8f8f8' }
+  };
   const handleExpectedOutputChange = (e) => {
     setExpectedOutput(e.target.value);
   };
-
-  const handleScriptContentChange = (e) => {
-    setScriptContent(e.target.value);
-    if (activeScript) {
-      const updatedScripts = scripts.map(s => 
-        s.id === activeScript.id 
-          ? { ...s, content: e.target.value }
-          : s
-      );
-      setScripts(updatedScripts);
-    }
+  const detectFunctionType = (script) => {
+    if (script.startsWith('$')) return 'jsonPath';
+    if (script.includes('match')) return 'match';
+    return 'general';
   };
 
+  
+
+  // Update handleScriptContentChange
+  // First, define the helper functions
+const $string = {
+  concat: (...args) => args.join(''),
+  toUpper: (str) => str.toUpperCase(),
+  toLower: (str) => str.toLowerCase(),
+  substring: (str, start, end) => str.substring(start, end),
+  trim: (str) => str.trim(),
+  replace: (str, search, replace) => str.replace(search, replace)
+};
+
+const $array = {
+  length: (arr) => arr.length,
+  distinct: (arr) => Array.from(new Set(arr)),
+  join: (arr, separator) => arr.join(separator),
+  contains: (arr, value) => arr.includes(value),
+  first: (arr) => arr[0],
+  last: (arr) => arr[arr.length - 1],
+  filter: (arr, predicate) => arr.filter(predicate),
+  map: (arr, mapping) => {
+    if (typeof mapping === 'object') {
+      return arr.map(item => {
+        const result = {};
+        Object.entries(mapping).forEach(([key, value]) => {
+          if (typeof value === 'string' && value.startsWith('$string.')) {
+            const [, method] = value.match(/\$string\.(\w+)/);
+            result[key] = $string[method](item[key]);
+          } else if (value.includes('===')) {
+            const [left, right] = value.split('===').map(x => x.trim());
+            result[key] = item[left] === right.replace(/['"]/g, '');
+          } else {
+            result[key] = item[value];
+          }
+        });
+        return result;
+      });
+    }
+    return arr.map(mapping);
+  }
+};
+
+const $date = {
+  now: () => moment().format(),
+  format: (date, format) => moment(date).format(format),
+  add: (date, unit, amount) => moment(date).add(amount, unit).format(),
+  subtract: (date, unit, amount) => moment(date).subtract(amount, unit).format(),
+  parse: (dateStr) => moment(dateStr).format()
+};
+
+const $math = {
+  round: Math.round,
+  sum: (arr) => arr.reduce((a, b) => a + b, 0),
+  avg: (arr) => arr.reduce((a, b) => a + b, 0) / arr.length,
+  min: Math.min,
+  max: Math.max,
+  abs: Math.abs
+};
+
+const handleScriptContentChange = (e) => {
+  if (!e?.target) {
+    setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
+    return;
+  }
+  
+  const newScript = e.target.value || '';
+  setScriptContent(newScript);
+  const newContent = e.target.value || '';
+  setScriptContent(newContent);
+  setScripts(prevScripts => 
+    prevScripts.map(script => 
+      script.id === activeScript.id 
+        ? { ...script, content: newScript, lastModified: new Date() }
+        : script
+    )
+  );
+
+  try {
+    // For single input case
+    if(inputs.length >1 && newScript.trim()==='$'){
+      setActualOutput(
+        "Not valid,access with the help of input name"
+      );
+      return;
+    }
+    if (inputs.length === 1 && newScript.trim() === '$') {
+      setActualOutput(inputContents[inputs[0]]);
+      return;
+    }
+
+    // For multiple inputs case
+    const inputMatch = newScript.match(/^\$(\w+)/);
+    if (inputMatch) {
+      const requestedInput = inputMatch[1];
+      if (inputContents[requestedInput]) {
+        // Just show input content for $inputName
+        if (newScript === `$${requestedInput}`) {
+          setActualOutput(inputContents[requestedInput]);
+          return;
+        }
+        
+        // Get string value for property access like $inputName.property
+        const path = newScript.replace(`$${requestedInput}`, '$');
+        const inputData = JSON.parse(inputContents[requestedInput]);
+        const result = JSONPath({ path, json: inputData });
+        // Convert array result to single value if possible
+        const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
+        setActualOutput(JSON.stringify(finalResult, null, 2));
+        return;
+      }
+    }
+    // Default to active input if no specific input is referenced
+    const activeInput = inputs[selectedInputIndex] || inputs[0];
+    const inputData = inputContents[activeInput];
+    let parsedData = JSON.parse(inputData);
+
+    try {
+      parsedData = JSON.parse(inputData);
+    } catch (error) {
+      setActualOutput(JSON.stringify({
+        error: "Invalid Input",
+        message: "Input data must be valid JSON",
+        input: inputData
+      }, null, 2));
+      return;
+    }
+
+    // Special case: handle bare $ to return full input
+    if (newScript.trim() === '$') {
+      setActualOutput(JSON.stringify(parsedData, null, 2));
+      return;
+    }
+
+    // Helper functions
+    const helpers = {
+      string: {
+        fromCharCode: (...codes) => {
+          const validCodes = codes.map(code => Number(code) || 0);
+          return String.fromCharCode(...validCodes);
+        },
+        camelCase: (str) => {
+          if (str == null) return '';
+          return _.camelCase(String(str));
+        },
+        capitalize: (str) => {
+          if (str == null) return '';
+          return _.capitalize(String(str));
+        },
+        charAt: (str, index) => {
+          if (str == null) return '';
+          return String(str).charAt(Number(index) || 0);
+        },
+        charCodeAt: (str, index) => {
+          if (str == null) return NaN;
+          return String(str).charCodeAt(Number(index) || 0);
+        },
+        concat: (...args) => {
+          return args.filter(arg => arg != null).map(String).join('');
+        },
+        contains: (str, searchString, position = 0) => {
+          if (str == null || searchString == null) return false;
+          return String(str).includes(String(searchString), Number(position));
+        },
+        endsWith: (str, searchString, length) => {
+          if (str == null || searchString == null) return false;
+          return String(str).endsWith(String(searchString), length);
+        },
+        indexOf: (str, searchValue, fromIndex = 0) => {
+          if (str == null || searchValue == null) return -1;
+          return String(str).indexOf(String(searchValue), Number(fromIndex));
+        },
+        kebabCase: (str) => {
+          if (str == null) return '';
+          return _.kebabCase(String(str));
+        },
+        lastIndexOf: (str, searchValue, fromIndex) => {
+          if (str == null || searchValue == null) return -1;
+          return String(str).lastIndexOf(String(searchValue), fromIndex);
+        },
+        length: (str) => {
+          if (str == null) return 0;
+          return String(str).length;
+        },
+        localeCompare: (str, compareString) => {
+          if (str == null || compareString == null) return 0;
+          return String(str).localeCompare(String(compareString));
+        },
+        lowerFirst: (str) => {
+          if (str == null) return '';
+          return _.lowerFirst(String(str));
+        },
+        match: (str, regexp) => {
+          if (str == null || regexp == null) return null;
+          const regex = typeof regexp === 'string' ? new RegExp(regexp) : regexp;
+          return String(str).match(regex);
+        },
+        repeat: (str, count) => {
+          if (str == null) return '';
+          return String(str).repeat(Number(count) || 0);
+        },
+        replace: (str, find, replaceWith) => {
+          if (str == null || find == null) return '';
+          return String(str).replace(find, replaceWith);
+        },
+        replaceAll: (str, find, replaceWith) => {
+          if (str == null || find == null) return '';
+          return String(str).replaceAll(find, replaceWith);
+        },
+        search: (str, regex) => {
+          if (str == null || regex == null) return -1;
+          return String(str).search(regex);
+        },
+        slice: (str, beginIndex, endIndex) => {
+          if (str == null) return '';
+          return String(str).slice(beginIndex, endIndex);
+        },
+        snakeCase: (str) => {
+          if (str == null) return '';
+          return _.snakeCase(String(str));
+        },
+        split: (str, separator, limit) => {
+          if (str == null) return [];
+          return String(str).split(separator, limit);
+        },
+        startsWith: (str, searchString, position = 0) => {
+          if (str == null || searchString == null) return false;
+          return String(str).startsWith(String(searchString), Number(position));
+        },
+        substr: (str, start, length) => {
+          if (str == null) return '';
+          return String(str).substr(start, length);
+        },
+        substring: (str, start, end) => {
+          if (str == null) return '';
+          return String(str).substring(start, end);
+        },
+        toLowerCase: (str) => {
+          if (str == null) return '';
+          return String(str).toLowerCase();
+        },
+        toUpperCase: (str) => {
+          if (str == null) return '';
+          return String(str).toUpperCase();
+        },
+        trim: (str) => {
+          if (str == null) return '';
+          return String(str).trim();
+        },
+        trimLeft: (str) => {
+          if (str == null) return '';
+          return String(str).trimStart();
+        },
+        trimRight: (str) => {
+          if (str == null) return '';
+          return String(str).trimEnd();
+        },
+        upperFirst: (str) => {
+          if (str == null) return '';
+          return _.upperFirst(String(str));
+        }
+      },
+      array: {
+        map: (arr, mapping) => {
+          if (!Array.isArray(arr)) return [];
+          return arr.map(item => {
+            if (typeof mapping === 'object') {
+              const result = {};
+              Object.entries(mapping).forEach(([key, value]) => {
+                if (typeof value === 'string') {
+                  if (value.startsWith('$string.')) {
+                    const [, method] = value.match(/\$string\.(\w+)/);
+                    result[key] = helpers.string[method](item[key]);
+                  } else if (value.includes('===')) {
+                    const [left, right] = value.split('===').map(x => x.trim());
+                    result[key] = item[left] === right.replace(/['"]/g, '');
+                  } else {
+                    result[key] = item[value];
+                  }
+                } else {
+                  result[key] = value;
+                }
+              });
+              return result;
+            }
+            return item[mapping];
+          });
+        },
+        filter: (arr, predicate) => Array.isArray(arr) ? arr.filter(predicate) : [],
+        find: (arr, predicate) => Array.isArray(arr) ? arr.find(predicate) : undefined,
+        length: (arr) => Array.isArray(arr) ? arr.length : 0,
+        join: (arr, separator) => Array.isArray(arr) ? arr.join(separator) : '',
+        slice: (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [],
+        includes: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
+        indexOf: (arr, value) => Array.isArray(arr) ? arr.indexOf(value) : -1,
+        some: (arr, predicate) => Array.isArray(arr) ? arr.some(predicate) : false,
+        every: (arr, predicate) => Array.isArray(arr) ? arr.every(predicate) : false
+      },
+      math: {
+        abs: Math.abs,
+        ceil: Math.ceil,
+        floor: Math.floor,
+        max: Math.max,
+        min: Math.min,
+        pow: Math.pow,
+        round: Math.round,
+        sqrt: Math.sqrt
+      }
+    };
+
+    const evaluateJsonPath = (path, contextData = parsedData) => {
+      if (!path?.startsWith('$.')) {
+        throw new Error("Invalid JSONPath: Must start with '$.'");
+      }
+      try {
+        const result = JSONPath({ 
+          path, 
+          json: contextData,
+          functions: {
+            ...helpers.string,
+            concat: helpers.string.concat,
+            length: helpers.string.length,
+            toLowerCase: helpers.string.toLowerCase,
+            toUpperCase: helpers.string.toUpperCase
+          }
+        });
+        return Array.isArray(result) && result.length === 1 ? result[0] : result;
+      } catch (error) {
+        throw new Error(`JSONPath evaluation failed: ${error.message}`);
+      }
+    };
+
+    const evaluateHelper = (expr) => {
+      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
+      if (!match) return expr;
+
+      const [, helper, method, argsString] = match;
+      if (!helpers[helper]?.[method]) {
+        throw new Error(`Unknown helper method: ${helper}.${method}`);
+      }
+
+      const args = [];
+      let currentArg = '';
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+
+      for (let i = 0; i < argsString.length; i++) {
+        const char = argsString[i];
+
+        if ((char === '"' || char === "'") && argsString[i - 1] !== '\\') {
+          if (!inString) {
+            inString = true;
+            stringChar = char;
+          } else if (char === stringChar) {
+            inString = false;
+          }
+        }
+
+        if (!inString) {
+          if (char === '{' || char === '(' || char === '[') depth++;
+          if (char === '}' || char === ')' || char === ']') depth--;
+        }
+
+        if (char === ',' && depth === 0 && !inString) {
+          args.push(currentArg.trim());
+          currentArg = '';
+          continue;
+        }
+
+        currentArg += char;
+      }
+
+      if (currentArg.trim()) {
+        args.push(currentArg.trim());
+      }
+      const processedArgs = args.map(arg => {
+        arg = arg.trim();
+        if (arg.startsWith('$.')) {
+          return evaluateJsonPath(arg);
+        }
+        if (arg.startsWith('$')) {
+          return evaluateHelper(arg);
+        }
+        if (arg.startsWith('{')) {
+          return parseScript(arg);
+        }
+        if (arg === "' '" || arg === '" "') {
+          return ' ';
+        }
+        if (arg.startsWith("'") || arg.startsWith('"')) {
+          return arg.slice(1, -1);
+        }
+        return arg;
+      });
+
+      return helpers[helper][method](...processedArgs);
+    };
+
+    const parseScript = (script) => {
+      script = script.trim();
+      
+      if (script.startsWith('$')) {
+        if (script.startsWith('$.')) {
+          return evaluateJsonPath(script);
+        }
+        return evaluateHelper(script);
+      }
+      
+      if (!script.startsWith('{')) {
+        return script;
+      }
+
+      const content = script.slice(1, -1).trim();
+      if (!content) return {};
+
+      const result = {};
+      let currentKey = '';
+      let currentValue = '';
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+      let collectingKey = true;
+
+      for (let i = 0; i < content.length; i++) {
+        const char = content[i];
+
+        if ((char === '"' || char === "'") && content[i - 1] !== '\\') {
+          if (!inString) {
+            inString = true;
+            stringChar = char;
+          } else if (char === stringChar) {
+            inString = false;
+          }
+        }
+
+        if (!inString) {
+          if (char === '{' || char === '[' || char === '(') depth++;
+          if (char === '}' || char === ']' || char === ')') depth--;
+        }
+
+        if (char === ':' && depth === 0 && !inString && collectingKey) {
+          collectingKey = false;
+          continue;
+        }
+
+        if (char === ',' && depth === 0 && !inString) {
+          result[currentKey.trim()] = parseScript(currentValue.trim());
+          currentKey = '';
+          currentValue = '';
+          collectingKey = true;
+          continue;
+        }
+
+        if (collectingKey) {
+          currentKey += char;
+        } else {
+          currentValue += char;
+        }
+      }
+
+      if (currentKey) {
+        result[currentKey.trim()] = parseScript(currentValue.trim());
+      }
+
+      return result;
+    };
+
+    // Handle array mapping with arrow functions
+    const handleArrayMapping = (arr, mappingFn) => {
+      if (typeof mappingFn === 'string' && mappingFn.includes('=>')) {
+        const fnMatch = mappingFn.match(/\((.*?)\)\s*=>\s*({[\s\S]*})/);
+        if (fnMatch) {
+          const [, param, body] = fnMatch;
+          return arr.map(item => {
+            const context = { [param.trim()]: item };
+            return parseScript(body, context);
+          });
+        }
+      }
+      return arr.map(item => parseScript(mappingFn, { item }));
+    };
+
+    let result;
+    if (!newScript.trim()) {
+      result = { message: "Enter an expression" };
+    } else {
+      try {
+        result = parseScript(newScript);
+      } catch (error) {
+        throw new Error(`Script parsing failed: ${error.message}`);
+      }
+    }
+
+    setActualOutput(JSON.stringify(result, null, 2));
+
+  } catch (error) {
+    console.error("Transformation Error:", error);
+    setActualOutput(JSON.stringify({
+      error: "Transformation Error",
+      message: error.message || "Unknown error occurred",
+      input: newScript,
+      hint: "Check syntax and ensure all referenced paths exist"
+    }, null, 2));
+  }
+};
+
+
+  useEffect(() => {
+    console.log("Actual output updated:", actualOutput) // Debugging log
+  }, [actualOutput])
+  
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
@@ -261,29 +818,414 @@ const [activeScript, setActiveScript] = useState(null);
     const normalizedExpected = expectedOutput.trim();
     return normalizedActual === normalizedExpected;
   };
+
+  
   useEffect(() => {
     setOutputMatch(compareOutputs());
   }, [actualOutput, expectedOutput]);
 
+  // const [rightWidth, setRightWidth] = useState(() => 
+  //   parseInt(localStorage.getItem('rightWidth')) || 384
+  // );
+  
+  // Add the new functions here
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file && file.name.endsWith('.zip')) {
+      setSelectedFile(file);
+      setShowImportDialog(false);
+    }
+  };
+  
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.name.endsWith('.zip')) {
+      setSelectedFile(file);
+      setShowImportDialog(false);
+    }
+  };
+  
+  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() => 
+    localStorage.getItem('showExportDialog') !== 'false'
+  );
+
+  const handleExport = () => {
+    const blob = new Blob(['Demo content'], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'snaplogic-playground-export.zip');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+  
+  const handleCheckboxChange = () => {
+    setIsChecked(!isChecked);
+    setWasChecked(true);
+    localStorage.setItem('wasChecked', 'true');
+    setShowExportDialog(false);
+};
+
+
+  const getNavLink = (item) => {
+    const links = {
+      blogs: 'https://www.snaplogic.com/blog',
+      docs: 'https://docs.snaplogic.com/',
+      tutorial: 'https://www.youtube.com/snaplogic',
+      playground: '#'
+    };
+    return links[item];
+  };
+
+  const handleNavClick = (item) => {
+    if (item === 'playground') {
+      setCurrentView('playground');
+    }
+    setActiveNavItem(item);
+  };
+  useEffect(() => {
+    setIsBottomExpanded(false);
+    setBottomHeight(32);
+    setActiveTab(null);
+  }, []);
+
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, canvas.height);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.stroke();
+    }
+  }, [scriptContent]);
+
+  // Create active line border element
+  const ActiveLineBorder = () => {
+    const top = 8 + (activeLineIndex * 24); // 24px is line height
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: `${top}px`,
+          left: '48px', // Adjust based on line numbers width
+          right: '0', // Extend all the way to the right
+          height: '24px', // Line height
+          border: '1px solid #e5e7eb',
+          pointerEvents: 'none',
+          zIndex: 5
+        }}
+      />
+    );
+  };
+
+  const executeScript = (script, payload) => {
+    // JSONPath operations
+    if (script.startsWith('$')) {
+        return JSONPath({
+            path: script,
+            json: payload
+        });
+    }
+
+    // Match control operations
+    if (script.startsWith('match')) {
+        return evaluateMatch(script, payload);
+    }
+
+    // Array operations
+    if (script.startsWith('Array.')) {
+        return evaluateArrayOperation(script, payload);
+    }
+
+    // String operations
+    if (script.startsWith('String.')) {
+        return evaluateStringOperation(script, payload);
+    }
+
+    // Date operations
+    if (script.startsWith('Date.')) {
+        return evaluateDateOperation(script, payload);
+    }
+
+    return payload;
+};
+const evaluateJsonPath = (script, data) => {
+  try {
+      switch(true) {
+          case script === '$':
+              return data;
+          case script.includes('[*]'):
+              return data[script.split('[*]')[0].replace('$.', '')];
+          case script.includes('[?(@'):
+              const condition = script.match(/\?\((.*?)\)/)[1];
+              return evaluateFilter(condition, data);
+          default:
+              return data[script.replace('$.', '')];
+      }
+  } catch (error) {
+      console.log('JsonPath Error:', error);
+      return null;
+  }
+};
+
+const evaluateFilter = (condition, data) => {
+  if (!data || !Array.isArray(data)) return null;
+  return data.filter(item => {
+      try {
+          return eval(condition.replace('@.', 'item.'));
+      } catch {
+          return false;
+      }
+  });
+};
+
+// Add these new function implementations
+
+const evaluateStringOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1); // Remove trailing ')'
+  
+  switch(operation) {
+      case 'camelCase':
+          return data.replace(/(?:^\w|[A-Z]|\b\w)/g, (letter, index) => 
+              index === 0 ? letter.toLowerCase() : letter.toUpperCase()
+          ).replace(/\s+/g, '');
+      case 'capitalize':
+          return data.charAt(0).toUpperCase() + data.slice(1);
+      case 'toLowerCase':
+          return data.toLowerCase();
+      case 'toUpperCase':
+          return data.toUpperCase();
+      case 'trim':
+          return data.trim();
+      default:
+          return data;
+  }
+};
+
+const evaluateArrayOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1);
+
+  switch(operation) {
+      case 'filter':
+          return data.filter(eval(`(item) => ${cleanArgs}`));
+      case 'map':
+          return data.map(eval(`(item) => ${cleanArgs}`));
+      case 'sort':
+          return [...data].sort();
+      case 'reverse':
+          return [...data].reverse();
+      case 'join':
+          return data.join(cleanArgs || ',');
+      default:
+          return data;
+  }
+};
+
+const evaluateMatch = (script, data) => {
+  const matchPattern = script.match(/match\s*{([^}]*)}/)[1]
+  const conditions = matchPattern.split("\n").filter((line) => line.trim())
+
+  for (const condition of conditions) {
+    const [pattern, result] = condition.split("=>").map((s) => s.trim())
+    if (pattern === "_") {
+      return eval(result)
+    } else {
+      try {
+        const patternValue = JSONPath({ path: pattern, json: data })
+        if (patternValue && patternValue.length > 0) {
+          return eval(result)
+        }
+      } catch (error) {
+        console.error("Error evaluating pattern:", error)
+      }
+    }
+  }
+  return null
+}
+
+const evaluateDateOperation = (script, data) => {
+  const [operation, ...args] = script.split('(');
+  const cleanArgs = args.join('(').slice(0, -1);
+  const date = new Date(data);
+
+  switch(operation) {
+      case 'getDate':
+          return date.getDate();
+      case 'getMonth':
+          return date.getMonth() + 1;
+      case 'getFullYear':
+          return date.getFullYear();
+      case 'format':
+          return date.toLocaleDateString();
+      default:
+          return data;
+  }
+};
+
+const executeArrayFunction = (data, method, params) => {
+  switch(method) {
+      case 'filter': return data.filter(eval(`(x) => ${params}`));
+      case 'map': return data.map(eval(`(x) => ${params}`));
+      case 'find': return data.find(eval(`(x) => ${params}`));
+      case 'sort': return [...data].sort();
+      case 'reverse': return [...data].reverse();
+      case 'reduce': return data.reduce(eval(`(acc, curr) => ${params}`));
+      default: return data;
+  }
+};
+
+
+const executeStringFunction = (data, method, params) => {
+  switch(method) {
+      case 'camelCase': return data.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+      case 'capitalize': return data.charAt(0).toUpperCase() + data.slice(1);
+      case 'toLowerCase': return data.toLowerCase();
+      case 'toUpperCase': return data.toUpperCase();
+      case 'split': return data.split(eval(params));
+      case 'replace': return data.replace(...eval(`[${params}]`));
+      default: return data;
+  }
+};
+
+const executeDateFunction = (method, params) => {
+  const date = params ? new Date(eval(params)) : new Date();
+  switch(method) {
+      case 'now': return new Date();
+      case 'plusDays': return new Date(date.setDate(date.getDate() + Number(params)));
+      case 'minusDays': return new Date(date.setDate(date.getDate() - Number(params)));
+      case 'format': return date.toLocaleString();
+      default: return date;
+  }
+};
+
+const executeMathFunction = (method, params) => {
+  switch(method) {
+      case 'abs': return Math.abs(Number(params));
+      case 'round': return Math.round(Number(params));
+      case 'ceil': return Math.ceil(Number(params));
+      case 'floor': return Math.floor(Number(params));
+      case 'random': return Math.random();
+      default: return Number(params);
+  }
+};
+
+const executeObjectFunction = (data, method, params) => {
+  switch(method) {
+      case 'keys': return Object.keys(data);
+      case 'values': return Object.values(data);
+      case 'entries': return Object.entries(data);
+      case 'get': return _.get(data, params.replace(/['"]/g, ''));
+      default: return data;
+  }
+};
+
+const executeMatchPattern = (data, pattern) => {
+  const matchPattern = pattern.match(/match\s*{([^}]*)}/)[1];
+  const conditions = matchPattern.split('\n').filter(line => line.trim());
+  
+  for (const condition of conditions) {
+      const [pattern, result] = condition.split('=>').map(s => s.trim());
+      if (eval(`(x) => ${pattern}`)(data)) {
+          return eval(result);
+      }
+  }
+  return null;
+};
+
+const getLineCount = (content) => {
+  if (!content) return 1;
+  return content.split('\n').length;
+};
+
+// Add these responsive width calculations
+const getResponsiveWidths = () => {
+  const screenWidth = window.innerWidth;
+  
+  if (screenWidth >= 1024) { // Laptop
+    return {
+      leftWidth: Math.floor(screenWidth * 0.25),
+      middleWidth: Math.floor(screenWidth * 0.45),
+      rightWidth: Math.floor(screenWidth * 0.30)
+    };
+  } else if (screenWidth >= 768) { // Tablet
+    return {
+      leftWidth: Math.floor(screenWidth * 0.30),
+      middleWidth: Math.floor(screenWidth * 0.40),
+      rightWidth: Math.floor(screenWidth * 0.30)
+    };
+  }
+  return { leftWidth, middleWidth, rightWidth }; // Default widths
+};
+
+// Add resize listener
+useEffect(() => {
+  const handleResize = () => {
+    const { leftWidth: newLeft, middleWidth: newMiddle, rightWidth: newRight } = getResponsiveWidths();
+    setLeftWidth(newLeft);
+    setMiddleWidth(newMiddle);
+    setRightWidth(newRight);
+  };
+
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
+// Add responsive styles
+const responsiveStyles = {
+  mainContainer: {
+    minWidth: '768px',
+    maxWidth: '100vw',
+    overflow: 'auto'
+  },
+  panels: {
+    minWidth: '250px'
+  }
+  
+};
+const useMediaQuery = (query) => {
+  const [matches, setMatches] = useState(window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [query]);
+
+  return matches;
+};
+
+// In your component
+const isTablet = useMediaQuery('(max-width: 1024px)');
+
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
       {showToast && (
-        <div className="bg-[#00A0DF] text-[#00044C] py-2 text-[12px] relative">
-          <div className="text-center px-12 font-bold tracking-[0.09em]">
-            EXPERIENCE INNOVATION, UNLEASHED. WATCH THE HIGHLIGHTS FROM CONNECT '22
+        <div className="bg-[#E9EEF4] text-[#00044C] py-2 text-[12px] relative">
+          <div className="text-center px-12 font-bold font-['Manrope'] text-[1rem] tracking-[0.09em]">
+           
+            Discover the Future of Integration. Explore SnapLogic Playground Highlights
           </div>
           <button
             onClick={() => setShowToast(false)}
-            className="absolute right-4 top-0 h-full bg-[#00A0DF] text-[#00044C] border-none outline-none focus:outline-none font-bold text-[18px] flex items-center justify-center font-bold"
+            className="absolute right-4 top-0 h-full bg-[#E9EEF4] text-[#00044C] border-none outline-none focus:outline-none font-bold text-[18px] flex items-center justify-center font-bold"
           >
             ×
           </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between px-6 py-3 border-b">
+      <div className="flex items-center justify-between px-6 py-2 border-b">
         <div className="flex items-center space-x-3">
-          <svg
+          {/* <svg
             viewBox="0 0 100 100"
             className="w-8 h-8"
             fill="none"
@@ -299,21 +1241,62 @@ const [activeScript, setActiveScript] = useState(null);
           </svg>
           <div className="text-[21px] font-bold text-[#444444] font-['OpenSans']">
             SnapLogic 
-          </div>
+          </div> */}
+           <img
+  src="/sl-logo.svg"
+  alt="SnapLogic Logo"
+  className=" object-contain"
+  style={{
+    width: isTablet ? '22px' : '32px',
+    height: isTablet ? '22px' : '32px'
+  }}
+/>
+<img
+  src="/LogoN.svg"
+  alt="SnapLogic"
+  className=" object-contain"
+  style={{
+    height: isTablet ? '20px' : '32px'
+  }}
+/>
         </div>
         <div className="flex items-center">
-          <button 
-            onClick={() => setShowExportDialog(true)} 
-            className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
-          >
-            <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-normal">Export</span>
-          </button>
+        <button 
+  onClick={() => {
+    // Always download the file
+    const blob = new Blob(['Demo content'], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'snaplogic-playground-export.zip');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    // Show dialog if not checked in current session
+    if (!wasChecked) {
+      setShowExportDialog(true);
+    }
+  }}
+  className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
+>
+<img
+  src="/cloud-upload-Hover.svg"
+  alt="SnapLogic Logo"
+ className="mr-2 text-gray-700 group-hover:text-blue-500 text-gray-500 h-4 w-4"
+/>
+  {/* <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
+  <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope'] font-normal">Export</span>
+</button>
+
+
+
 
           {showExportDialog && (
             <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
               <div className="bg-white h-[19rem] w-205" style={{ borderRadius: 0 }}>
-                <div className="p-6">
+                <div className="p-6 font-['Manrope']">
                   <h2 className="text-[1.9rem] font-bold mt-[1rem] mb-[2rem] text-gray-700">Open in Visual Studio Code</h2>
                   <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[1.8rem]"></div>
                   <p className="text-sm mb-3">
@@ -323,19 +1306,27 @@ const [activeScript, setActiveScript] = useState(null);
                     Don't forget to install the <span className="text-blue-500">DataWeave Playground</span> extension
                   </p>
                   <div className="flex justify-between items-center">
-                    <label className="flex items-center text-sm cursor-pointer select-none" onClick={() => setIsChecked(!isChecked)}>
-                      <div className="w-5 h-5 mr-2 border border-gray-300 flex items-center justify-center bg-white hover:border-gray-400 cursor-pointer" style={{ borderRadius: 0 }}>
-                        {isChecked && (
-                          <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      Don't show popup again
-                    </label>
+                  <label 
+  className="flex items-center text-sm cursor-pointer select-none" 
+  onClick={() => {
+    setIsChecked(!isChecked);
+    setWasChecked(true);
+    // setShowExportDialog(false);
+  }}
+>
+  <div className="w-5 h-5 mr-2 border border-gray-300 flex items-center justify-center bg-white hover:border-gray-400 cursor-pointer" style={{ borderRadius: 0 }}>
+    {isChecked && (
+      <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+    )}
+  </div>
+  Don't show popup again
+</label>
+
                     <button 
                       onClick={() => setShowExportDialog(false)}
-                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
+                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
                       style={{ borderRadius: 0 }}
                     >
                       Cancel
@@ -346,130 +1337,151 @@ const [activeScript, setActiveScript] = useState(null);
             </div>
           )}
                     <button 
-            onClick={() => setShowImportDialog(true)} 
-            className="flex items-center px-4 py-2 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
+            onClick={() => {setShowImportDialog(true);
+              setSelectedFile(null); 
+                } }
+            className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
-            <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" />
-            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-normal">Import</span>
+            <img
+  src="/cloud-download-Hover.svg"
+  alt="SnapLogic Logo"
+ className="mr-2 group-hover:text-blue-500 text-gray-500 h-4 w-4"
+/>
+            {/* <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
+            <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
 
           {showImportDialog && (
-            <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-              <div className="bg-white h-[28.5rem] w-[31rem]" style={{ borderRadius: 0 }}>
-                <div className="p-8 pt-10 flex flex-col h-full">
-                  <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
-                  <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
-                  <div className="mt-6 flex-1">
-                    <div className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-sm text-center mt-2 text-gray-500">Drop project zip here or click to upload</p>
-                    </div>
-                    <div className="mt-4 w-[28rem] mx-auto mb-[2.2rem]">
-                      <p className="text-[#FF0000] text-sm">Upload functionality is only intended for playground exported projects</p>
-                      <p className="text-[#FF0000] text-sm mt-1 ml-[3.5rem]">Importing modified files may yield an invalid project.</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button 
-                      onClick={() => setShowImportDialog(false)}
-                      className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200"
-                      style={{ borderRadius: 0 }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+  <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+    <div className="bg-white h-[28.5rem] w-[31rem]" style={{ borderRadius: 0 }}>
+      <div className="p-8 pt-10 flex flex-col h-full">
+        <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
+        <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
+        <div className="mt-6 flex-1 font-['Manrope']">
+          <div 
+            className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400"
+            onClick={() => document.getElementById('fileInput').click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleFileDrop}
+          >
+            <input
+              id="fileInput"
+              type="file"
+              accept=".zip"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-sm text-center mt-2 text-gray-500">
+              {selectedFile ? selectedFile.name : "Drop project zip here or click to upload"}
+            </p>
+          </div>
+          <div className="mt-4 w-[28rem] mx-auto mb-[2.2rem]">
+            <p className="text-[#FF0000] text-sm">Upload functionality is only intended for playground exported projects</p>
+            <p className="text-[#FF0000] text-sm mt-1 ml-[3.5rem]">Importing modified files may yield an invalid project.</p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button 
+            onClick={() => setShowImportDialog(false)}
+            className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
+            style={{ borderRadius: 0 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
 
-          <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative flex items-center">
-            <a 
-              href="https://www.snaplogic.com/blog" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'blogs' ? 'border-b-2 border-blue-500' : ''}`}
-              onClick={() => setActiveNavItem('blogs')}
-            >
-              BLOGS
-            </a>
-            <a 
-              href="https://docs.snaplogic.com/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={`text-black hover:text-blue-500 px-2 ${activeNavItem === 'docs' ? 'border-b-2 border-blue-500' : ''}`}
-              onClick={() => setActiveNavItem('docs')}
-            >
-              DOCS
-            </a>
-            <a 
-              href="https://www.youtube.com/snaplogic" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className={`text-black hover:text-blue-500 pb-0 relative ${activeNavItem === 'tutorial' ? 'border-b-2 border-blue-500 -mb-[2px]' : ''}`}
-              onClick={() => setActiveNavItem('tutorial')}
-            >
-              TUTORIAL
-            </a>
-            <a 
-              onClick={() => {
-                setCurrentView('playground');
-                setActiveNavItem('playground');
-              }} 
-              className={`text-black hover:text-blue-500 cursor-pointer px-2 ${activeNavItem === 'playground' ? 'border-b-2  border-blue-500' : ''}`}
-            >
-              PLAYGROUND
-            </a>
-          </div>
+          <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
+      {['blogs', 'docs', 'tutorial', 'playground'].map(item => (
+        <a 
+          key={item}
+          href={getNavLink(item)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-black hover:text-blue-500 px-2 py-2 relative ${
+            activeNavItem === item 
+              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
+              : ''
+          }`}
+          onClick={() => handleNavClick(item)}
+        >
+          {item.toUpperCase()}
+        </a>
+      ))}
+    </div>
         </div>
       </div>
+{/* main content */}
 
-      <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]">
-        <div style={resizableStyles(leftWidth,'left')} className="flex-shrink-0 border-r flex flex-col relative h-full ">
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]" style={responsiveStyles.mainContainer}>
+        <div style={{...resizableStyles(leftWidth,'left'),...responsiveStyles.panels}} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
           {isPayloadView ? (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full overflow-auto"
+            style={{...scrollbarStyle}}>
               <div className="border-b">
-  <div className="flex justify-center items-center h-[30px] px-2">
-    <div className="flex items-center gap-1">
-      <button onClick={handleBackClick} className="text-gray-600 border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none">
-        <ChevronLeft className="h-4 w-4" />
+  <div className="flex justify-center items-center h-[30px] px-2 min-w-[200px]">
+    <div className="flex items-center gap-1 ">
+      <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none flex-shrink-0">
+        {/* <ChevronLeft className="h-4 w-4" /> */}
+        <img
+  src="/toolbarExpand-Active.svg"
+  alt="SnapLogic Logo"
+  className="w-3 h-3 flex-shrink-0 "
+/>
       </button>
-      <span className="font-bold text-gray-600 text-xs mr-4">PAYLOAD</span>
+      
+      <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
     <FormatDropdown />
   </div>
 </div>
-<div className="flex flex-1">
+<div className="flex flex-1  ">
   <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
-    {Array.from({ length: Math.max(2, payloadContent.split('\n').length) }, (_, i) => (
-      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">{i + 1}</div>
+  {Array.from({ length: payloadContent.split('\n').length }, (_, i) => (
+      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">
+        {i + 1}
+      </div>
     ))}
   </div>
+  
   <textarea
     value={payloadContent}
     onChange={(e) => setPayloadContent(e.target.value)}
-    className="flex-1 p-2 font-mono text-sm resize-none outline-none leading-6"
+    className="flex-1 p-2 font-mono text-sm resize-none outline-none bg-white leading-6"
     spellCheck="false"
-    style={{ lineHeight: '1.5rem' }}
+    style={{ lineHeight: '1.5rem' ,
+      ...scrollbarStyle
+    }}
   />
 </div>
             </div>
           ) : (
             <>
-            <div className="h-1/2 border-b">
+            <div className="h-1/2 border-b overflow-auto" style={responsiveStyles.panels}>
             <div className="border-b">
-  <div className="flex justify-between items-center h-[30px] px-4">
-    <span className="font-bold text-gray-600 text-xs">INPUT EXPLORER</span>
+  <div className="flex justify-between items-center h-[30px]  px-4">
+    <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
     <button 
       onClick={() => setShowInputContainer(true)} 
       className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
-      +
+      {/* + */}
+      <img
+  src="/add-Hover.svg"
+  alt="SnapLogic Logo"
+ className="text-gray-500 h-3 w-3"
+/>
+
     </button>
   </div>
 </div>
@@ -482,7 +1494,7 @@ const [activeScript, setActiveScript] = useState(null);
    <div className="fixed inset-0 bg-black/75 z-40" />
    <div className="fixed inset-0 z-50 flex items-center justify-center">
    <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md">
-      <div className="mb-3">
+      <div className="mb-3 font-['Manrope']">
         <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
           Create new input
         </h2>
@@ -500,7 +1512,7 @@ const [activeScript, setActiveScript] = useState(null);
         <input
   value={newInput}
   onChange={handleInputChange}
-  className="w-full text-[15px] ml-1 h-11 px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  className="w-full text-[15px] ml-1 h-11 px-3  outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
   style={{
     borderTop: "0",
     borderBottom: "0",
@@ -540,29 +1552,34 @@ const [activeScript, setActiveScript] = useState(null);
   </div>
   </>
 )}
-              <div className="p-4">
+              <div className="w-full  pt-2">
   {inputs.map((input, index) => (
     <div
       key={index}
-      className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 p-1"
+      className="flex items-center  text-sm text-gray-600 cursor-pointer p-1 w-full  hover:bg-gray-100 p-1 hover:rounded-r-full"
       onClick={() => handleInputClick(input, index)}
     >
-      <span className="text-blue-500">json</span>
+      <span className="text-blue-500 px-4">json</span>
       <span>{input}</span>
     </div>
   ))}
 </div>
               </div>
-              <div className="h-1/2">
+              <div className="h-1/2 overflow-auto" style={responsiveStyles.panels}>
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
-    <span className="font-bold text-gray-600 text-xs">SCRIPT EXPLORER</span>
+    <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
     <button 
       onClick={() => setShowScriptContainer(true)} 
       className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
-      +
+      {/* + */}
+      <img
+  src="/add-Hover.svg"
+  alt="SnapLogic Logo"
+ className="text-gray-500 h-3 w-3"
+/>
     </button>
   </div>
 </div>
@@ -571,7 +1588,7 @@ const [activeScript, setActiveScript] = useState(null);
    <div className="fixed inset-0 bg-black/75 z-40" />
    <div className="fixed inset-0 z-50 flex items-center justify-center">
     <div className="w-[31.5rem] h-[19rem] bg-gray-100 p-6 shadow-md ">
-      <div className="mb-3">
+      <div className="mb-3 font-['Manrope']">
         <h2 className="text-[31px] font-bold text-[#444444] mb-7 ml-2 mt-4">
           Create new script
         </h2>
@@ -589,7 +1606,7 @@ const [activeScript, setActiveScript] = useState(null);
   <input
   value={newScript}
   onChange={handleScriptChange}
-  className="w-full ml-1 h-11 text-[15px] px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
+  className="w-full ml-1 h-11 text-[14px] px-3 text-lg outline-none bg-gray-200 border-t-0 border-b-0 border-l-gray-300 border-l-[3px] mt-1 border-r-gray-300 border-r-[3px] hover:bg-gray-100 hover:border-t-0 hover:border-b-0 hover:border-l-gray-400 hover:border-r-gray-400 focus:bg-gray-100 focus:border-t-0 focus:border-b-0 focus:border-l-gray-600 focus:border-r-gray-600"
   style={{
     borderTop: "0",
     borderBottom: "0",
@@ -628,17 +1645,23 @@ const [activeScript, setActiveScript] = useState(null);
   </div>
   </>
 )}
-                <div className="p-4">
-  {scripts.map((script) => (
-    <div
-      key={script.id}
-      className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 p-1"
-      onClick={() => handleScriptSelect(script)}
-    >
-      {/* <span className="text-blue-500"></span> */}
-      <span>{script.name}</span>
-    </div>
-  ))}
+                <div className="w-full  pt-2 ">
+                {scripts.map((script) => (
+  <div
+  key={script.id}
+  className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer w-full group ${
+    activeScript?.id === script.id
+      ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 after:rounded-r-full group-hover:rounded-r-full after:group-hover:rounded-r-full hover:bg-gray-200'
+      : 'hover:bg-gray-200 hover:rounded-r-full'
+  }`}
+  onClick={() => handleScriptSelect(script)}
+>
+  <span className="px-4">{script.name}</span>
+</div>
+
+
+))}
+
 </div>
               </div>
             </>
@@ -658,40 +1681,85 @@ const [activeScript, setActiveScript] = useState(null);
           </div>
         </div>
                 {/* Middle Panel */}
-                <div style={resizableStyles(middleWidth,'middle')} className="flex-1 border-r  flex flex-col relative">
+                <div style={{...resizableStyles(middleWidth,'middle'), ...responsiveStyles.panels}} className="flex-1 border-r  flex flex-col relative">
           <div className="border-b">
             <div className="flex items-center justify-between min-h-[30px] px-4">
-              <span className="font-bold text-gray-600 text-xs">SCRIPT</span>
+              <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT</span>
               <div className="flex items-center">
                 {outputMatch ? (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                    <span className="text-green-500 text-[12px]">SUCCESS</span>
+                    <span className="text-gray-500  font-['Manrope'] text-[12px]">SUCCESS</span>
                   </div>
                 ) : (
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                    <span className="text-red-500 text-xs">FAILURE</span>
+                    <span className="text-gray-500 font-['Manrope'] text-xs">FAILURE</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div className="p-2 flex flex-1 font-mono text-sm h-full">
-  <div className="w-12 text-right pr-4 select-none ">
-    {scriptContent.split('\n').map((_, i) => (
-      <div key={i} className="text-blue-400 h-6 leading-6">
-        {i + 1}
-      </div>
-    ))}
+          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
+  <div className="w-12 text-right pr-4 select-none flex-shrink-0">
+  {Array.from({ length: getLineCount(scriptContent) }, (_, i) => (
+    <div key={i} className="text-blue-400 h-6 leading-6">
+      {i + 1}
+    </div>
+  ))}
   </div>
+  <ActiveLineBorder />
   <textarea
     value={scriptContent}
     onChange={handleScriptContentChange}
-    className="flex-1 outline-none resize-none  overflow-auto leading-6 "
-    style={{ lineHeight: '1.5rem' }}
+    onKeyUp={(e) => {
+      const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
+      setActiveLineIndex(lines.length - 1);
+    }}
+    onClick={(e) => {
+      const lines = e.target.value.substr(0, e.target.selectionStart).split('\n');
+      setActiveLineIndex(lines.length - 1);
+    }}
+    className={`flex-1 outline-none bg-white resize-none overflow-auto leading-6 relative w-full pr-0`}
+    style={{
+      lineHeight: '1.5rem',
+      ...scrollbarStyle
+      // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
+    }}
   />
+ <canvas
+          ref={canvasRef}
+          className="decorationsOverviewRuler"
+          aria-hidden="true"
+          width="14"
+          height={scriptContent.split('\n').length * 24}
+          style={{
+            position: 'absolute',
+            willChange: 'transform',
+            top: '8px',
+            right: 0,
+            width: '14px',
+            height: 'calc(100% - 8px)',
+            zIndex: 10
+          }}
+        />
+
+        {/* Active Line Indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: `${8 + (activeLineIndex * 24)}px`,
+            width: '14px',
+            height: '2px',
+            backgroundColor: '#1e1e1e',
+            zIndex: 11
+          }}
+        />
+
 </div>
+
+
         </div>
 
         {/* Right Resize Handle */}
@@ -707,53 +1775,64 @@ const [activeScript, setActiveScript] = useState(null);
           </div>
         </div>
                 {/* Right Panel */}
-                <div style={resizableStyles(rightWidth,'right')} className="flex-shrink-0  flex flex-col h-full relative">
+                <div style={{...resizableStyles(rightWidth,'right'), ...responsiveStyles.panels}} className="flex-shrink-0  flex flex-col h-full relative overflow-hidden">
           {/* Actual Output Section */}
           <div className="h-1/2 border-b overflow-hidden">
             <div className="border-b">
               <div className="flex justify-between items-center h-[30px] px-4">
-                <span className="font-bold text-gray-600 text-xs">ACTUAL OUTPUT</span>
+                <span className="font-bold text-gray-600 font-['Manrope'] text-xs">ACTUAL OUTPUT</span>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
+                    
                   </div>
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm">
-              <div className="flex">
-                {renderLineNumbers(actualLines)}
-                <pre 
-                  className="text-red-500 text-sm"
-                  onChange={handleActualOutputChange}
-                >
-                  {actualLines.map((line, index) => (
-                    <div key={index} className="h-6">{line}</div>
-                  ))}
-                </pre>
-              </div>
-            </div>
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
+            style={scrollbarStyle}>
+    <div className="flex">
+        {renderLineNumbers(actualLines)}
+        
+        <textarea
+            value={actualOutput}
+            readOnly={true}
+            spellCheck="false"
+            className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm cursor-text "
+            style={{
+            
+                ...textAreaStyles,
+                WebkitUserModify: 'read-only',
+                userModify: 'read-only',
+                height: 'auto',
+                minHeight: '100%'
+            }}
+        />
+    </div>
+</div>
+
           </div>
           {/* Expected Output Section */}
           <div className="h-1/2">
             <div className="border-b">
               <div className="flex justify-between items-center h-[30px] px-4">
-                <span className="font-bold text-gray-600 text-xs">EXPECTED OUTPUT</span>
+                <span className="font-bold text-gray-600 font-['Manrope'] text-xs">EXPECTED OUTPUT</span>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
+            style={scrollbarStyle}>
               <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
                   onChange={handleExpectedOutputChange}
-                  className="flex-1 bg-transparent outline-none resize-none overflow-hidden text-red-500 font-mono text-sm"
-                  style={textAreaStyles}
+                  className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm"
+                  style={{textAreaStyles}}
                 />
               </div>
             </div>
@@ -763,53 +1842,103 @@ const [activeScript, setActiveScript] = useState(null);
 
 {/* Bottom Bar */}
 <div 
-  className="border-t relative flex flex-col"
+  className="border-t relative flex flex-col   "
   style={{
-    height: isBottomExpanded ? `${bottomHeight}px` : '32px',
-    transition: 'height 0.2s ease-in-out'
+    height: `${bottomHeight}px`,
+    transition: isDragging ? 'none' : 'height 0.2s ease-in-out',
+    ...responsiveStyles.panels
   }}
 >
-  <div className="flex items-center justify-between h-8 bg-white relative">
-    <div className="flex space-x-4 pl-2 z-10">
-      <button 
-        onClick={() => {
-          if (!isBottomExpanded || activeTab !== 'log') {
-            setIsBottomExpanded(true);
-            setActiveTab('log');
-          } else {
-            setIsBottomExpanded(false);
-          }
-        }} 
-        className={`text-[11px] ${activeTab === 'log' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none`}
-      >
-        <Terminal className="h-3 w-3" />
-        <span className='ml-2'>LOG VIEWER</span>
-      </button>
-      <button 
-        onClick={() => {
-          if (!isBottomExpanded || activeTab !== 'api') {
-            setIsBottomExpanded(true);
-            setActiveTab('api');
-          } else {
-            setIsBottomExpanded(false);
-          }
-        }} 
-        className={`text-[11px] ${activeTab === 'api' ? 'text-gray-500' : 'text-gray-500'} hover:bg-gray-100 bg-white cursor-pointer flex items-center px-2 py-1 rounded focus:outline-none border-none h-6`}
-      >
-        <Book className="h-3 w-3" />
-        <span className='ml-2'>API REFERENCE</span>
-      </button>
-    </div>
-    <span className="text-sm text-gray-300 absolute left-[calc(50%+50px)] flex items-center h-full z-10">
-      ©2023 Snaplogic LLC, a Salesforce company
+
+<div
+  className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
+  onMouseDown={(e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const startY = e.clientY;
+    const startHeight = bottomHeight;
+
+    const handleMouseMove = (e) => {
+      const deltaY = startY - e.clientY;
+      const newHeight = startHeight + deltaY;
+      // Set maximum height to 250px to prevent collision with input explorer
+      setBottomHeight(Math.max(32, Math.min(250, newHeight)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }}
+>
+  <div className="w-full h-[1.5px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
+</div>
+
+
+  <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
+  <div className="flex space-x-4 pl-2 pr-8 z-10">
+  <TooltipProvider delayDuration={50}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => {
+            if (!isBottomExpanded || activeTab !== 'log') {
+              setIsBottomExpanded(true);
+              setActiveTab('log');
+              setBottomHeight(300);
+            } else {
+              setIsBottomExpanded(false);
+              setBottomHeight(32);
+            }
+          }}
+          className="text-[11px] h-7 px-2 bg-white flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+        >
+          <Terminal className="h-3 w-3" />
+          <span className='ml-2 text-gray-600 tracking-[0.03em]'>LOG VIEWER</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
+    </Tooltip>
+
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => {
+            if (!isBottomExpanded || activeTab !== 'api') {
+              setIsBottomExpanded(true);
+              setActiveTab('api');
+              setBottomHeight(300);
+            } else {
+              setIsBottomExpanded(false);
+              setBottomHeight(32);
+            }
+          }}
+          className="text-[11px] h-7 px-2 bg-white flex items-center hover:bg-gray-100 cursor-pointer outline-none focus:outline-none focus:ring-0 rounded-none border-none"
+        >
+          <Book className="h-3 w-3" />
+          <span className="ml-2 font-['Manrope'] text-gray-600 tracking-[0.03em]">API REFERENCE</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
+    </Tooltip>
+  </TooltipProvider>
+</div>
+
+
+
+
+
+
+    <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(45%+0px)] tracking-[0.03em] flex items-center h-full z-10">
+      {/* ©2023 Snaplogic LLC, a Salesforce company */}
+      SnapLogic Playground – Redefining Integration.
     </span>
     {/* Resize Handle */}
-    <div
-      className="absolute left-0 right-0 top-0 h-8 cursor-ns-resize"
-      onMouseDown={(e) => handleMouseDown(e, false, true)}
-    >
-      <div className="w-full h-[2px] mx-auto hover:bg-blue-500" />
-    </div>
+    
   </div>
           {/* Content */}
           {isBottomExpanded && (
@@ -818,12 +1947,12 @@ const [activeScript, setActiveScript] = useState(null);
               <div className="flex flex-col justify-center items-center h-full">
                 {activeTab === 'log' && (
                   <>
-                    <h2 className="text-xl font-bold text-black mb-4">No Logs Available</h2>
-                    <p className="text-sm">
-                      learn more about the
-                      <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none">jsonPath</span>
+                    <h2 className="text-xl font-bold text-black mb-4 font-['Manrope'] ">No Logs Available</h2>
+                    <p className="text-sm font-['Manrope'] tracking-[0.04em]">
+                      Learn more about the
+                      <span className="mx-1 bg-gray-100 px-2 py-1 rounded-none font-['Manrope'] tracking-[0.04em]">jsonPath</span>
                       function in the
-                      <span className="text-sky-500">  API Reference</span>
+                      <span className="text-sky-500 font-['Manrope'] tracking-[0.04em]">  API Reference</span>
                     </p>
                   </>
                 )}
@@ -831,9 +1960,10 @@ const [activeScript, setActiveScript] = useState(null);
                 {activeTab === 'api' && (
                   <div className="w-full h-full flex">
                     {/* Left Navigation */}
-                    <div className="w-64 border-r overflow-y-auto">
+                    <div className="w-64 border-r overflow-y-auto"
+                    style={{...scrollbarStyle, ...responsiveStyles.panels}}>
                       <nav className="p-4">
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 font-['Manrope']">
                           <li className="font-semibold text-sm">Getting Started</li>
                           <li className="text-blue-500 text-sm cursor-pointer pl-4">Understanding Expressions</li>
                           <li className="text-gray-600 text-sm cursor-pointer pl-4">Expression Types</li>
@@ -848,8 +1978,9 @@ const [activeScript, setActiveScript] = useState(null);
                     </div>
 
                     {/* Right Content */}
-                    <div className="flex-1 overflow-y-auto">
-                      <div className="p-6">
+                    <div className="flex-1 overflow-y-auto"
+                    style={scrollbarStyle}>
+                      <div className="p-6 font-['Manrope']">
                         <h1 className="text-2xl font-bold mb-6">Understanding Expressions</h1>
                         <div className="space-y-6">
                           <section>

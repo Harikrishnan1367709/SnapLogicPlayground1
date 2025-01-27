@@ -3,137 +3,195 @@ import moment from 'moment';
 import _ from 'lodash';
 
 class SnapLogicFunctionsHandler {
-  evaluateJsonPath(path, data) {
-    return JSONPath({ path, json: data });
-  }
+  constructor() {
+    this.stringFunctions = {
+      concat: (...args) => args.join(''),
+      toUpper: (str) => str.toUpperCase(),
+      toLower: (str) => str.toLowerCase(),
+      substring: (str, start, end) => str.substring(start, end),
+      trim: (str) => str.trim(),
+      replace: (str, search, replace) => str.replace(search, replace),
+      split: (str, separator) => str.split(separator),
+      length: (str) => str.length
+    };
 
-  evaluateMatch(expression, data) {
-    const matchPattern = expression.match(/match\s*{([^}]*)}/)[1];
-    const cases = matchPattern.split('\n')
-      .map(line => line.trim())
-      .filter(line => line);
-
-    for (const caseStr of cases) {
-      const [pattern, result] = caseStr.split('=>').map(s => s.trim());
-      if (pattern === '_') {
-        return this.evaluateExpression(result, data);
-      }
-      
-      try {
-        const matches = this.evaluateJsonPath(pattern, data);
-        if (matches && matches.length > 0) {
-          return this.evaluateExpression(result, { ...data, $match: matches });
+    this.arrayFunctions = {
+      length: (arr) => arr.length,
+      distinct: (arr) => Array.from(new Set(arr)),
+      join: (arr, separator) => arr.join(separator),
+      first: (arr) => arr[0],
+      last: (arr) => arr[arr.length - 1],
+      map: (arr, mapping) => {
+        if (!Array.isArray(arr)) return [];
+        
+        // Handle simple string mapping
+        if (typeof mapping === 'string') {
+          return arr.map(item => item[mapping]);
         }
-      } catch (error) {
-        console.error("Match pattern evaluation error:", error);
-      }
-    }
-    return null;
-  }
-
-  evaluatePipeline(expression, data) {
-    return expression.split('|')
-      .map(exp => exp.trim())
-      .reduce((acc, exp) => {
-        if (exp.startsWith('$')) {
-          return this.evaluateJsonPath(exp, acc);
+        
+        // Handle string operations in function mapping
+        if (typeof mapping === 'string' && mapping.includes('$string.')) {
+          return arr.map(item => {
+            const [, method] = mapping.match(/\$string\.(\w+)/);
+            return this.stringFunctions[method](item);
+          });
         }
-        return this.evaluateFunction(exp, acc);
-      }, data);
+        
+        // Handle arrow function with string operations
+        if (mapping.toString().includes('$string.')) {
+          return arr.map(item => {
+            const methodMatch = mapping.toString().match(/\$string\.(\w+)/);
+            if (methodMatch) {
+              const [, method] = methodMatch;
+              return this.stringFunctions[method.toLowerCase()](item);
+            }
+            return item;
+          });
+        }
+        
+        // Handle object mapping
+        if (typeof mapping === 'object') {
+          return arr.map(item => {
+            const result = {};
+            Object.entries(mapping).forEach(([key, value]) => {
+              if (typeof value === 'string') {
+                if (value.startsWith('$string.')) {
+                  const [, method] = value.match(/\$string\.(\w+)/);
+                  result[key] = this.stringFunctions[method](item[key]);
+                } else {
+                  result[key] = item[value];
+                }
+              } else {
+                result[key] = value;
+              }
+            });
+            return result;
+          });
+        }
+        
+        return arr;
+      },
+      filter: (arr, predicate) => {
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(item => {
+          if (typeof predicate === 'function') {
+            return predicate(item);
+          }
+          if (typeof predicate === 'string') {
+            return !!item[predicate];
+          }
+          return false;
+        });
+      }
+    };
+
+    this.dateFunctions = {
+      now: () => moment().format(),
+      format: (date, format) => moment(date).format(format),
+      add: (date, amount, unit) => moment(date).add(amount, unit).format(),
+      subtract: (date, amount, unit) => moment(date).subtract(amount, unit).format(),
+      diff: (date1, date2, unit) => moment(date1).diff(moment(date2), unit)
+    };
+
+    this.mathFunctions = {
+      round: Math.round,
+      ceil: Math.ceil,
+      floor: Math.floor,
+      abs: Math.abs,
+      max: Math.max,
+      min: Math.min,
+      pow: Math.pow,
+      sqrt: Math.sqrt
+    };
   }
 
-  evaluateFunction(funcExpression, data) {
-    const [funcName, ...args] = funcExpression
-      .match(/(\w+)\((.*)\)/)?.[0]
-      .slice(0, -1)
-      .split('(');
+  executeScript(script, data) {
+    if (!script) return null;
 
-    const evaluatedArgs = args.map(arg => 
-      arg.startsWith('$') 
-        ? this.evaluateJsonPath(arg, data)
-        : arg
-    );
+    try {
+      if (script === '$') {
+        return data;
+      }
 
-    switch (funcName) {
-      // Array Functions
-      case 'map':
-        return Array.isArray(data) ? data.map(item => this.evaluateExpression(args[0], item)) : data;
-      case 'filter':
-        return Array.isArray(data) ? data.filter(item => this.evaluateExpression(args[0], item)) : data;
-      case 'sort':
-        return Array.isArray(data) ? [...data].sort() : data;
-      case 'reverse':
-        return Array.isArray(data) ? [...data].reverse() : data;
+      if (script.includes('$string.')) {
+        return this.handleStringFunction(script, data);
+      }
 
-      // String Functions
-      case 'toLowerCase':
-        return String(data).toLowerCase();
-      case 'toUpperCase':
-        return String(data).toUpperCase();
-      case 'trim':
-        return String(data).trim();
-      case 'replace':
-        return String(data).replace(evaluatedArgs[0], evaluatedArgs[1]);
+      if (script.includes('$array.')) {
+        return this.handleArrayFunction(script, data);
+      }
 
-      // Date Functions
-      case 'now':
-        return moment().format();
-      case 'plusDays':
-        return moment(data).add(evaluatedArgs[0], 'days').format();
-      case 'minusDays':
-        return moment(data).subtract(evaluatedArgs[0], 'days').format();
+      if (script.includes('$date.')) {
+        return this.handleDateFunction(script, data);
+      }
 
-      // Math Functions
-      case 'abs':
-        return Math.abs(Number(data));
-      case 'round':
-        return Math.round(Number(data));
-      case 'ceil':
-        return Math.ceil(Number(data));
-      case 'floor':
-        return Math.floor(Number(data));
+      if (script.includes('$math.')) {
+        return this.handleMathFunction(script, data);
+      }
 
-      // Object Functions
-      case 'keys':
-        return Object.keys(data);
-      case 'values':
-        return Object.values(data);
-      case 'merge':
-        return _.merge({}, data, evaluatedArgs[0]);
-
-      default:
-        throw new Error(`Unknown function: ${funcName}`);
+      return this.handleJSONPath(script, data);
+    } catch (error) {
+      throw new Error(`Script execution failed: ${error.message}`);
     }
   }
 
-  evaluateExpression(expression, context) {
-    // Handle basic expressions
-    if (expression.startsWith('$')) {
-      return this.evaluateJsonPath(expression, context);
-    }
+  handleStringFunction(script, data) {
+    const match = script.match(/\$string\.(\w+)\((.*)\)/);
+    if (!match) throw new Error('Invalid string function syntax');
 
-    // Handle literal values
-    if (['true', 'false', 'null', 'undefined'].includes(expression)) {
-      return JSON.parse(expression);
-    }
+    const [, functionName, args] = match;
+    const evaluatedArgs = this.evaluateArguments(args, data);
+    return this.stringFunctions[functionName](...evaluatedArgs);
+  }
 
-    // Handle numbers
-    if (!isNaN(expression)) {
-      return Number(expression);
-    }
+  handleArrayFunction(script, data) {
+    const match = script.match(/\$array\.(\w+)\((.*)\)/);
+    if (!match) throw new Error('Invalid array function syntax');
 
-    // Handle strings
-    if (expression.startsWith('"') || expression.startsWith("'")) {
-      return expression.slice(1, -1);
-    }
+    const [, functionName, args] = match;
+    const evaluatedArgs = this.evaluateArguments(args, data);
+    return this.arrayFunctions[functionName](...evaluatedArgs);
+  }
 
-    // Handle function calls
-    if (expression.includes('(')) {
-      return this.evaluateFunction(expression, context);
-    }
+  handleDateFunction(script, data) {
+    const match = script.match(/\$date\.(\w+)\((.*)\)/);
+    if (!match) throw new Error('Invalid date function syntax');
 
-    // Handle object references
-    return _.get(context, expression);
+    const [, functionName, args] = match;
+    const evaluatedArgs = this.evaluateArguments(args, data);
+    return this.dateFunctions[functionName](...evaluatedArgs);
+  }
+
+  handleMathFunction(script, data) {
+    const match = script.match(/\$math\.(\w+)\((.*)\)/);
+    if (!match) throw new Error('Invalid math function syntax');
+
+    const [, functionName, args] = match;
+    const evaluatedArgs = this.evaluateArguments(args, data);
+    return this.mathFunctions[functionName](...evaluatedArgs);
+  }
+
+  handleJSONPath(script, data) {
+    const result = JSONPath({ path: script, json: data });
+    return result.length === 1 ? result[0] : result;
+  }
+
+  evaluateArguments(argsString, data) {
+    if (!argsString) return [];
+
+    return argsString.split(',').map(arg => {
+      arg = arg.trim();
+      if (arg.startsWith('$.')) {
+        return this.handleJSONPath(arg, data);
+      }
+      if (arg.startsWith('"') || arg.startsWith("'")) {
+        return arg.slice(1, -1);
+      }
+      if (!isNaN(arg)) {
+        return Number(arg);
+      }
+      return arg;
+    });
   }
 }
 
