@@ -51,24 +51,10 @@ const [highlightedLine, setHighlightedLine] = useState(null);
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
 const [activeScript, setActiveScript] = useState(null);
-
+const [inputs, setInputs] = useState(['Payload']);
 
 const [inputContents, setInputContents] = useState({
-  'Payload': `{
-    "firstName": "John",
-    "lastName": "Doe",
-    "age": 30,
-    "phoneNumbers": [
-      {
-        "type": "Phone",
-        "number": "123-456-7890"
-      },
-      {
-        "type": "Mobile",
-        "number": "987-654-3210"
-      }
-    ]
-  }`
+  [inputs[0]]: '{}'  // Now we can safely use inputs[0]
 });
 
   const [isPayloadView, setIsPayloadView] = useState(false);
@@ -105,7 +91,7 @@ const [inputContents, setInputContents] = useState({
   const [isDragging, setIsDragging] = useState(false);
   const [isInputDialogOpen, setIsInputDialogOpen] = useState(false);
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
-  const [inputs, setInputs] = useState(['Payload']);
+ 
   const [newInput, setNewInput] = useState("");
   const [scriptContent, setScriptContent] = useState('$');
   const [expectedOutput, setExpectedOutput] = useState('');
@@ -288,22 +274,14 @@ const [inputContents, setInputContents] = useState({
   const scrollbarStyle = {
     scrollbarWidth: 'thin',
     scrollbarColor: '#ffffff #f1f1f1',
-    '&::-webkit-scrollbar': {
-      width: '8px',
-      height: '8px',
-    },
-    '&::-webkit-scrollbar-track': {
-      background: '#f1f1f1',
-    },
-    '&::-webkit-scrollbar-thumb': {
+    WebkitScrollbarWidth: '8px',
+    WebkitScrollbarTrack: { background: '#f1f1f1' },
+    WebkitScrollbarThumb: { 
       background: '#ffffff',
-      border: '1px solid #e0e0e0',
+      border: '1px solid #e0e0e0'
     },
-    '&::-webkit-scrollbar-thumb:hover': {
-      background: '#f8f8f8',
-    }
+    WebkitScrollbarThumbHover: { background: '#f8f8f8' }
   };
-
   const handleExpectedOutputChange = (e) => {
     setExpectedOutput(e.target.value);
   };
@@ -373,6 +351,13 @@ const $math = {
   abs: Math.abs
 };
 
+/*************  ✨ Codeium Command ⭐  *************/
+/**
+ * Handles changes to the script content, parses and evaluates the script
+ * against the current input data, and updates the actual output accordingly.
+ *
+
+/******  2a986881-7396-4a68-9bd0-e41916a861b3  *******/
 const handleScriptContentChange = (e) => {
   if (!e?.target) {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
@@ -383,34 +368,39 @@ const handleScriptContentChange = (e) => {
   setScriptContent(newScript);
 
   try {
-    const inputIdentifiers = inputs.map(input => input.toLowerCase());
-    
-    // Check if script starts with $ followed by an input identifier
-    const inputMatch = newScript.match(/^\$([a-zA-Z_][a-zA-Z0-9_]*)/);
-    
+    // For single input case
+    if(inputs.length >1 && newScript.trim()==='$'){
+      setActualOutput("Not valid,access with the help of input name");
+      return;
+    }
+    if (inputs.length === 1 && newScript.trim() === '$') {
+      setActualOutput(inputContents[inputs[0]]);
+      return;
+    }
+
+    // For multiple inputs case
+    const inputMatch = newScript.match(/^\$(\w+)/);
     if (inputMatch) {
-      const requestedInput = inputMatch[1].toLowerCase();
-      const inputIndex = inputIdentifiers.indexOf(requestedInput);
-      
-      if (inputIndex !== -1) {
-        // If just the input identifier is requested (e.g., "$a")
+      const requestedInput = inputMatch[1];
+      if (inputContents[requestedInput]) {
+        // Just show input content for $inputName
         if (newScript === `$${requestedInput}`) {
-          const inputData = inputContents[inputs[inputIndex]];
-          setActualOutput(inputData);
+          setActualOutput(inputContents[requestedInput]);
           return;
         }
         
-        // For accessing properties (e.g., "$a.name")
+        // Get string value for property access like $inputName.property
         const path = newScript.replace(`$${requestedInput}`, '$');
-        const inputData = JSON.parse(inputContents[inputs[inputIndex]]);
+        const inputData = JSON.parse(inputContents[requestedInput]);
         const result = JSONPath({ path, json: inputData });
-        setActualOutput(JSON.stringify(result, null, 2));
+        // Convert array result to single value if possible
+        const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
+        setActualOutput(JSON.stringify(finalResult, null, 2));
         return;
       }
     }
-    
     // Default to active input if no specific input is referenced
-    const activeInput = inputs[selectedInputIndex] || "Payload";
+    const activeInput = inputs[selectedInputIndex] || inputs[0];
     const inputData = inputContents[activeInput];
     let parsedData = JSON.parse(inputData);
 
