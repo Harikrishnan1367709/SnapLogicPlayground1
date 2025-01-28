@@ -111,7 +111,44 @@ class SnapLogicFunctionsHandler {
       omit: (obj, paths) => _.omit(obj, paths)
     };
   }
+  evaluateValue(expression, data) {
+    if (expression.startsWith('$')) {
+      const variable = expression.slice(1);
+      return data[variable];
+    }
+    return expression;
+  }
 
+  handleDateComparison(script, data) {
+    const dateOperations = {
+      parse: (dateStr) => new Date(dateStr).getTime(),
+      now: () => new Date().getTime()
+    };
+
+    script = script.replace(/Date\.parse\(\$(\w+)\)/g, (match, variable) => {
+      const value = data[variable];
+      return dateOperations.parse(value);
+    });
+    
+    script = script.replace(/Date\.now\(\)/g, () => dateOperations.now());
+    
+    return script;
+  }
+
+  handleLogicalExpression(script, data) {
+    script = script.replace(/\$(\w+)/g, (match, variable) => {
+      const value = data[variable];
+      return typeof value === 'string' ? `"${value}"` : value;
+    });
+
+    script = this.handleDateComparison(script, data);
+
+    try {
+      return eval(script);
+    } catch (error) {
+      throw new Error(`Invalid logical expression: ${error.message}`);
+    }
+  }
   executeScript(script, data) {
     if (!script) return null;
 
@@ -128,10 +165,9 @@ class SnapLogicFunctionsHandler {
         return this.handleArrayOperation(script, data);
       }
 
-      if (script.includes('$date.')) {
-        return this.handleDateOperation(script, data);
+      if (script.includes('Date.') || script.includes('&&') || script.includes('||')) {
+        return this.handleLogicalExpression(script, data);
       }
-
       if (script.includes('$math.')) {
         return this.handleMathOperation(script, data);
       }
