@@ -205,6 +205,7 @@ const [inputContents, setInputContents] = useState({
 
   const handleInputChange = (e) => {
     setNewInput(e.target.value);
+    setPayloadContent(e.target.value);
   };
 
   const handleInputClick = (input, index) => {
@@ -294,7 +295,22 @@ const [inputContents, setInputContents] = useState({
     return 'general';
   };
 
-  
+  useEffect(() => {
+    if (activeScript && payloadContent) {
+      try {
+        const handler = new SnapLogicFunctionsHandler();
+        const inputData = JSON.parse(payloadContent);
+        const result = handler.executeScript(scriptContent, inputData);
+        setActualOutput(JSON.stringify(result, null, 2));
+      } catch (error) {
+        setActualOutput(JSON.stringify({
+          error: "Transformation Error",
+          message: error.message,
+          hint: "Check input format and script syntax"
+        }, null, 2));
+      }
+    }
+  }, [payloadContent, scriptContent]);
 
   
 const handleScriptContentChange = (e) => {
@@ -305,6 +321,7 @@ const handleScriptContentChange = (e) => {
 
   const newScript = e.target.value || '';
   setScriptContent(newScript);
+  setScriptContent(e.target.value);
   
   // Update script content in scripts array
   setScripts(prevScripts =>

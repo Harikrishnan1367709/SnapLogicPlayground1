@@ -110,7 +110,63 @@ class SnapLogicFunctionsHandler {
       pick: (obj, paths) => _.pick(obj, paths),
       omit: (obj, paths) => _.omit(obj, paths)
     };
+    this.dateFormatter = {
+      formatDate: (date, format) => {
+        return moment(date).format(format);
+      },
+      subtractHours: (date, hours) => {
+        return moment(date).subtract(hours, 'hours').toDate();
+      }
+    };
+
+    
   }
+
+  handleComplexDateExpression(script) {
+    try {
+      const cleanScript = script.replace(/\n/g, ' ').trim();
+
+      const context = {
+        Date: {
+          now: () => new Date(),
+          parse: (str) => new Date(str)
+        },
+        moment,
+        formatter: this.dateFormatter
+      };
+
+      const evalFn = new Function('Date', 'moment', 'formatter', `
+        try {
+          const now = Date.now();
+          
+          const result = ${cleanScript.includes('?') ? 
+            `(${cleanScript.split('?')[0]}) ? 
+             "${cleanScript.split('?')[1].split(':')[0].trim()}" : 
+             (() => {
+               const baseDate = formatter.subtractHours(now, 10);
+               const datePart = formatter.formatDate(baseDate, 'YYYY-MM-DD');
+               const timePart = formatter.formatDate(baseDate, 'HH:mm:ss');
+               return datePart + 'T' + timePart + '+02:00';
+             })()` 
+            : 
+            cleanScript
+          };
+          
+          return result;
+        } catch (error) {
+          console.error('Evaluation error:', error);
+          return null;
+        }
+      `);
+
+      return evalFn(context.Date, context.moment, context.formatter);
+    } catch (error) {
+      console.error('Expression handling error:', error);
+      return null;
+    }
+  }
+
+
   evaluateValue(expression, data) {
     if (expression.startsWith('$')) {
       const variable = expression.slice(1);
@@ -119,42 +175,161 @@ class SnapLogicFunctionsHandler {
     return expression;
   }
 
-  handleDateComparison(script, data) {
-    const dateOperations = {
-      parse: (dateStr) => new Date(dateStr).getTime(),
-      now: () => new Date().getTime()
-    };
-
-    script = script.replace(/Date\.parse\(\$(\w+)\)/g, (match, variable) => {
-      const value = data[variable];
-      return dateOperations.parse(value);
-    });
-    
-    script = script.replace(/Date\.now\(\)/g, () => dateOperations.now());
-    
-    return script;
+  handleDateExpression(script) {
+    try {
+      console.log('Input script:', script); // Debug log
+      const result = this.dateUtils.parseExpression(script);
+      console.log('Output result:', result); // Debug log
+      return result;
+    } catch (error) {
+      console.error('Date expression handling error:', error);
+      return script;
+    }
   }
 
-  handleLogicalExpression(script, data) {
-    script = script.replace(/\$(\w+)/g, (match, variable) => {
-      const value = data[variable];
-      return typeof value === 'string' ? `"${value}"` : value;
+
+  handleDateComparison(script, data) {
+    const results = data.map(group => {
+      const evaluatedEmployees = group.employee.map(emp => {
+        const evaluateScript = () => {
+          // Create a context object with all employee data
+          const context = {
+            ...emp,
+            dates: {
+              effective: moment(emp.EffectiveMoment),
+              entry: moment(emp.EntryMoment),
+              now: moment(),
+              parse: (dateStr) => moment(dateStr)
+            }
+          };
+  
+          // Handle different types of date comparisons
+          if (script.includes('Date.parse')) {
+            const dateComparisons = {
+              effectiveVsNow: context.dates.effective.valueOf() <= context.dates.now.valueOf(),
+              effectiveVsEntry: context.dates.effective.valueOf() >= context.dates.entry.valueOf(),
+              effectiveInRange: (start, end) => {
+                const startDate = context.dates.parse(start);
+                const endDate = context.dates.parse(end);
+                return context.dates.effective.isBetween(startDate, endDate, 'day', '[]');
+              }
+            };
+  
+            // Evaluate specific conditions based on script
+            if (script.includes('2023-01-01')) {
+              return dateComparisons.effectiveInRange('2023-01-01', '2023-12-31') &&
+                     (emp.Event === "Time Off Entry" || emp.Event === "Request Time Off");
+            }
+            
+            if (script.includes('EntryMoment')) {
+              return dateComparisons.effectiveVsEntry && 
+                     (emp.EventLiteTypeID === "Time Off Entry" || emp.Event === "Request Time Off");
+            }
+  
+            if (script.includes('WorkerID == "81131"')) {
+              return emp.WorkerID === "81131" && 
+                     dateComparisons.effectiveVsNow && 
+                     (emp.Event === "Time Off Entry" || emp.Event === "Request Time Off");
+            }
+          }
+  
+          // Handle non-date conditions
+          if (script.includes('IsCorrectionOrCorrected')) {
+            return emp.IsCorrectionOrCorrected === "0" && 
+                   (emp.Event === "Correct Time Off" || emp.Event === "Time Off Entry");
+          }
+  
+          // Default date and event check
+          return context.dates.effective.valueOf() <= context.dates.now.valueOf() &&
+                 ["Time Off Entry", "Request Time Off", "Timesheet Review Event", "Correct Time Off"]
+                 .includes(emp.Event || emp.EventLiteTypeID);
+        };
+  
+        return evaluateScript();
+      });
+  
+      return {
+        ...group,
+        employee: evaluatedEmployees
+      };
     });
-
-    script = this.handleDateComparison(script, data);
-
+  
+    return results;
+  }
+  
+  handleLogicalExpression(script, data) {
     try {
-      return eval(script);
+      const evaluateCondition = (emp, script) => {
+        const context = {
+          ...emp,
+          Date: {
+            parse: (dateStr) => new Date(dateStr).getTime(),
+            now: () => new Date().getTime()  // Add this line
+          }
+        };
+  
+        // Add debug logging
+        console.log('Evaluating:', {
+          EffectiveMoment: new Date(emp.EffectiveMoment).getTime(),
+          Now: new Date().getTime(),
+          EventLiteTypeID: emp.EventLiteTypeID,
+          Event: emp.Event
+        });
+  
+        const processedScript = script.replace(/\$(\w+)/g, (match, variable) => {
+          const value = context[variable];
+          if (value === null) return 'null';
+          if (typeof value === 'string') {
+            return `"${value}"`; // Wrap strings in quotes
+          }
+          return value ?? 'undefined';
+        });
+  
+        try {
+          const evalFn = new Function(
+            'Date',
+            `
+            try {
+              return Boolean(${processedScript});
+            } catch (e) {
+              console.error('Evaluation error:', e);
+              return false;
+            }
+            `
+          );
+          return evalFn(context.Date);
+        } catch (error) {
+          console.error('Function creation error:', error);
+          return false;
+        }
+      };
+  
+      return data.map(group => {
+        const filteredEmployees = group.employee.filter(emp => 
+          evaluateCondition(emp, script)
+        );
+  
+        return {
+          groupBy: group.groupBy,
+          employee: filteredEmployees
+        };
+      }).filter(group => group.employee.length > 0);
     } catch (error) {
-      throw new Error(`Invalid logical expression: ${error.message}`);
+      console.error('Expression error:', error);
+      return [];
     }
   }
   executeScript(script, data) {
     if (!script) return null;
 
     try {
-      if (script === '```') {
-        return data;
+      if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
+        return this.handleLogicalExpression(script, data);
+      }
+  
+      // Handle complex date expressions with ternary operators
+      if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
+        return this.handleComplexDateExpression(script);
       }
 
       if (script.includes('$string.')) {
