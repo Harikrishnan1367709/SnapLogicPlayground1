@@ -48,6 +48,7 @@ class SnapLogicFunctionsHandler {
         copy.splice(start, deleteCount, ...items);
         return copy;
       },
+      length: (arr) => Array.isArray(arr) ? arr.length : 0,
       unique: (arr) => [...new Set(arr)],
       groupBy: (arr, key) => _.groupBy(arr, key),
       sortBy: (arr, key) => _.sortBy(arr, key)
@@ -154,65 +155,53 @@ class SnapLogicFunctionsHandler {
     return this.stringFunctions[functionName](...evaluatedArgs);
   }
 
-  handleArrayFunction(script, data) {
-    const match = script.match(/\$array\.(\w+)\((.*)\)/);
+  handleArrayOperation(script, data) {
+    // Updated regex to handle multiline object mapping
+    const match = script.match(/\$array\.(\w+)\(([\s\S]*)\)/);
     if (!match) throw new Error('Invalid array function syntax');
   
     const [, functionName, argsString] = match;
     
     if (functionName === 'map') {
-      const [arrayPath, mapper] = argsString.split(',').map(arg => arg.trim());
+      // Find the first comma that's not inside an object literal
+      let depth = 0;
+      let commaIndex = -1;
+      for (let i = 0; i < argsString.length; i++) {
+        if (argsString[i] === '{') depth++;
+        if (argsString[i] === '}') depth--;
+        if (argsString[i] === ',' && depth === 0) {
+          commaIndex = i;
+          break;
+        }
+      }
+  
+      const arrayPath = argsString.substring(0, commaIndex).trim();
+      const mapper = argsString.substring(commaIndex + 1).trim();
       const sourceArray = this.handleJSONPath(arrayPath, data);
   
-      // Case 1: Simple property mapping
+      // Handle object mapping with proper JSON parsing
+      if (mapper.startsWith('{')) {
+        const mappingObj = JSON.parse(mapper);
+        return sourceArray.map(item => {
+          const result = {};
+          Object.entries(mappingObj).forEach(([key, value]) => {
+            result[key] = item[value];
+          });
+          return result;
+        });
+      }
+  
+      // Handle simple property mapping
       if (mapper.match(/^["'].*["']$/)) {
         const prop = mapper.replace(/['"]/g, '');
         return sourceArray.map(item => item[prop]);
       }
-  
-      // Case 2: Object mapping
-      if (mapper.startsWith('{')) {
-        try {
-          const mappingObj = eval(`(${mapper})`);
-          return sourceArray.map(item => {
-            const result = {};
-            Object.entries(mappingObj).forEach(([key, value]) => {
-              result[key] = item[value];
-            });
-            return result;
-          });
-        } catch (error) {
-          throw new Error('Invalid object mapping syntax');
-        }
-      }
-  
-      // Case 3: String operation with arrow function
-      if (mapper.includes('=>')) {
-        // Handle both (x) => and x => formats
-        const arrowMatch = mapper.match(/(?:\((.*?)\)|(\w+))\s*=>\s*(.+)/);
-        if (arrowMatch) {
-          const [, paramWithParen, simpleParam, body] = arrowMatch;
-          const param = (paramWithParen || simpleParam).trim();
-  
-          if (body.includes('$string.')) {
-            const stringMatch = body.match(/\$string\.(\w+)\((.*?)\)/);
-            if (stringMatch) {
-              const [, method, args] = stringMatch;
-              // If args is just the parameter name, directly use the item
-              if (args.trim() === param) {
-                return sourceArray.map(item => 
-                  this.stringFunctions[method.toLowerCase()](item)
-                );
-              }
-            }
-          }
-        }
-      }
     }
   
-    // Default case: use array functions
     return this.arrayFunctions[functionName](...this.evaluateArguments(argsString, data));
   }
+  
+  
 
   handleDateOperation(script, data) {
     const match = script.match(/\$date\.(\w+)\.?(\w+)?\((.*)\)/);
