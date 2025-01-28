@@ -5,9 +5,9 @@ import _ from 'lodash';
 class SnapLogicFunctionsHandler {
   constructor() {
     this.stringFunctions = {
+      toLowerCase: (str) => String(str).toLowerCase(),
+      toUpperCase: (str) => String(str).toUpperCase(),
       concat: (...args) => args.join(''),
-      toUpper: (str) => str.toUpperCase(),
-      toLower: (str) => str.toLowerCase(),
       substring: (str, start, end) => str.substring(start, end),
       trim: (str) => str.trim(),
       replace: (str, search, replace) => str.replace(search, replace),
@@ -144,14 +144,71 @@ class SnapLogicFunctionsHandler {
     return this.stringFunctions[functionName](...evaluatedArgs);
   }
 
-  handleArrayFunction(script, data) {
-    const match = script.match(/\$array\.(\w+)\((.*)\)/);
-    if (!match) throw new Error('Invalid array function syntax');
+ // ... existing code ...
 
-    const [, functionName, args] = match;
-    const evaluatedArgs = this.evaluateArguments(args, data);
-    return this.arrayFunctions[functionName](...evaluatedArgs);
+handleArrayFunction(script, data) {
+  const match = script.match(/\$array\.(\w+)\((.*)\)/);
+  if (!match) throw new Error('Invalid array function syntax');
+
+  const [, functionName, argsString] = match;
+  
+  if (functionName === 'map') {
+    const [arrayPath, mapper] = argsString.split(',').map(arg => arg.trim());
+    const sourceArray = this.handleJSONPath(arrayPath, data);
+
+    // Case 1: Simple property mapping
+    if (mapper.match(/^["'].*["']$/)) {
+      const prop = mapper.replace(/['"]/g, '');
+      return sourceArray.map(item => item[prop]);
+    }
+
+    // Case 2: Object mapping
+    if (mapper.startsWith('{')) {
+      try {
+        const mappingObj = eval(`(${mapper})`);
+        return sourceArray.map(item => {
+          const result = {};
+          Object.entries(mappingObj).forEach(([key, value]) => {
+            result[key] = item[value];
+          });
+          return result;
+        });
+      } catch (error) {
+        throw new Error('Invalid object mapping syntax');
+      }
+    }
+
+    // Case 3: String operation with arrow function
+    if (mapper.includes('=>')) {
+      // Handle both (x) => and x => formats
+      const arrowMatch = mapper.match(/(?:\((.*?)\)|(\w+))\s*=>\s*(.+)/);
+      if (arrowMatch) {
+        const [, paramWithParen, simpleParam, body] = arrowMatch;
+        const param = (paramWithParen || simpleParam).trim();
+
+        if (body.includes('$string.')) {
+          const stringMatch = body.match(/\$string\.(\w+)\((.*?)\)/);
+          if (stringMatch) {
+            const [, method, args] = stringMatch;
+            // If args is just the parameter name, directly use the item
+            if (args.trim() === param) {
+              return sourceArray.map(item => 
+                this.stringFunctions[method.toLowerCase()](item)
+              );
+            }
+          }
+        }
+      }
+    }
   }
+
+  // Default case: use array functions
+  return this.arrayFunctions[functionName](...this.evaluateArguments(argsString, data));
+}
+
+// ... existing code ...
+  
+  
 
   handleDateFunction(script, data) {
     const match = script.match(/\$date\.(\w+)\((.*)\)/);
@@ -178,7 +235,24 @@ class SnapLogicFunctionsHandler {
 
   evaluateArguments(argsString, data) {
     if (!argsString) return [];
-
+  
+    // Handle arrow functions in map operations
+    if (argsString.includes('=>')) {
+      const [arrayPath, mapFunction] = argsString.split(',').map(arg => arg.trim());
+      const arrayData = arrayPath.startsWith('$.') 
+        ? this.handleJSONPath(arrayPath, data)
+        : arrayPath;
+  
+      if (mapFunction.includes('$string.')) {
+        const methodMatch = mapFunction.match(/\$string\.(\w+)/);
+        if (methodMatch) {
+          const [, method] = methodMatch;
+          return [arrayData, item => this.stringFunctions[method.toLowerCase()](item)];
+        }
+      }
+    }
+  
+    // Regular argument handling
     return argsString.split(',').map(arg => {
       arg = arg.trim();
       if (arg.startsWith('$.')) {
@@ -193,6 +267,7 @@ class SnapLogicFunctionsHandler {
       return arg;
     });
   }
+  
 }
 
 export default SnapLogicFunctionsHandler;
