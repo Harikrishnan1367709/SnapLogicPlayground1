@@ -485,8 +485,20 @@ class SnapLogicFunctionsHandler {
         case 'lowerFirst': return _.lowerFirst(value);
 
         // Character operations
-        case 'charAt': return value.charAt(args[0]);
-        case 'charCodeAt': return value.charCodeAt(args[0]);
+        case 'charAt': {
+          const index = parseInt(args[0]);
+          if (isNaN(index)) {
+            throw new Error('charAt requires a numeric index');
+          }
+          return value.charAt(index);
+        }
+        case 'charCodeAt': {
+          const index = parseInt(args[0]);
+          if (isNaN(index)) {
+            throw new Error('charCodeAt requires a numeric index');
+          }
+          return value.charCodeAt(index);
+        }
 
         // Search operations
         case 'contains': return value.includes(args[0], args[1]);
@@ -519,7 +531,28 @@ class SnapLogicFunctionsHandler {
         case 'localeCompare': return value.localeCompare(args[0]);
 
         // String formatting
-        case 'sprintf': return sprintf(value, ...args);
+        case 'sprintf': {
+          let result = value;
+          if (args.length === 0) return result;
+
+          // Handle numbered placeholders like %1$s
+          if (value.includes('$')) {
+            const matches = value.match(/%\d+\$s/g) || [];
+            matches.forEach(match => {
+              const index = parseInt(match.match(/\d+/)[0]) - 1;
+              if (index >= 0 && index < args.length) {
+                result = result.replace(match, args[index]);
+              }
+            });
+          } else {
+            // Handle simple %s placeholders
+            let argIndex = 0;
+            result = result.replace(/%s/g, () => {
+              return argIndex < args.length ? args[argIndex++] : '%s';
+            });
+          }
+          return result;
+        }
 
         default:
           throw new Error(`Unknown string method: ${methodName}`);
