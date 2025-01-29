@@ -387,21 +387,42 @@ class SnapLogicFunctionsHandler {
     }
   }
   
+  handleJSONPath(script, data) {
+    try {
+      // If script is just $, return the full data
+      if (script.trim() === '$') {
+        return data;
+      }
+  
+      // Check if the expression is incomplete (ends with a dot)
+      if (script.endsWith('.')) {
+        return null;
+      }
+  
+      // Handle complete expressions
+      const results = [];
+      data.forEach(item => {
+        const value = JSONPath({ path: script, json: item });
+        if (value && value.length > 0) {
+          results.push(...value);
+        }
+      });
+      
+      return results.length === 1 ? results[0] : results;
+    } catch (error) {
+      // Don't throw error for incomplete expressions
+      if (script.includes('$')) {
+        return null;
+      }
+      console.error('JSONPath error:', error);
+      return null;
+    }
+  }
   
   executeScript(script, data) {
     if (!script) return null;
 
     try {
-
-       // Handle object mapping with JSONPath
-    if (script.trim().startsWith('{') && script.includes('$.')) {
-      console.log('Processing object mapping:', script);
-      console.log('Input data:', data);
-      return this.handleObjectMapping(script, data);
-    }
-
-
-  
       if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
       }
@@ -410,7 +431,16 @@ class SnapLogicFunctionsHandler {
       if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
         return this.handleComplexDateExpression(script);
       }
-      
+       // Handle object mapping with JSONPath
+    if (script.trim().startsWith('{') && script.includes('$.')) {
+      console.log('Processing object mapping:', script);
+      console.log('Input data:', data);
+      return this.handleObjectMapping(script, data);
+    }
+      // Handle direct JSONPath expressions
+      if (script.includes('$')) {
+        return this.handleJSONPath(script, data);
+      }
       if (script.includes('$string.')) {
         return this.handleStringOperation(script, data);
       }
@@ -525,10 +555,7 @@ class SnapLogicFunctionsHandler {
     return this.objectFunctions[functionName](...evaluatedArgs);
   }
 
-  handleJSONPath(script, data) {
-    const result = JSONPath({ path: script, json: data });
-    return result.length === 1 ? result[0] : result;
-  }
+  
 
   evaluateArguments(argsString, data) {
     if (!argsString) return [];
