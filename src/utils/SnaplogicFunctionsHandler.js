@@ -437,6 +437,18 @@ class SnapLogicFunctionsHandler {
       }
       throw new Error(`Variable '${variableName}' is not an array`);
     }
+    // Handle Uint8Array.subarray static method
+    if (script.startsWith('Uint8Array.subarray')) {
+      const match = script.match(/Uint8Array\.subarray\s*\(([^)]*)\)/);
+      if (match) {
+        const [start = 0, end] = match[1].split(',').map(arg => 
+          arg ? parseInt(arg.trim()) : undefined
+        );
+        // Convert regular array to Uint8Array if needed
+        const uint8Array = new Uint8Array(data.uint8);
+        return Array.from(uint8Array.subarray(start, end));
+      }
+    }
      // Handle array operations
      const arrayMethodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
      if (arrayMethodMatch) {
@@ -505,21 +517,42 @@ class SnapLogicFunctionsHandler {
          case 'map':
            return value.map(...args);
  
-           case 'reduce': {
-            const [callback, initialValue] = args;
-            if (initialValue !== undefined) {
-              return value.reduce((acc, curr, idx, arr) => callback(acc, curr, idx, arr), initialValue);
-            }
-            return value.reduce((acc, curr, idx, arr) => callback(acc, curr, idx, arr));
+           case 'reduce':
+        case 'reduceRight': {
+          // Extract the callback function and initial value
+          const lastCommaIndex = argsString.lastIndexOf(',');
+          if (lastCommaIndex === -1) {
+            // No initial value provided
+            const callback = createReducerFunction(argsString);
+            return methodName === 'reduce' ? 
+              value.reduce(callback) : 
+              value.reduceRight(callback);
           }
-  
-          case 'reduceRight': {
-            const [callback, initialValue] = args;
-            if (initialValue !== undefined) {
-              return value.reduceRight((acc, curr, idx, arr) => callback(acc, curr, idx, arr), initialValue);
-            }
-            return value.reduceRight((acc, curr, idx, arr) => callback(acc, curr, idx, arr));
+
+          const callbackStr = argsString.substring(0, lastCommaIndex);
+          const initialValueStr = argsString.substring(lastCommaIndex + 1).trim();
+          
+          // Create the reducer function
+          const callback = createReducerFunction(callbackStr);
+          
+          // Evaluate the initial value
+          let initialValue;
+          if (initialValueStr === '0') {
+            initialValue = 0;
+          } else if (initialValueStr === '""') {
+            initialValue = "";
+          } else {
+            initialValue = eval(initialValueStr);
           }
+
+          return methodName === 'reduce' ? 
+            value.reduce(callback, initialValue) : 
+            value.reduceRight(callback, initialValue);
+        }
+      
+    
+
+
  
          case 'reverse':
            return [...value].reverse();
@@ -580,7 +613,15 @@ class SnapLogicFunctionsHandler {
  
          // Uint8Array specific methods
          case 'subarray': {
-          const [start, end] = args;
+          if (!(value instanceof Uint8Array)) {
+            throw new Error('subarray is only available for Uint8Array');
+          }
+
+          // Parse start and end indices
+          const [start = 0, end] = argsString.split(',').map(arg => 
+            arg ? parseInt(arg.trim()) : undefined
+          );
+
           return value.subarray(start, end);
         }
        }
