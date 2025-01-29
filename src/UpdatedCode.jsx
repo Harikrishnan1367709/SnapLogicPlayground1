@@ -408,23 +408,35 @@ const handleScriptContentChange = (e) => {
     padding: '0',
     border: 'none'
   };
-
-  const compareOutputs = () => {
-    const normalizedActual = actualOutput.trim();
-    const normalizedExpected = expectedOutput.trim();
-    return normalizedActual === normalizedExpected;
+  const normalizeJSON = (jsonString) => {
+    try {
+      if (typeof jsonString === 'string') {
+        return JSON.stringify(JSON.parse(jsonString));
+      }
+      return JSON.stringify(jsonString);
+    } catch (error) {
+      console.error('JSON normalization error:', error);
+      return jsonString;
+    }
   };
-
-  
   useEffect(() => {
-    setOutputMatch(compareOutputs());
+    const compareOutputs = () => {
+      try {
+        const normalizedActual = normalizeJSON(actualOutput);
+        const normalizedExpected = normalizeJSON(expectedOutput);
+        console.log('Normalized Actual:', normalizedActual);
+        console.log('Normalized Expected:', normalizedExpected);
+        setOutputMatch(normalizedActual === normalizedExpected);
+      } catch (error) {
+        console.error('Comparison error:', error);
+        setOutputMatch(false);
+      }
+    };
+  
+    compareOutputs();
   }, [actualOutput, expectedOutput]);
 
-  // const [rightWidth, setRightWidth] = useState(() => 
-  //   parseInt(localStorage.getItem('rightWidth')) || 384
-  // );
-  
-  // Add the new functions here
+ 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file && file.name.endsWith('.zip')) {
