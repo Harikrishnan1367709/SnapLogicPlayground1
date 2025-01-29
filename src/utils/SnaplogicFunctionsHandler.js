@@ -427,6 +427,174 @@ class SnapLogicFunctionsHandler {
       console.log('Script:', script);
     console.log('Data:', data);
 
+      // Handle array length without parentheses
+    const lengthMatch = script.match(/\$(\w+)\.length$/);
+    if (lengthMatch) {
+      const [, variableName] = lengthMatch;
+      const value = data[variableName];
+      if (Array.isArray(value) || value instanceof Uint8Array) {
+        return value.length;
+      }
+      throw new Error(`Variable '${variableName}' is not an array`);
+    }
+     // Handle array operations
+     const arrayMethodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
+     if (arrayMethodMatch) {
+       const [, variableName, methodName, argsString] = arrayMethodMatch;
+       const value = data[variableName];
+ 
+       if (!Array.isArray(value) && !(value instanceof Uint8Array)) {
+         throw new Error(`Variable '${variableName}' is not an array`);
+       }
+       // Handle length with parentheses
+      if (methodName === 'length') {
+        return value.length;
+      }
+ 
+       // Parse arguments if they exist
+       const args = argsString ? 
+         argsString.split(',').map(arg => {
+           arg = arg.trim();
+           // Handle arrow functions
+           if (arg.includes('=>')) {
+             return eval(`(${arg})`);
+           }
+           // Handle number arguments
+           if (!isNaN(arg)) {
+             return Number(arg);
+           }
+           // Handle string arguments
+           if (arg.startsWith('"') || arg.startsWith("'")) {
+             return arg.slice(1, -1);
+           }
+           return arg;
+         }) : [];
+ 
+       // Array operations
+       switch (methodName) {
+         // Basic array operations
+         case 'concat': 
+           const arraysToConcat = args.map(arg => 
+             typeof arg === 'string' && arg.startsWith('$') ? 
+               data[arg.slice(1)] : arg
+           );
+           return value.concat(...arraysToConcat);
+ 
+         case 'filter':
+           return value.filter(...args);
+ 
+         case 'find':
+           return value.find(...args);
+ 
+         case 'findIndex':
+           return value.findIndex(...args);
+ 
+           case 'indexOf': {
+            const [searchElement, fromIndex] = args;
+            return value.indexOf(searchElement, fromIndex);
+          }
+
+          case 'lastIndexOf': {
+            const [searchElement, fromIndex] = args;
+            return value.lastIndexOf(searchElement, fromIndex);
+          }
+ 
+         case 'join':
+           return value.join(...args);
+ 
+         case 'map':
+           return value.map(...args);
+ 
+           case 'reduce': {
+            const [callback, initialValue] = args;
+            if (initialValue !== undefined) {
+              return value.reduce((acc, curr, idx, arr) => callback(acc, curr, idx, arr), initialValue);
+            }
+            return value.reduce((acc, curr, idx, arr) => callback(acc, curr, idx, arr));
+          }
+  
+          case 'reduceRight': {
+            const [callback, initialValue] = args;
+            if (initialValue !== undefined) {
+              return value.reduceRight((acc, curr, idx, arr) => callback(acc, curr, idx, arr), initialValue);
+            }
+            return value.reduceRight((acc, curr, idx, arr) => callback(acc, curr, idx, arr));
+          }
+ 
+         case 'reverse':
+           return [...value].reverse();
+ 
+         case 'slice':
+           return value.slice(...args);
+ 
+         case 'sort':
+           return [...value].sort(...args);
+ 
+           case 'splice': {
+            const arrayCopy = [...value];
+            const [start, deleteCount, ...items] = args;
+            const removed = arrayCopy.splice(start, deleteCount, ...items);
+            data[variableName] = arrayCopy; // Update the original array
+            return removed;
+          }
+ 
+         // Array modification methods
+         case 'pop': {
+           const arrayCopy = [...value];
+           return arrayCopy.pop();
+         }
+ 
+         case 'push': {
+           const arrayCopy = [...value];
+           arrayCopy.push(...args);
+           return arrayCopy;
+         }
+ 
+         case 'shift': {
+           const arrayCopy = [...value];
+           return arrayCopy.shift();
+         }
+ 
+         case 'unshift': {
+           const arrayCopy = [...value];
+           arrayCopy.unshift(...args);
+           return arrayCopy;
+         }
+ 
+         // Special methods
+         case 'toObject': {
+           if (args.length === 1) {
+             return Object.fromEntries(value.map((item, index) => [
+               args[0](item, index), 
+               item
+             ]));
+           }
+           return Object.fromEntries(value.map((item, index) => [
+             args[0](item, index), 
+             args[1](item, index)
+           ]));
+         }
+ 
+         case 'toString':
+           return value.toString();
+ 
+         // Uint8Array specific methods
+         case 'subarray': {
+          const [start, end] = args;
+          return value.subarray(start, end);
+        }
+       }
+     }
+ 
+     // Handle Uint8Array.of
+     if (script.startsWith('Uint8Array.of')) {
+       const argsMatch = script.match(/Uint8Array\.of\((.*)\)/);
+       const args = argsMatch[1] ? 
+         argsMatch[1].split(',').map(arg => Number(arg.trim())) : 
+         [];
+       return Uint8Array.of(...args);
+     }
+ 
     // Handle static String.fromCharCode method
     const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
     if (staticMethodMatch) {
