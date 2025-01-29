@@ -68,7 +68,7 @@ const [inputContents, setInputContents] = useState({
   const [isChecked, setIsChecked] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [activeInput, setActiveInput] = useState('Payload');
-
+ 
   const [leftWidth, setLeftWidth] = useState(() => 
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
@@ -78,6 +78,14 @@ const [inputContents, setInputContents] = useState({
   const [rightWidth, setRightWidth] = useState(() => 
     parseInt(localStorage.getItem('rightWidth')) || 384
   );
+  const data = {
+    "myarray": [3, 6, 8, 2, 9, 4],
+    "head": [1, 2],
+    "middle": [3, 4],
+    "tail": [5, 6],
+    "names": ["Fred", "Wilma", "Fred", "Betty", "Fred", "Barney"],
+    "Array": [0, 2, 4, 6, 8]
+  };
   
   useEffect(() => {
     localStorage.setItem('leftWidth', leftWidth);
@@ -334,7 +342,7 @@ const handleScriptContentChange = (e) => {
 
   try {
     const handler = new SnapLogicFunctionsHandler();
-
+    
     // Handle multiple inputs case
     if (inputs.length > 1 && newScript.trim() === '$') {
       setActualOutput("Not valid, access with the help of input name");
