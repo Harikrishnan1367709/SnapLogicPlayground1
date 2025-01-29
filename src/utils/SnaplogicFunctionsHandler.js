@@ -319,10 +319,89 @@ class SnapLogicFunctionsHandler {
       return [];
     }
   }
+
+  handleObjectMapping(script, data) {
+    try {
+      const template = JSON.parse(script);
+      
+      const evaluateJSONPath = (pathExpr, groupData) => {
+        try {
+          // Generic JSONPath evaluation
+          const result = JSONPath({ path: pathExpr, json: groupData });
+          console.log(`JSONPath evaluation for ${pathExpr}:`, result);
+          
+          // Handle different result types
+          if (pathExpr.endsWith('.length')) {
+            return result;
+          }
+          
+          // For array expressions (wildcards or filters), preserve array structure
+          if (pathExpr.includes('[*]') || pathExpr.includes('[?(')) {
+            return result;
+          }
+          
+          // For simple paths, return single value if array has one element
+          return Array.isArray(result) && result.length === 1 ? result[0] : result;
+        } catch (error) {
+          console.error('JSONPath evaluation error:', error);
+          return null;
+        }
+      };
+      
+      const mappedData = data.map(groupData => {
+        const result = {};
+        
+        // Process each template key dynamically
+        for (const [key, pathExpr] of Object.entries(template)) {
+          if (typeof pathExpr === 'string' && pathExpr.startsWith('$.')) {
+            const value = evaluateJSONPath(pathExpr, groupData);
+            if (value !== null) {
+              result[key] = value;
+            }
+          } else if (typeof pathExpr === 'object' && pathExpr !== null) {
+            // Handle nested objects
+            result[key] = {};
+            for (const [nestedKey, nestedExpr] of Object.entries(pathExpr)) {
+              if (typeof nestedExpr === 'string' && nestedExpr.startsWith('$.')) {
+                const value = evaluateJSONPath(nestedExpr, groupData);
+                if (value !== null) {
+                  result[key][nestedKey] = value;
+                }
+              } else {
+                result[key][nestedKey] = nestedExpr;
+              }
+            }
+          } else {
+            // Handle static values
+            result[key] = pathExpr;
+          }
+        }
+        
+        return result;
+      });
+  
+      return mappedData;
+    } catch (error) {
+      console.error('Object mapping error:', error);
+      return null;
+    }
+  }
+  
+  
   executeScript(script, data) {
     if (!script) return null;
 
     try {
+
+       // Handle object mapping with JSONPath
+    if (script.trim().startsWith('{') && script.includes('$.')) {
+      console.log('Processing object mapping:', script);
+      console.log('Input data:', data);
+      return this.handleObjectMapping(script, data);
+    }
+
+
+  
       if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
       }
@@ -331,7 +410,7 @@ class SnapLogicFunctionsHandler {
       if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
         return this.handleComplexDateExpression(script);
       }
-
+      
       if (script.includes('$string.')) {
         return this.handleStringOperation(script, data);
       }
@@ -411,6 +490,7 @@ class SnapLogicFunctionsHandler {
   
     return this.arrayFunctions[functionName](...this.evaluateArguments(argsString, data));
   }
+  
   
   
 
