@@ -2,6 +2,7 @@ import { JSONPath } from 'jsonpath-plus';
 import moment from 'moment';
 import _ from 'lodash';
 
+
 class SnapLogicFunctionsHandler {
   constructor() {
     this.stringFunctions = {
@@ -29,6 +30,7 @@ class SnapLogicFunctionsHandler {
       substr: (str, start, length) => str.substr(start, length)
     };
 
+
     this.arrayFunctions = {
       filter: (arr, predicate) => arr.filter(predicate),
       find: (arr, predicate) => arr.find(predicate),
@@ -53,6 +55,7 @@ class SnapLogicFunctionsHandler {
       groupBy: (arr, key) => _.groupBy(arr, key),
       sortBy: (arr, key) => _.sortBy(arr, key)
     };
+
 
     this.dateFunctions = {
       now: () => new Date(),
@@ -85,6 +88,7 @@ class SnapLogicFunctionsHandler {
       }
     };
 
+
     this.mathFunctions = {
       abs: Math.abs,
       ceil: Math.ceil,
@@ -98,6 +102,7 @@ class SnapLogicFunctionsHandler {
       trunc: Math.trunc,
       sqrt: Math.sqrt
     };
+
 
     this.objectFunctions = {
       entries: Object.entries,
@@ -119,12 +124,15 @@ class SnapLogicFunctionsHandler {
       }
     };
 
-    
+
+   
   }
+
 
   handleComplexDateExpression(script) {
     try {
       const cleanScript = script.replace(/\n/g, ' ').trim();
+
 
       const context = {
         Date: {
@@ -135,29 +143,31 @@ class SnapLogicFunctionsHandler {
         formatter: this.dateFormatter
       };
 
+
       const evalFn = new Function('Date', 'moment', 'formatter', `
         try {
           const now = Date.now();
-          
-          const result = ${cleanScript.includes('?') ? 
-            `(${cleanScript.split('?')[0]}) ? 
-             "${cleanScript.split('?')[1].split(':')[0].trim()}" : 
+         
+          const result = ${cleanScript.includes('?') ?
+            `(${cleanScript.split('?')[0]}) ?
+             "${cleanScript.split('?')[1].split(':')[0].trim()}" :
              (() => {
                const baseDate = formatter.subtractHours(now, 10);
                const datePart = formatter.formatDate(baseDate, 'YYYY-MM-DD');
                const timePart = formatter.formatDate(baseDate, 'HH:mm:ss');
                return datePart + 'T' + timePart + '+02:00';
-             })()` 
-            : 
+             })()`
+            :
             cleanScript
           };
-          
+         
           return result;
         } catch (error) {
           console.error('Evaluation error:', error);
           return null;
         }
       `);
+
 
       return evalFn(context.Date, context.moment, context.formatter);
     } catch (error) {
@@ -167,6 +177,8 @@ class SnapLogicFunctionsHandler {
   }
 
 
+
+
   evaluateValue(expression, data) {
     if (expression.startsWith('$')) {
       const variable = expression.slice(1);
@@ -174,6 +186,7 @@ class SnapLogicFunctionsHandler {
     }
     return expression;
   }
+
 
   handleDateExpression(script) {
     try {
@@ -186,6 +199,8 @@ class SnapLogicFunctionsHandler {
       return script;
     }
   }
+
+
 
 
   handleDateComparison(script, data) {
@@ -202,7 +217,7 @@ class SnapLogicFunctionsHandler {
               parse: (dateStr) => moment(dateStr)
             }
           };
-  
+ 
           // Handle different types of date comparisons
           if (script.includes('Date.parse')) {
             const dateComparisons = {
@@ -214,49 +229,49 @@ class SnapLogicFunctionsHandler {
                 return context.dates.effective.isBetween(startDate, endDate, 'day', '[]');
               }
             };
-  
+ 
             // Evaluate specific conditions based on script
             if (script.includes('2023-01-01')) {
               return dateComparisons.effectiveInRange('2023-01-01', '2023-12-31') &&
                      (emp.Event === "Time Off Entry" || emp.Event === "Request Time Off");
             }
-            
+           
             if (script.includes('EntryMoment')) {
-              return dateComparisons.effectiveVsEntry && 
+              return dateComparisons.effectiveVsEntry &&
                      (emp.EventLiteTypeID === "Time Off Entry" || emp.Event === "Request Time Off");
             }
-  
+ 
             if (script.includes('WorkerID == "81131"')) {
-              return emp.WorkerID === "81131" && 
-                     dateComparisons.effectiveVsNow && 
+              return emp.WorkerID === "81131" &&
+                     dateComparisons.effectiveVsNow &&
                      (emp.Event === "Time Off Entry" || emp.Event === "Request Time Off");
             }
           }
-  
+ 
           // Handle non-date conditions
           if (script.includes('IsCorrectionOrCorrected')) {
-            return emp.IsCorrectionOrCorrected === "0" && 
+            return emp.IsCorrectionOrCorrected === "0" &&
                    (emp.Event === "Correct Time Off" || emp.Event === "Time Off Entry");
           }
-  
+ 
           // Default date and event check
           return context.dates.effective.valueOf() <= context.dates.now.valueOf() &&
                  ["Time Off Entry", "Request Time Off", "Timesheet Review Event", "Correct Time Off"]
                  .includes(emp.Event || emp.EventLiteTypeID);
         };
-  
+ 
         return evaluateScript();
       });
-  
+ 
       return {
         ...group,
         employee: evaluatedEmployees
       };
     });
-  
+ 
     return results;
   }
-  
+ 
   handleLogicalExpression(script, data) {
     try {
       const evaluateCondition = (emp, script) => {
@@ -267,7 +282,7 @@ class SnapLogicFunctionsHandler {
             now: () => new Date().getTime()  // Add this line
           }
         };
-  
+ 
         // Add debug logging
         console.log('Evaluating:', {
           EffectiveMoment: new Date(emp.EffectiveMoment).getTime(),
@@ -275,7 +290,7 @@ class SnapLogicFunctionsHandler {
           EventLiteTypeID: emp.EventLiteTypeID,
           Event: emp.Event
         });
-  
+ 
         const processedScript = script.replace(/\$(\w+)/g, (match, variable) => {
           const value = context[variable];
           if (value === null) return 'null';
@@ -284,7 +299,7 @@ class SnapLogicFunctionsHandler {
           }
           return value ?? 'undefined';
         });
-  
+ 
         try {
           const evalFn = new Function(
             'Date',
@@ -303,12 +318,12 @@ class SnapLogicFunctionsHandler {
           return false;
         }
       };
-  
+ 
       return data.map(group => {
-        const filteredEmployees = group.employee.filter(emp => 
+        const filteredEmployees = group.employee.filter(emp =>
           evaluateCondition(emp, script)
         );
-  
+ 
         return {
           groupBy: group.groupBy,
           employee: filteredEmployees
@@ -320,26 +335,27 @@ class SnapLogicFunctionsHandler {
     }
   }
 
+
   handleObjectMapping(script, data) {
     try {
       const template = JSON.parse(script);
-      
+     
       const evaluateJSONPath = (pathExpr, groupData) => {
         try {
           // Generic JSONPath evaluation
           const result = JSONPath({ path: pathExpr, json: groupData });
           console.log(`JSONPath evaluation for ${pathExpr}:`, result);
-          
+         
           // Handle different result types
           if (pathExpr.endsWith('.length')) {
             return result;
           }
-          
+         
           // For array expressions (wildcards or filters), preserve array structure
           if (pathExpr.includes('[*]') || pathExpr.includes('[?(')) {
             return result;
           }
-          
+         
           // For simple paths, return single value if array has one element
           return Array.isArray(result) && result.length === 1 ? result[0] : result;
         } catch (error) {
@@ -347,10 +363,10 @@ class SnapLogicFunctionsHandler {
           return null;
         }
       };
-      
+     
       const mappedData = data.map(groupData => {
         const result = {};
-        
+       
         // Process each template key dynamically
         for (const [key, pathExpr] of Object.entries(template)) {
           if (typeof pathExpr === 'string' && pathExpr.startsWith('$.')) {
@@ -376,29 +392,29 @@ class SnapLogicFunctionsHandler {
             result[key] = pathExpr;
           }
         }
-        
+       
         return result;
       });
-  
+ 
       return mappedData;
     } catch (error) {
       console.error('Object mapping error:', error);
       return null;
     }
   }
-  
+ 
   handleJSONPath(script, data) {
     try {
       // If script is just $, return the full data
       if (script.trim() === '$') {
         return data;
       }
-  
+ 
       // Check if the expression is incomplete (ends with a dot)
       if (script.endsWith('.')) {
         return null;
       }
-  
+ 
       // Handle complete expressions
       const results = [];
       data.forEach(item => {
@@ -407,7 +423,7 @@ class SnapLogicFunctionsHandler {
           results.push(...value);
         }
       });
-      
+     
       return results.length === 1 ? results[0] : results;
     } catch (error) {
       // Don't throw error for incomplete expressions
@@ -418,11 +434,13 @@ class SnapLogicFunctionsHandler {
       return null;
     }
   }
-  
+ 
   executeScript(script, data) {
     if (!script) return null;
 
+
     try {
+
 
       console.log('Script:', script);
     console.log('Data:', data);
@@ -434,18 +452,21 @@ class SnapLogicFunctionsHandler {
       return String.fromCharCode(...args);
     }
 
+
     // Handle string operations with arguments
     const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
     if (methodMatch) {
       const [, variableName, methodName, argsString] = methodMatch;
       const value = data[variableName];
 
+
       if (value === undefined) {
         throw new Error(`Variable '${variableName}' not found in data`);
       }
 
+
       // Parse arguments if they exist
-      const args = argsString ? 
+      const args = argsString ?
         argsString.split(',').map(arg => {
           arg = arg.trim();
           // Handle number arguments
@@ -466,6 +487,7 @@ class SnapLogicFunctionsHandler {
           return arg;
         }) : [];
 
+
       // String operations
       switch (methodName) {
         // Basic operations
@@ -476,6 +498,7 @@ class SnapLogicFunctionsHandler {
         case 'trimRight': return value.trimEnd();
         case 'length': return value.length;
 
+
         // Case conversions
         case 'camelCase': return _.camelCase(value);
         case 'kebabCase': return _.kebabCase(value);
@@ -483,6 +506,7 @@ class SnapLogicFunctionsHandler {
         case 'capitalize': return _.capitalize(value);
         case 'upperFirst': return _.upperFirst(value);
         case 'lowerFirst': return _.lowerFirst(value);
+
 
         // Character operations
         case 'charAt': {
@@ -500,6 +524,7 @@ class SnapLogicFunctionsHandler {
           return value.charCodeAt(index);
         }
 
+
         // Search operations
         case 'contains': return value.includes(args[0], args[1]);
         case 'startsWith': return value.startsWith(args[0], args[1]);
@@ -508,6 +533,7 @@ class SnapLogicFunctionsHandler {
         case 'lastIndexOf': return value.lastIndexOf(args[0], args[1]);
         case 'search': return value.search(args[0]);
 
+
         // String manipulation
         case 'concat': return value.concat(...args);
         case 'substring': return value.substring(args[0], args[1]);
@@ -515,25 +541,30 @@ class SnapLogicFunctionsHandler {
         case 'slice': return value.slice(args[0], args[1]);
         case 'repeat': return value.repeat(args[0]);
 
+
         // String replacement
-        case 'replace': 
+        case 'replace':
           if (args[0] instanceof RegExp) {
             return value.replace(args[0], args[1]);
           }
           return value.replace(args[0], args[1]);
         case 'replaceAll': return value.replaceAll(args[0], args[1]);
 
+
         // String split and match
         case 'split': return value.split(args[0], args[1]);
         case 'match': return value.match(args[0]);
 
+
         // String comparison
         case 'localeCompare': return value.localeCompare(args[0]);
+
 
         // String formatting
         case 'sprintf': {
           let result = value;
           if (args.length === 0) return result;
+
 
           // Handle numbered placeholders like %1$s
           if (value.includes('$')) {
@@ -554,10 +585,12 @@ class SnapLogicFunctionsHandler {
           return result;
         }
 
+
         default:
           throw new Error(`Unknown string method: ${methodName}`);
       }
     }
+
 
     // Handle string operations without arguments
     const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
@@ -565,9 +598,11 @@ class SnapLogicFunctionsHandler {
       const [, variableName, methodName] = simpleMatch;
       const value = data[variableName];
 
+
       if (value === undefined) {
         throw new Error(`Variable '${variableName}' not found in data`);
       }
+
 
       switch (methodName) {
         case 'toUpperCase': return value.toUpperCase();
@@ -594,7 +629,7 @@ class SnapLogicFunctionsHandler {
     if (script.startsWith('Uint8Array.subarray')) {
       const match = script.match(/Uint8Array\.subarray\s*\(([^)]*)\)/);
       if (match) {
-        const [start = 0, end] = match[1].split(',').map(arg => 
+        const [start = 0, end] = match[1].split(',').map(arg =>
           arg ? parseInt(arg.trim()) : undefined
         );
         // Convert regular array to Uint8Array if needed
@@ -617,7 +652,7 @@ class SnapLogicFunctionsHandler {
       }
  
        // Parse arguments if they exist
-       const args = argsString ? 
+       const args = argsString ?
          argsString.split(',').map(arg => {
            arg = arg.trim();
            // Handle arrow functions
@@ -638,9 +673,9 @@ class SnapLogicFunctionsHandler {
        // Array operations
        switch (methodName) {
          // Basic array operations
-         case 'concat': 
-           const arraysToConcat = args.map(arg => 
-             typeof arg === 'string' && arg.startsWith('$') ? 
+         case 'concat':
+           const arraysToConcat = args.map(arg =>
+             typeof arg === 'string' && arg.startsWith('$') ?
                data[arg.slice(1)] : arg
            );
            return value.concat(...arraysToConcat);
@@ -658,6 +693,7 @@ class SnapLogicFunctionsHandler {
             const [searchElement, fromIndex] = args;
             return value.indexOf(searchElement, fromIndex);
           }
+
 
           case 'lastIndexOf': {
             const [searchElement, fromIndex] = args;
@@ -677,17 +713,18 @@ class SnapLogicFunctionsHandler {
           if (lastCommaIndex === -1) {
             // No initial value provided
             const callback = createReducerFunction(argsString);
-            return methodName === 'reduce' ? 
-              value.reduce(callback) : 
+            return methodName === 'reduce' ?
+              value.reduce(callback) :
               value.reduceRight(callback);
           }
 
+
           const callbackStr = argsString.substring(0, lastCommaIndex);
           const initialValueStr = argsString.substring(lastCommaIndex + 1).trim();
-          
+         
           // Create the reducer function
           const callback = createReducerFunction(callbackStr);
-          
+         
           // Evaluate the initial value
           let initialValue;
           if (initialValueStr === '0') {
@@ -698,12 +735,15 @@ class SnapLogicFunctionsHandler {
             initialValue = eval(initialValueStr);
           }
 
-          return methodName === 'reduce' ? 
-            value.reduce(callback, initialValue) : 
+
+          return methodName === 'reduce' ?
+            value.reduce(callback, initialValue) :
             value.reduceRight(callback, initialValue);
         }
-      
-    
+     
+   
+
+
 
 
  
@@ -751,12 +791,12 @@ class SnapLogicFunctionsHandler {
          case 'toObject': {
            if (args.length === 1) {
              return Object.fromEntries(value.map((item, index) => [
-               args[0](item, index), 
+               args[0](item, index),
                item
              ]));
            }
            return Object.fromEntries(value.map((item, index) => [
-             args[0](item, index), 
+             args[0](item, index),
              args[1](item, index)
            ]));
          }
@@ -770,10 +810,12 @@ class SnapLogicFunctionsHandler {
             throw new Error('subarray is only available for Uint8Array');
           }
 
+
           // Parse start and end indices
-          const [start = 0, end] = argsString.split(',').map(arg => 
+          const [start = 0, end] = argsString.split(',').map(arg =>
             arg ? parseInt(arg.trim()) : undefined
           );
+
 
           return value.subarray(start, end);
         }
@@ -783,15 +825,18 @@ class SnapLogicFunctionsHandler {
      // Handle Uint8Array.of
      if (script.startsWith('Uint8Array.of')) {
        const argsMatch = script.match(/Uint8Array\.of\((.*)\)/);
-       const args = argsMatch[1] ? 
-         argsMatch[1].split(',').map(arg => Number(arg.trim())) : 
+       const args = argsMatch[1] ?
+         argsMatch[1].split(',').map(arg => Number(arg.trim())) :
          [];
        return Uint8Array.of(...args);
      }
  
     
+
+
     //   console.log('Executing script:', script);
     // console.log('Input data:', data);
+
 
     // // String Functions
     // if (script.startsWith('$string.')) {
@@ -809,6 +854,7 @@ class SnapLogicFunctionsHandler {
     //   return this.stringFunctions[functionName](...evaluatedArgs);
     // }
 
+
     // // Array Functions
     // if (script.startsWith('$array.')) {
     //   const match = script.match(/\$array\.(\w+)\((.*)\)/);
@@ -824,6 +870,7 @@ class SnapLogicFunctionsHandler {
     //   });
     //   return this.arrayFunctions[functionName](...evaluatedArgs);
     // }
+
 
     // // Math Functions
     // if (script.startsWith('$math.')) {
@@ -841,6 +888,7 @@ class SnapLogicFunctionsHandler {
     //   return this.mathFunctions[functionName](...evaluatedArgs);
     // }
 
+
     // // Object Functions
     // if (script.startsWith('$object.')) {
     //   const match = script.match(/\$object\.(\w+)\((.*)\)/);
@@ -857,6 +905,7 @@ class SnapLogicFunctionsHandler {
     //   return this.objectFunctions[functionName](...evaluatedArgs);
     // }
 
+
     // // Date Functions
     // if (script.startsWith('$date.')) {
     //   const match = script.match(/\$date\.(\w+)\.?(\w+)?\((.*)\)/);
@@ -870,12 +919,14 @@ class SnapLogicFunctionsHandler {
     //     }
     //     return arg.replace(/['"]/g, '');
     //   });
-      
+     
     //   if (method) {
     //     return this.dateFunctions[category][method](...evaluatedArgs);
     //   }
     //   return this.dateFunctions[category](...evaluatedArgs);
     // }
+    console.log('Script:', script);
+    console.log('Data:', data);
 
 
     // Handle direct function calls like $text.toUpperCase()
@@ -884,43 +935,47 @@ class SnapLogicFunctionsHandler {
       const [, variableName, functionName] = directFunctionMatch;
       console.log('Variable:', variableName);
       console.log('Function:', functionName);
-      
+     
       const value = data[variableName];
       console.log('Value:', value);
-      
+     
       if (value === undefined) {
         throw new Error(`Variable '${variableName}' not found in data`);
       }
+
 
       // Check which type of function to call based on the value type
       if (typeof value === 'string' && this.stringFunctions[functionName]) {
         return this.stringFunctions[functionName](value);
       }
-      
+     
       if (Array.isArray(value) && this.arrayFunctions[functionName]) {
         return this.arrayFunctions[functionName](value);
       }
-      
+     
       if (typeof value === 'number' && this.mathFunctions[functionName]) {
         return this.mathFunctions[functionName](value);
       }
-      
+     
       if (value instanceof Date && this.dateFunctions[functionName]) {
         return this.dateFunctions[functionName](value);
       }
-      
+     
       if (typeof value === 'object' && value !== null && this.objectFunctions[functionName]) {
         return this.objectFunctions[functionName](value);
       }
+
 
       throw new Error(`No matching function '${functionName}' found for type ${typeof value}`);
     }
 
 
+
+
       if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
       }
-  
+ 
       // Handle complex date expressions with ternary operators
       if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
         return this.handleComplexDateExpression(script);
@@ -939,9 +994,11 @@ class SnapLogicFunctionsHandler {
         return this.handleStringOperation(script, data);
       }
 
+
       if (script.includes('$array.')) {
         return this.handleArrayOperation(script, data);
       }
+
 
       if (script.includes('Date.') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
@@ -950,9 +1007,11 @@ class SnapLogicFunctionsHandler {
         return this.handleMathOperation(script, data);
       }
 
+
       if (script.includes('$object.')) {
         return this.handleObjectOperation(script, data);
       }
+
 
       return this.handleJSONPath(script, data);
     } catch (error) {
@@ -960,22 +1019,25 @@ class SnapLogicFunctionsHandler {
     }
   }
 
+
   handleStringOperation(script, data) {
     const match = script.match(/\$string\.(\w+)\((.*)\)/);
     if (!match) throw new Error('Invalid string function syntax');
+
 
     const [, functionName, args] = match;
     const evaluatedArgs = this.evaluateArguments(args, data);
     return this.stringFunctions[functionName](...evaluatedArgs);
   }
 
+
   handleArrayOperation(script, data) {
     // Updated regex to handle multiline object mapping
     const match = script.match(/\$array\.(\w+)\(([\s\S]*)\)/);
     if (!match) throw new Error('Invalid array function syntax');
-  
+ 
     const [, functionName, argsString] = match;
-    
+   
     if (functionName === 'map') {
       // Find the first comma that's not inside an object literal
       let depth = 0;
@@ -988,11 +1050,11 @@ class SnapLogicFunctionsHandler {
           break;
         }
       }
-  
+ 
       const arrayPath = argsString.substring(0, commaIndex).trim();
       const mapper = argsString.substring(commaIndex + 1).trim();
       const sourceArray = this.handleJSONPath(arrayPath, data);
-  
+ 
       // Handle object mapping with proper JSON parsing
       if (mapper.startsWith('{')) {
         const mappingObj = JSON.parse(mapper);
@@ -1004,26 +1066,29 @@ class SnapLogicFunctionsHandler {
           return result;
         });
       }
-  
+ 
       // Handle simple property mapping
       if (mapper.match(/^["'].*["']$/)) {
         const prop = mapper.replace(/['"]/g, '');
         return sourceArray.map(item => item[prop]);
       }
     }
-  
+ 
     return this.arrayFunctions[functionName](...this.evaluateArguments(argsString, data));
   }
-  
-  
-  
+ 
+ 
+ 
+
 
   handleDateOperation(script, data) {
     const match = script.match(/\$date\.(\w+)\.?(\w+)?\((.*)\)/);
     if (!match) throw new Error('Invalid date function syntax');
 
+
     const [, category, method, args] = match;
     const evaluatedArgs = this.evaluateArguments(args, data);
+
 
     if (method) {
       return this.dateFunctions[category][method](...evaluatedArgs);
@@ -1031,29 +1096,35 @@ class SnapLogicFunctionsHandler {
     return this.dateFunctions[category](...evaluatedArgs);
   }
 
+
   handleMathOperation(script, data) {
     const match = script.match(/\$math\.(\w+)\((.*)\)/);
     if (!match) throw new Error('Invalid math function syntax');
+
 
     const [, functionName, args] = match;
     const evaluatedArgs = this.evaluateArguments(args, data);
     return this.mathFunctions[functionName](...evaluatedArgs);
   }
 
+
   handleObjectOperation(script, data) {
     const match = script.match(/\$object\.(\w+)\((.*)\)/);
     if (!match) throw new Error('Invalid object function syntax');
+
 
     const [, functionName, args] = match;
     const evaluatedArgs = this.evaluateArguments(args, data);
     return this.objectFunctions[functionName](...evaluatedArgs);
   }
 
-  
+
+ 
+
 
   evaluateArguments(argsString, data) {
     if (!argsString) return [];
-    
+   
     return argsString.split(',').map(arg => {
       arg = arg.trim();
       if (arg.startsWith('$.')) {
@@ -1070,4 +1141,10 @@ class SnapLogicFunctionsHandler {
   }
 }
 
+
 export default SnapLogicFunctionsHandler;
+
+
+
+
+

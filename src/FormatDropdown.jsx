@@ -17,10 +17,13 @@ import React, { useState } from 'react'
           {/* <ChevronDown className="h-4 w-4 text-gray-400" />
            */}
            <img
-  src="/chevron_down_small.svg"
+  src="/SnapLogicPlayground1/chevron_down_small.svg"
   alt="SnapLogic Logo"
- className="text-gray-500 h-3 w-3"
+  className="text-gray-500 h-3 w-3"
 />
+
+
+
         </button>
         
         {isOpen && (

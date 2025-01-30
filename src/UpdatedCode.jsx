@@ -3,6 +3,7 @@ import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"
 
+
 import {
   Tooltip,
   TooltipContent,
@@ -29,34 +30,46 @@ import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
 
 
+
+
 const UpdatedCode = () => {
 
 
-  
+
+
+ 
   const canvasRef = useRef(null);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
+
+
   const [cursorPosition, setCursorPosition] = useState(0);
   const [focusedLine, setFocusedLine] = useState(null);
-  const [wasChecked, setWasChecked] = useState(() => 
+  const [wasChecked, setWasChecked] = useState(() =>
     localStorage.getItem('wasChecked') === 'true'
 );
+
 
   const [selectedFile, setSelectedFile] = useState(null);
 
 
+
+
     const [hoveredLine, setHoveredLine] = useState(null);
 const [highlightedLine, setHighlightedLine] = useState(null);
+
 
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
    
 const [inputs, setInputs] = useState(['Payload']);
 
+
 const [inputContents, setInputContents] = useState({
   [inputs[0]]: '{}'  // Now we can safely use inputs[0]
 });
+
 
   const [isPayloadView, setIsPayloadView] = useState(false);
   const [selectedInputIndex, setSelectedInputIndex] = useState(null);
@@ -69,13 +82,13 @@ const [inputContents, setInputContents] = useState({
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [activeInput, setActiveInput] = useState('Payload');
  
-  const [leftWidth, setLeftWidth] = useState(() => 
+  const [leftWidth, setLeftWidth] = useState(() =>
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
-  const [middleWidth, setMiddleWidth] = useState(() => 
+  const [middleWidth, setMiddleWidth] = useState(() =>
     parseInt(localStorage.getItem('middleWidth')) || 500
   );
-  const [rightWidth, setRightWidth] = useState(() => 
+  const [rightWidth, setRightWidth] = useState(() =>
     parseInt(localStorage.getItem('rightWidth')) || 384
   );
   const data = {
@@ -86,7 +99,7 @@ const [inputContents, setInputContents] = useState({
     "names": ["Fred", "Wilma", "Fred", "Betty", "Fred", "Barney"],
     "Array": [0, 2, 4, 6, 8]
   };
-  
+ 
   useEffect(() => {
     localStorage.setItem('leftWidth', leftWidth);
     localStorage.setItem('middleWidth', middleWidth);
@@ -102,7 +115,7 @@ const [inputContents, setInputContents] = useState({
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
  
   const [newInput, setNewInput] = useState("");
-  
+ 
   const [expectedOutput, setExpectedOutput] = useState('');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
   const [scripts, setScripts] = useState([
@@ -137,6 +150,7 @@ const [inputContents, setInputContents] = useState({
     />
   );
 
+
   useEffect(() => {
     if (isDragging) {
       document.body.style.userSelect = 'none';
@@ -145,12 +159,14 @@ const [inputContents, setInputContents] = useState({
     }
   }, [isDragging]);
 
+
   const handleMouseDown = (e, isLeft, isBottom) => {
     setIsDragging(true);
-    
+   
     if (isBottom) {
       const startY = e.clientY;
       const startHeight = bottomHeight;
+
 
       const handleMouseMove = (e) => {
         const deltaY = startY - e.clientY;
@@ -158,11 +174,13 @@ const [inputContents, setInputContents] = useState({
         setBottomHeight(Math.max(32, Math.min(800, newHeight)));
       };
 
+
       const handleMouseUp = () => {
         setIsDragging(false);
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
+
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -171,6 +189,7 @@ const [inputContents, setInputContents] = useState({
     const startX = e.clientX;
     const startLeftWidth = leftWidth;
     const startRightWidth = rightWidth;
+
 
     const handleMouseMove = (e) => {
       if (isLeft) {
@@ -182,11 +201,13 @@ const [inputContents, setInputContents] = useState({
       }
     };
 
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -196,8 +217,10 @@ const [inputContents, setInputContents] = useState({
   const expectedLines = expectedOutput.split('\n');
   const actualLines = actualOutput.split('\n');
 
+
   const isCreateInputDisabled = newInput.trim() === "";
   const isCreateScriptDisabled = newScript.trim() === "";
+
 
   const renderLineNumbers = (content) => {
     return (
@@ -211,16 +234,19 @@ const [inputContents, setInputContents] = useState({
     );
   };
 
+
   const handleInputChange = (e) => {
     setNewInput(e.target.value);
     setPayloadContent(e.target.value);
   };
+
 
   const handleInputClick = (input, index) => {
     setIsPayloadView(true);
     setSelectedInputIndex(index);
     setPayloadContent(inputContents[input] || '{\n  \n}');
   };
+
 
   const handleBackClick = () => {
     if (selectedInputIndex !== null) {
@@ -232,7 +258,7 @@ const [inputContents, setInputContents] = useState({
     }
     setIsPayloadView(false);
   };
-  
+ 
   const handleCreateInput = () => {
     if (newInput.trim() !== "") {
       setInputs([...inputs, newInput]);
@@ -245,9 +271,11 @@ const [inputContents, setInputContents] = useState({
     }
   };
 
+
   const handleScriptChange = (e) => {
     setNewScript(e.target.value);
   };
+
 
   const handleCreateScript = () => {
     if (newScript.trim() !== "") {
@@ -264,20 +292,22 @@ const [inputContents, setInputContents] = useState({
     }
   };
 
+
   const handleScriptSelect = (script) => {
     if (activeScript) {
       // Auto-save current script
-      const updatedScripts = scripts.map(s => 
-        s.id === activeScript.id 
+      const updatedScripts = scripts.map(s =>
+        s.id === activeScript.id
           ? { ...s, content: scriptContent }
           : s
       );
       setScripts(updatedScripts);
     }
-    
+   
     setActiveScript(script);
     setScriptContent(script.content);
   };
+
 
   const handleActualOutputChange = (e) => {
     setActualOutput(e.target.value);
@@ -288,7 +318,7 @@ const [inputContents, setInputContents] = useState({
     scrollbarColor: '#ffffff #f1f1f1',
     WebkitScrollbarWidth: '8px',
     WebkitScrollbarTrack: { background: '#f1f1f1' },
-    WebkitScrollbarThumb: { 
+    WebkitScrollbarThumb: {
       background: '#ffffff',
       border: '1px solid #e0e0e0'
     },
@@ -302,6 +332,7 @@ const [inputContents, setInputContents] = useState({
     if (script.includes('match')) return 'match';
     return 'general';
   };
+
 
   useEffect(() => {
     if (activeScript && payloadContent) {
@@ -320,17 +351,19 @@ const [inputContents, setInputContents] = useState({
     }
   }, [payloadContent, scriptContent]);
 
-  
+
+ 
 const handleScriptContentChange = (e) => {
   if (!e?.target) {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
     return;
   }
 
+
   const newScript = e.target.value || '';
   setScriptContent(newScript);
   setScriptContent(e.target.value);
-  
+ 
   // Update script content in scripts array
   setScripts(prevScripts =>
     prevScripts.map(script =>
@@ -340,20 +373,23 @@ const handleScriptContentChange = (e) => {
     )
   );
 
+
   try {
     const handler = new SnapLogicFunctionsHandler();
-    
+   
     // Handle multiple inputs case
     if (inputs.length > 1 && newScript.trim() === '$') {
       setActualOutput("Not valid, access with the help of input name");
       return;
     }
 
+
     // Handle single input case
     if (inputs.length === 1 && newScript.trim() === '$') {
       setActualOutput(inputContents[inputs[0]]);
       return;
     }
+
 
     // For multiple inputs case
     const inputMatch = newScript.match(/^\$(\w+)/);
@@ -366,6 +402,7 @@ const handleScriptContentChange = (e) => {
           return;
         }
 
+
         // Execute script with specific input
         const path = newScript.replace(`$${requestedInput}`, '$');
         const inputData = JSON.parse(inputContents[requestedInput]);
@@ -375,10 +412,11 @@ const handleScriptContentChange = (e) => {
       }
     }
 
+
     // Default to active input
     const activeInput = inputs[selectedInputIndex] || inputs[0];
     let inputData;
-    
+   
     try {
       inputData = JSON.parse(inputContents[activeInput]);
     } catch (error) {
@@ -390,9 +428,11 @@ const handleScriptContentChange = (e) => {
       return;
     }
 
+
     // Execute script with handler
     const result = handler.executeScript(newScript, inputData);
     setActualOutput(JSON.stringify(result, null, 2));
+
 
   } catch (error) {
     console.error("Transformation Error:", error);
@@ -406,10 +446,12 @@ const handleScriptContentChange = (e) => {
 };
 
 
+
+
   useEffect(() => {
     console.log("Actual output updated:", actualOutput) // Debugging log
   }, [actualOutput])
-  
+ 
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
@@ -440,9 +482,10 @@ const handleScriptContentChange = (e) => {
         setOutputMatch(false);
       }
     };
-  
+ 
     compareOutputs();
   }, [actualOutput, expectedOutput]);
+
 
  
   const handleFileSelect = (event) => {
@@ -452,7 +495,7 @@ const handleScriptContentChange = (e) => {
       setShowImportDialog(false);
     }
   };
-  
+ 
   const handleFileDrop = (event) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
@@ -461,10 +504,11 @@ const handleScriptContentChange = (e) => {
       setShowImportDialog(false);
     }
   };
-  
-  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() => 
+ 
+  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() =>
     localStorage.getItem('showExportDialog') !== 'false'
   );
+
 
   const handleExport = () => {
     const blob = new Blob(['Demo content'], { type: 'application/zip' });
@@ -477,13 +521,15 @@ const handleScriptContentChange = (e) => {
     link.parentNode.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
-  
+ 
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
     setWasChecked(true);
     localStorage.setItem('wasChecked', 'true');
     setShowExportDialog(false);
 };
+
+
 
 
   const getNavLink = (item) => {
@@ -495,6 +541,7 @@ const handleScriptContentChange = (e) => {
     };
     return links[item];
   };
+
 
   const handleNavClick = (item) => {
     if (item === 'playground') {
@@ -509,6 +556,8 @@ const handleScriptContentChange = (e) => {
   }, []);
 
 
+
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -520,6 +569,7 @@ const handleScriptContentChange = (e) => {
       ctx.stroke();
     }
   }, [scriptContent]);
+
 
   // Create active line border element
   const ActiveLineBorder = () => {
@@ -540,7 +590,11 @@ const handleScriptContentChange = (e) => {
     );
   };
 
-  
+
+ 
+
+
+
 
 
 
@@ -549,10 +603,11 @@ const getLineCount = (content) => {
   return content.split('\n').length;
 };
 
+
 // Add these responsive width calculations
 const getResponsiveWidths = () => {
   const screenWidth = window.innerWidth;
-  
+ 
   if (screenWidth >= 1024) { // Laptop
     return {
       leftWidth: Math.floor(screenWidth * 0.25),
@@ -569,6 +624,7 @@ const getResponsiveWidths = () => {
   return { leftWidth, middleWidth, rightWidth }; // Default widths
 };
 
+
 // Add resize listener
 useEffect(() => {
   const handleResize = () => {
@@ -578,9 +634,11 @@ useEffect(() => {
     setRightWidth(newRight);
   };
 
+
   window.addEventListener('resize', handleResize);
   return () => window.removeEventListener('resize', handleResize);
 }, []);
+
 
 // Add responsive styles
 const responsiveStyles = {
@@ -592,10 +650,11 @@ const responsiveStyles = {
   panels: {
     minWidth: '250px'
   }
-  
+ 
 };
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
+
 
   useEffect(() => {
     const media = window.matchMedia(query);
@@ -604,11 +663,14 @@ const useMediaQuery = (query) => {
     return () => media.removeEventListener('change', listener);
   }, [query]);
 
+
   return matches;
 };
 
+
 // In your component
 const isTablet = useMediaQuery('(max-width: 1024px)');
+
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -627,6 +689,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         </div>
       )}
 
+
       <div className="flex items-center justify-between px-6 py-2 border-b">
         <div className="flex items-center space-x-3">
           {/* <svg
@@ -644,7 +707,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             <path d="M35 35 L50 65" stroke="white" strokeWidth="3"/>
           </svg>
           <div className="text-[21px] font-bold text-[#444444] font-['OpenSans']">
-            SnapLogic 
+            SnapLogic
           </div> */}
            <img
   src="/SnapLogicPlayground1/sl-logo.svg"
@@ -658,14 +721,14 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 <img
   src="/SnapLogicPlayground1/LogoN.svg"
   alt="SnapLogic"
-  className="object-contain"
+  className=" object-contain"
   style={{
     height: isTablet ? '20px' : '32px'
   }}
 />
         </div>
         <div className="flex items-center">
-        <button 
+        <button
   onClick={() => {
     // Always download the file
     const blob = new Blob(['Demo content'], { type: 'application/zip' });
@@ -677,6 +740,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     link.click();
     link.parentNode.removeChild(link);
     window.URL.revokeObjectURL(url);
+
 
     // Show dialog if not checked in current session
     if (!wasChecked) {
@@ -697,6 +761,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 
 
 
+
+
+
+
           {showExportDialog && (
             <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
               <div className="bg-white h-[19rem] w-205" style={{ borderRadius: 0 }}>
@@ -710,8 +778,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                     Don't forget to install the <span className="text-blue-500">DataWeave Playground</span> extension
                   </p>
                   <div className="flex justify-between items-center">
-                  <label 
-  className="flex items-center text-sm cursor-pointer select-none" 
+                  <label
+  className="flex items-center text-sm cursor-pointer select-none"
   onClick={() => {
     setIsChecked(!isChecked);
     setWasChecked(true);
@@ -728,7 +796,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   Don't show popup again
 </label>
 
-                    <button 
+
+                    <button
                       onClick={() => setShowExportDialog(false)}
                       className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
                       style={{ borderRadius: 0 }}
@@ -740,9 +809,9 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               </div>
             </div>
           )}
-                    <button 
+                    <button
             onClick={() => {setShowImportDialog(true);
-              setSelectedFile(null); 
+              setSelectedFile(null);
                 } }
             className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
@@ -755,6 +824,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
 
+
           {showImportDialog && (
   <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
     <div className="bg-white h-[28.5rem] w-[31rem]" style={{ borderRadius: 0 }}>
@@ -762,7 +832,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
         <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
         <div className="mt-6 flex-1 font-['Manrope']">
-          <div 
+          <div
             className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400"
             onClick={() => document.getElementById('fileInput').click()}
             onDragOver={(e) => e.preventDefault()}
@@ -788,7 +858,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           </div>
         </div>
         <div className="flex justify-end">
-          <button 
+          <button
             onClick={() => setShowImportDialog(false)}
             className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
             style={{ borderRadius: 0 }}
@@ -802,18 +872,21 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 )}
 
 
+
+
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
+
 
           <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
       {['blogs', 'docs', 'tutorial', 'playground'].map(item => (
-        <a 
+        <a
           key={item}
           href={getNavLink(item)}
           target="_blank"
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
-            activeNavItem === item 
-              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
+            activeNavItem === item
+              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10'
               : ''
           }`}
           onClick={() => handleNavClick(item)}
@@ -825,6 +898,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         </div>
       </div>
 {/* main content */}
+
 
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]" style={responsiveStyles.mainContainer}>
         <div style={{...resizableStyles(leftWidth,'left'),...responsiveStyles.panels}} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
@@ -842,7 +916,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   className="w-3 h-3 flex-shrink-0 "
 />
       </button>
-      
+     
       <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
     <FormatDropdown />
@@ -856,7 +930,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       </div>
     ))}
   </div>
-  
+ 
   <textarea
     value={payloadContent}
     onChange={(e) => setPayloadContent(e.target.value)}
@@ -874,8 +948,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             <div className="border-b">
   <div className="flex justify-between items-center h-[30px]  px-4">
     <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
-    <button 
-      onClick={() => setShowInputContainer(true)} 
+    <button
+      onClick={() => setShowInputContainer(true)}
       className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
@@ -886,9 +960,14 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
  className="text-gray-500 h-3 w-3"
 />
 
+
     </button>
   </div>
 </div>
+
+
+
+
 
 
 
@@ -930,7 +1009,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           className="h-10 px-4 text-sm  font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200  rounded-none"
           style={{ borderColor: "rgb(209 213 219)",outline: "none" }}
         >
-        
+       
           Cancel
         </button>
          <button
@@ -944,7 +1023,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               ? "text-black bg-gray-300 cursor-not-allowed"
               : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
           }`}
-          style={{ 
+          style={{
             border: "none",
             outline: "none"
           }}
@@ -973,8 +1052,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
     <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
-    <button 
-      onClick={() => setShowScriptContainer(true)} 
+    <button
+      onClick={() => setShowScriptContainer(true)}
       className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
@@ -1037,7 +1116,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               ? "text-black bg-gray-300 cursor-not-allowed"
               : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
           }`}
-          style={{ 
+          style={{
             border: "none",
             outline: "none"
           }}
@@ -1064,7 +1143,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 </div>
 
 
+
+
 ))}
+
 
 </div>
               </div>
@@ -1072,14 +1154,15 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           )}
         </div>
 
+
         {/* Left Resize Handle */}
         <div
           className="w-[2px] bg-gray-200 relative"
           onMouseDown={(e) => handleMouseDown(e, true)}
         >
-          <div 
+          <div
             className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
-            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
+            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }}
           >
             <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
           </div>
@@ -1148,6 +1231,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           }}
         />
 
+
         {/* Active Line Indicator */}
         <div
           style={{
@@ -1161,19 +1245,23 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           }}
         />
 
+
 </div>
 
 
+
+
         </div>
+
 
         {/* Right Resize Handle */}
         <div
           className="w-[2px] bg-gray-200 relative"
           onMouseDown={(e) => handleMouseDown(e, false)}
         >
-          <div 
+          <div
             className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
-            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
+            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }}
           >
             <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
           </div>
@@ -1188,7 +1276,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
-                    
+                   
                   </div>
                 </div>
               </div>
@@ -1197,14 +1285,14 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             style={scrollbarStyle}>
     <div className="flex">
         {renderLineNumbers(actualLines)}
-        
+       
         <textarea
             value={actualOutput}
             readOnly={true}
             spellCheck="false"
             className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm cursor-text "
             style={{
-            
+           
                 ...textAreaStyles,
                 WebkitUserModify: 'read-only',
                 userModify: 'read-only',
@@ -1214,6 +1302,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         />
     </div>
 </div>
+
 
           </div>
           {/* Expected Output Section */}
@@ -1244,8 +1333,9 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         </div>
         </div>
 
+
 {/* Bottom Bar */}
-<div 
+<div
   className="border-t relative flex flex-col   "
   style={{
     height: `${bottomHeight}px`,
@@ -1253,6 +1343,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     ...responsiveStyles.panels
   }}
 >
+
 
 <div
   className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
@@ -1262,6 +1353,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     const startY = e.clientY;
     const startHeight = bottomHeight;
 
+
     const handleMouseMove = (e) => {
       const deltaY = startY - e.clientY;
       const newHeight = startHeight + deltaY;
@@ -1269,11 +1361,13 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       setBottomHeight(Math.max(32, Math.min(250, newHeight)));
     };
 
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -1281,6 +1375,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 >
   <div className="w-full h-[1.5px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
 </div>
+
+
 
 
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
@@ -1307,6 +1403,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
     </Tooltip>
+
 
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1337,12 +1434,18 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 
 
 
+
+
+
+
+
+
     <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(45%+0px)] tracking-[0.03em] flex items-center h-full z-10">
       {/* ©2023 Snaplogic LLC, a Salesforce company */}
       SnapLogic Playground – Redefining Integration.
     </span>
     {/* Resize Handle */}
-    
+   
   </div>
           {/* Content */}
           {isBottomExpanded && (
@@ -1381,6 +1484,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                       </nav>
                     </div>
 
+
                     {/* Right Content */}
                     <div className="flex-1 overflow-y-auto"
                     style={scrollbarStyle}>
@@ -1394,6 +1498,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                             </p>
                           </section>
 
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Expression Types</h2>
                             <ul className="list-disc pl-6 space-y-2">
@@ -1404,6 +1509,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                             </ul>
                           </section>
 
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Examples</h2>
                             <div className="bg-gray-50 p-4 rounded-md">
@@ -1411,8 +1517,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                                 {`// Data Navigation
                                 $.phoneNumbers[0].type
 
+
                                 // String Operations
                                 $uppercase($.firstName)
+
 
                                 // Array Operations
                                 $.items[*].price`}
@@ -1434,7 +1542,26 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   );
 };
 
+
 export default UpdatedCode;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
