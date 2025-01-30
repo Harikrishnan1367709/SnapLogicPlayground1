@@ -440,23 +440,23 @@ class SnapLogicFunctionsHandler {
 
 
     try {
+    
 
+    //   console.log('Script:', script);
+    // console.log('Data:', data);
 
-      console.log('Script:', script);
-    console.log('Data:', data);
-
-    // Handle static String.fromCharCode method
-    const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
-    if (staticMethodMatch) {
-      const args = staticMethodMatch[1].split(',').map(arg => parseInt(arg.trim()));
-      return String.fromCharCode(...args);
-    }
+    // // Handle static String.fromCharCode method
+    // const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
+    // if (staticMethodMatch) {
+    //   const args = staticMethodMatch[1].split(',').map(arg => parseInt(arg.trim()));
+    //   return String.fromCharCode(...args);
+    // }
 
 
     // Handle string operations with arguments
-    const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-    if (methodMatch) {
-      const [, variableName, methodName, argsString] = methodMatch;
+    const stringmethodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
+    if (stringmethodMatch) {
+      const [, variableName, methodName, argsString] = stringmethodMatch;
       const value = data[variableName];
 
 
@@ -593,27 +593,27 @@ class SnapLogicFunctionsHandler {
 
 
     // Handle string operations without arguments
-    const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
-    if (simpleMatch) {
-      const [, variableName, methodName] = simpleMatch;
-      const value = data[variableName];
+    // const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
+    // if (simpleMatch) {
+    //   const [, variableName, methodName] = simpleMatch;
+    //   const value = data[variableName];
 
 
-      if (value === undefined) {
-        throw new Error(`Variable '${variableName}' not found in data`);
-      }
+    //   if (value === undefined) {
+    //     throw new Error(`Variable '${variableName}' not found in data`);
+    //   }
 
 
-      switch (methodName) {
-        case 'toUpperCase': return value.toUpperCase();
-        case 'toLowerCase': return value.toLowerCase();
-        case 'trim': return value.trim();
-        case 'length': return value.length;
-        // Add other no-argument methods here
-        default:
-          throw new Error(`Unknown string method: ${methodName}`);
-      }
-    }
+    //   switch (methodName) {
+    //     case 'toUpperCase': return value.toUpperCase();
+    //     case 'toLowerCase': return value.toLowerCase();
+    //     case 'trim': return value.trim();
+    //     case 'length': return value.length;
+    //     // Add other no-argument methods here
+    //     default:
+    //       throw new Error(`Unknown string method: ${methodName}`);
+    //   }
+    // }
 
       // Handle array length without parentheses
     const lengthMatch = script.match(/\$(\w+)\.length$/);
@@ -925,49 +925,49 @@ class SnapLogicFunctionsHandler {
     //   }
     //   return this.dateFunctions[category](...evaluatedArgs);
     // }
-    console.log('Script:', script);
-    console.log('Data:', data);
+    // console.log('Script:', script);
+    // console.log('Data:', data);
 
 
     // Handle direct function calls like $text.toUpperCase()
-    const directFunctionMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
-    if (directFunctionMatch) {
-      const [, variableName, functionName] = directFunctionMatch;
-      console.log('Variable:', variableName);
-      console.log('Function:', functionName);
+    // const directFunctionMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
+    // if (directFunctionMatch) {
+    //   const [, variableName, functionName] = directFunctionMatch;
+    //   console.log('Variable:', variableName);
+    //   console.log('Function:', functionName);
      
-      const value = data[variableName];
-      console.log('Value:', value);
+    //   const value = data[variableName];
+    //   console.log('Value:', value);
      
-      if (value === undefined) {
-        throw new Error(`Variable '${variableName}' not found in data`);
-      }
+    //   if (value === undefined) {
+    //     throw new Error(`Variable '${variableName}' not found in data`);
+    //   }
 
 
-      // Check which type of function to call based on the value type
-      if (typeof value === 'string' && this.stringFunctions[functionName]) {
-        return this.stringFunctions[functionName](value);
-      }
+    //   // Check which type of function to call based on the value type
+    //   if (typeof value === 'string' && this.stringFunctions[functionName]) {
+    //     return this.stringFunctions[functionName](value);
+    //   }
      
-      if (Array.isArray(value) && this.arrayFunctions[functionName]) {
-        return this.arrayFunctions[functionName](value);
-      }
+    //   if (Array.isArray(value) && this.arrayFunctions[functionName]) {
+    //     return this.arrayFunctions[functionName](value);
+    //   }
      
-      if (typeof value === 'number' && this.mathFunctions[functionName]) {
-        return this.mathFunctions[functionName](value);
-      }
+    //   if (typeof value === 'number' && this.mathFunctions[functionName]) {
+    //     return this.mathFunctions[functionName](value);
+    //   }
      
-      if (value instanceof Date && this.dateFunctions[functionName]) {
-        return this.dateFunctions[functionName](value);
-      }
+    //   if (value instanceof Date && this.dateFunctions[functionName]) {
+    //     return this.dateFunctions[functionName](value);
+    //   }
      
-      if (typeof value === 'object' && value !== null && this.objectFunctions[functionName]) {
-        return this.objectFunctions[functionName](value);
-      }
+    //   if (typeof value === 'object' && value !== null && this.objectFunctions[functionName]) {
+    //     return this.objectFunctions[functionName](value);
+    //   }
 
 
-      throw new Error(`No matching function '${functionName}' found for type ${typeof value}`);
-    }
+    //   throw new Error(`No matching function '${functionName}' found for type ${typeof value}`);
+    // }
 
 
 
