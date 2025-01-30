@@ -647,7 +647,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             SnapLogic 
           </div> */}
            <img
-  src="/sl-logo.svg"
+  src="/SnapLogicPlayground1/sl-logo.svg"
   alt="SnapLogic Logo"
   className=" object-contain"
   style={{
@@ -656,9 +656,9 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   }}
 />
 <img
-  src="/LogoN.svg"
+  src="/SnapLogicPlayground1/LogoN.svg"
   alt="SnapLogic"
-  className=" object-contain"
+  className="object-contain"
   style={{
     height: isTablet ? '20px' : '32px'
   }}
@@ -686,7 +686,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
 >
 <img
-  src="/cloud-upload-Hover.svg"
+  src="/SnapLogicPlayground1/cloud-upload-Hover.svg"
   alt="SnapLogic Logo"
  className="mr-2 text-gray-700 group-hover:text-blue-500 text-gray-500 h-4 w-4"
 />
@@ -747,7 +747,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <img
-  src="/cloud-download-Hover.svg"
+  src="/SnapLogicPlayground1/cloud-download-Hover.svg"
   alt="SnapLogic Logo"
  className="mr-2 group-hover:text-blue-500 text-gray-500 h-4 w-4"
 />
@@ -837,7 +837,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none flex-shrink-0">
         {/* <ChevronLeft className="h-4 w-4" /> */}
         <img
-  src="/toolbarExpand-Active.svg"
+  src="/SnapLogicPlayground1/toolbarExpand-Active.svg"
   alt="SnapLogic Logo"
   className="w-3 h-3 flex-shrink-0 "
 />
@@ -881,7 +881,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     >
       {/* + */}
       <img
-  src="/add-Hover.svg"
+  src="/SnapLogicPlayground1/add-Hover.svg"
   alt="SnapLogic Logo"
  className="text-gray-500 h-3 w-3"
 />
@@ -980,7 +980,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     >
       {/* + */}
       <img
-  src="/add-Hover.svg"
+  src="/SnapLogicPlayground1/add-Hover.svg"
   alt="SnapLogic Logo"
  className="text-gray-500 h-3 w-3"
 />

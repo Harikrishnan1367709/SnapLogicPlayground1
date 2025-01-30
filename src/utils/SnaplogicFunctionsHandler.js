@@ -427,6 +427,159 @@ class SnapLogicFunctionsHandler {
       console.log('Script:', script);
     console.log('Data:', data);
 
+    // Handle static String.fromCharCode method
+    const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
+    if (staticMethodMatch) {
+      const args = staticMethodMatch[1].split(',').map(arg => parseInt(arg.trim()));
+      return String.fromCharCode(...args);
+    }
+
+    // Handle string operations with arguments
+    const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
+    if (methodMatch) {
+      const [, variableName, methodName, argsString] = methodMatch;
+      const value = data[variableName];
+
+      if (value === undefined) {
+        throw new Error(`Variable '${variableName}' not found in data`);
+      }
+
+      // Parse arguments if they exist
+      const args = argsString ? 
+        argsString.split(',').map(arg => {
+          arg = arg.trim();
+          // Handle number arguments
+          if (!isNaN(arg)) {
+            return Number(arg);
+          }
+          // Handle string arguments (remove quotes)
+          if (arg.startsWith('"') || arg.startsWith("'")) {
+            return arg.slice(1, -1);
+          }
+          // Handle regex arguments
+          if (arg.startsWith('/') && arg.endsWith('/g')) {
+            return new RegExp(arg.slice(1, -2), 'g');
+          }
+          if (arg.startsWith('/') && arg.endsWith('/')) {
+            return new RegExp(arg.slice(1, -1));
+          }
+          return arg;
+        }) : [];
+
+      // String operations
+      switch (methodName) {
+        // Basic operations
+        case 'toUpperCase': return value.toUpperCase();
+        case 'toLowerCase': return value.toLowerCase();
+        case 'trim': return value.trim();
+        case 'trimLeft': return value.trimStart();
+        case 'trimRight': return value.trimEnd();
+        case 'length': return value.length;
+
+        // Case conversions
+        case 'camelCase': return _.camelCase(value);
+        case 'kebabCase': return _.kebabCase(value);
+        case 'snakeCase': return _.snakeCase(value);
+        case 'capitalize': return _.capitalize(value);
+        case 'upperFirst': return _.upperFirst(value);
+        case 'lowerFirst': return _.lowerFirst(value);
+
+        // Character operations
+        case 'charAt': {
+          const index = parseInt(args[0]);
+          if (isNaN(index)) {
+            throw new Error('charAt requires a numeric index');
+          }
+          return value.charAt(index);
+        }
+        case 'charCodeAt': {
+          const index = parseInt(args[0]);
+          if (isNaN(index)) {
+            throw new Error('charCodeAt requires a numeric index');
+          }
+          return value.charCodeAt(index);
+        }
+
+        // Search operations
+        case 'contains': return value.includes(args[0], args[1]);
+        case 'startsWith': return value.startsWith(args[0], args[1]);
+        case 'endsWith': return value.endsWith(args[0], args[1]);
+        case 'indexOf': return value.indexOf(args[0], args[1]);
+        case 'lastIndexOf': return value.lastIndexOf(args[0], args[1]);
+        case 'search': return value.search(args[0]);
+
+        // String manipulation
+        case 'concat': return value.concat(...args);
+        case 'substring': return value.substring(args[0], args[1]);
+        case 'substr': return value.substr(args[0], args[1]);
+        case 'slice': return value.slice(args[0], args[1]);
+        case 'repeat': return value.repeat(args[0]);
+
+        // String replacement
+        case 'replace': 
+          if (args[0] instanceof RegExp) {
+            return value.replace(args[0], args[1]);
+          }
+          return value.replace(args[0], args[1]);
+        case 'replaceAll': return value.replaceAll(args[0], args[1]);
+
+        // String split and match
+        case 'split': return value.split(args[0], args[1]);
+        case 'match': return value.match(args[0]);
+
+        // String comparison
+        case 'localeCompare': return value.localeCompare(args[0]);
+
+        // String formatting
+        case 'sprintf': {
+          let result = value;
+          if (args.length === 0) return result;
+
+          // Handle numbered placeholders like %1$s
+          if (value.includes('$')) {
+            const matches = value.match(/%\d+\$s/g) || [];
+            matches.forEach(match => {
+              const index = parseInt(match.match(/\d+/)[0]) - 1;
+              if (index >= 0 && index < args.length) {
+                result = result.replace(match, args[index]);
+              }
+            });
+          } else {
+            // Handle simple %s placeholders
+            let argIndex = 0;
+            result = result.replace(/%s/g, () => {
+              return argIndex < args.length ? args[argIndex++] : '%s';
+            });
+          }
+          return result;
+        }
+
+        default:
+          throw new Error(`Unknown string method: ${methodName}`);
+      }
+    }
+
+    // Handle string operations without arguments
+    const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
+    if (simpleMatch) {
+      const [, variableName, methodName] = simpleMatch;
+      const value = data[variableName];
+
+      if (value === undefined) {
+        throw new Error(`Variable '${variableName}' not found in data`);
+      }
+
+      switch (methodName) {
+        case 'toUpperCase': return value.toUpperCase();
+        case 'toLowerCase': return value.toLowerCase();
+        case 'trim': return value.trim();
+        case 'length': return value.length;
+        // Add other no-argument methods here
+        default:
+          throw new Error(`Unknown string method: ${methodName}`);
+      }
+    }
+
       // Handle array length without parentheses
     const lengthMatch = script.match(/\$(\w+)\.length$/);
     if (lengthMatch) {
@@ -636,159 +789,7 @@ class SnapLogicFunctionsHandler {
        return Uint8Array.of(...args);
      }
  
-    // Handle static String.fromCharCode method
-    const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
-    if (staticMethodMatch) {
-      const args = staticMethodMatch[1].split(',').map(arg => parseInt(arg.trim()));
-      return String.fromCharCode(...args);
-    }
-
-    // Handle string operations with arguments
-    const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-    if (methodMatch) {
-      const [, variableName, methodName, argsString] = methodMatch;
-      const value = data[variableName];
-
-      if (value === undefined) {
-        throw new Error(`Variable '${variableName}' not found in data`);
-      }
-
-      // Parse arguments if they exist
-      const args = argsString ? 
-        argsString.split(',').map(arg => {
-          arg = arg.trim();
-          // Handle number arguments
-          if (!isNaN(arg)) {
-            return Number(arg);
-          }
-          // Handle string arguments (remove quotes)
-          if (arg.startsWith('"') || arg.startsWith("'")) {
-            return arg.slice(1, -1);
-          }
-          // Handle regex arguments
-          if (arg.startsWith('/') && arg.endsWith('/g')) {
-            return new RegExp(arg.slice(1, -2), 'g');
-          }
-          if (arg.startsWith('/') && arg.endsWith('/')) {
-            return new RegExp(arg.slice(1, -1));
-          }
-          return arg;
-        }) : [];
-
-      // String operations
-      switch (methodName) {
-        // Basic operations
-        case 'toUpperCase': return value.toUpperCase();
-        case 'toLowerCase': return value.toLowerCase();
-        case 'trim': return value.trim();
-        case 'trimLeft': return value.trimStart();
-        case 'trimRight': return value.trimEnd();
-        case 'length': return value.length;
-
-        // Case conversions
-        case 'camelCase': return _.camelCase(value);
-        case 'kebabCase': return _.kebabCase(value);
-        case 'snakeCase': return _.snakeCase(value);
-        case 'capitalize': return _.capitalize(value);
-        case 'upperFirst': return _.upperFirst(value);
-        case 'lowerFirst': return _.lowerFirst(value);
-
-        // Character operations
-        case 'charAt': {
-          const index = parseInt(args[0]);
-          if (isNaN(index)) {
-            throw new Error('charAt requires a numeric index');
-          }
-          return value.charAt(index);
-        }
-        case 'charCodeAt': {
-          const index = parseInt(args[0]);
-          if (isNaN(index)) {
-            throw new Error('charCodeAt requires a numeric index');
-          }
-          return value.charCodeAt(index);
-        }
-
-        // Search operations
-        case 'contains': return value.includes(args[0], args[1]);
-        case 'startsWith': return value.startsWith(args[0], args[1]);
-        case 'endsWith': return value.endsWith(args[0], args[1]);
-        case 'indexOf': return value.indexOf(args[0], args[1]);
-        case 'lastIndexOf': return value.lastIndexOf(args[0], args[1]);
-        case 'search': return value.search(args[0]);
-
-        // String manipulation
-        case 'concat': return value.concat(...args);
-        case 'substring': return value.substring(args[0], args[1]);
-        case 'substr': return value.substr(args[0], args[1]);
-        case 'slice': return value.slice(args[0], args[1]);
-        case 'repeat': return value.repeat(args[0]);
-
-        // String replacement
-        case 'replace': 
-          if (args[0] instanceof RegExp) {
-            return value.replace(args[0], args[1]);
-          }
-          return value.replace(args[0], args[1]);
-        case 'replaceAll': return value.replaceAll(args[0], args[1]);
-
-        // String split and match
-        case 'split': return value.split(args[0], args[1]);
-        case 'match': return value.match(args[0]);
-
-        // String comparison
-        case 'localeCompare': return value.localeCompare(args[0]);
-
-        // String formatting
-        case 'sprintf': {
-          let result = value;
-          if (args.length === 0) return result;
-
-          // Handle numbered placeholders like %1$s
-          if (value.includes('$')) {
-            const matches = value.match(/%\d+\$s/g) || [];
-            matches.forEach(match => {
-              const index = parseInt(match.match(/\d+/)[0]) - 1;
-              if (index >= 0 && index < args.length) {
-                result = result.replace(match, args[index]);
-              }
-            });
-          } else {
-            // Handle simple %s placeholders
-            let argIndex = 0;
-            result = result.replace(/%s/g, () => {
-              return argIndex < args.length ? args[argIndex++] : '%s';
-            });
-          }
-          return result;
-        }
-
-        default:
-          throw new Error(`Unknown string method: ${methodName}`);
-      }
-    }
-
-    // Handle string operations without arguments
-    const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
-    if (simpleMatch) {
-      const [, variableName, methodName] = simpleMatch;
-      const value = data[variableName];
-
-      if (value === undefined) {
-        throw new Error(`Variable '${variableName}' not found in data`);
-      }
-
-      switch (methodName) {
-        case 'toUpperCase': return value.toUpperCase();
-        case 'toLowerCase': return value.toLowerCase();
-        case 'trim': return value.trim();
-        case 'length': return value.length;
-        // Add other no-argument methods here
-        default:
-          throw new Error(`Unknown string method: ${methodName}`);
-      }
-    }
-
+    
     //   console.log('Executing script:', script);
     // console.log('Input data:', data);
 
@@ -875,8 +876,7 @@ class SnapLogicFunctionsHandler {
     //   }
     //   return this.dateFunctions[category](...evaluatedArgs);
     // }
-    console.log('Script:', script);
-    console.log('Data:', data);
+
 
     // Handle direct function calls like $text.toUpperCase()
     const directFunctionMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
