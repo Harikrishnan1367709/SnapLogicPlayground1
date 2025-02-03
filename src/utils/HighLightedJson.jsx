@@ -11,14 +11,22 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
     // JSON theme with syntax highlighting
     monaco.editor.defineTheme('dataweaveTheme', {
       base: 'vs',
-      inherit: true,
+      inherit: false,
       rules: [
-        { token: 'string.key.json', foreground: '000000' },
+        { token: 'string.key.json', foreground: '800000' },
         { token: 'string.value.json', foreground: '0000FF' },
         { token: 'number.json', foreground: '098658' },
-        { token: 'delimiter.bracket.json', foreground: '000000' },
-        { token: 'delimiter.array.json', foreground: '000000' },
-        { token: 'delimiter.comma.json', foreground: '000000' }
+        { token: 'punctuation.bracket.json', foreground: '000000' },
+        { token: 'punctuation.array.json', foreground: '000000' },
+        { token: 'punctuation.comma.json', foreground: '000000' },
+        { token: 'punctuation.colon.json', foreground: '000000' },
+        { token: 'punctuation.definition.block.json', foreground: '000000' },
+        { token: 'punctuation.curlybrace.open', foreground: '000000' },
+        { token: 'punctuation.curlybrace.close', foreground: '000000' },
+        { token: 'delimiter.curly', foreground: '000000' },
+        { token: 'delimiter.bracket', foreground: '000000' },
+        { token: 'delimiter.square', foreground: '000000' },
+        { token: 'punctuation', foreground: '000000' }
       ],
       colors: {
         'editor.background': '#FFFFFF',
