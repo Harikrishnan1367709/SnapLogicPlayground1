@@ -323,15 +323,59 @@ const [inputContents, setInputContents] = useState({
     compareOutputs();
   };
   const scrollbarStyle = {
-    scrollbarWidth: 'thin',
-    scrollbarColor: '#ffffff #f1f1f1',
-    WebkitScrollbarWidth: '8px',
-    WebkitScrollbarTrack: { background: '#f1f1f1' },
-    WebkitScrollbarThumb: {
-      background: '#ffffff',
-      border: '1px solid #e0e0e0'
+    overflowY: 'auto',
+    overflowX: 'auto',
+    '&::-webkit-scrollbar': {
+      width: '8px',
+      height: '8px',
+      background: '#ffffff'
     },
-    WebkitScrollbarThumbHover: { background: '#f8f8f8' }
+    '&::-webkit-scrollbar-track': {
+      background: '#ffffff',
+      borderRadius: '0px',
+      margin: '4px 0'
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: '#888888',
+      border: '2px solid #ffffff',
+      borderRadius: '4px',
+      minHeight: '40px',
+      transition: 'background-color 0.2s ease',
+      '&:hover': {
+        background: '#666666'
+      },
+      '&:active': {
+        background: '#555555'
+      }
+    },
+    '&::-webkit-scrollbar-corner': {
+      background: '#ffffff'
+    },
+    // Firefox support
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#888888 #ffffff',
+    // Edge support
+    'ms-overflow-style': '-ms-autohiding-scrollbar'
+  };
+  const scrollbarStyle1 = {
+    '&::-webkit-scrollbar': {
+      width: '8px',
+      height: '10px'
+    },
+    '&::-webkit-scrollbar-track': {
+      background: '#ffffff'
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: '#ffffff',
+      borderRadius: '0px',
+      border: '1px solid #ffffff'
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+      background: '#ffffff'
+    },
+    '&::-webkit-scrollbar-corner': {
+      background: '#ffffff'
+    }
   };
   const handleExpectedOutputChange = (e) => {
     setExpectedOutput(e.target.value);
@@ -1371,7 +1415,9 @@ const monacoStyles = `
               </div>
             </div>
           </div>
-          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
+          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative "
+          style={{ overflow: 'hidden' }}>
+            <div className="flex flex-1 " style={scrollbarStyle}>
   <div className="w-12 text-right pr-4 select-none flex-shrink-0">
   {Array.from({ length: getLineCount(scriptContent) }, (_, i) => (
     <div key={i} className="text-blue-400 h-6 leading-6">
@@ -1394,10 +1440,11 @@ const monacoStyles = `
     className={`flex-1 outline-none bg-white resize-none overflow-auto leading-6 relative w-full pr-0`}
     style={{
       lineHeight: '1.5rem',
-      ...scrollbarStyle
+      // ...scrollbarStyle
       // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
   />
+  </div>
  <canvas
           ref={canvasRef}
           className="decorationsOverviewRuler"
