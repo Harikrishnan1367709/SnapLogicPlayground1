@@ -4,6 +4,10 @@ import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "luci
 import { v4 as uuidv4 } from "uuid"
 
 
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import Editor from '@monaco-editor/react';
+
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +32,8 @@ import _ from 'lodash';
 import moment from 'moment';
 import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
+import HighLightedJSON from './utils/HighLightedJson';
+
 
 
 
@@ -36,7 +42,7 @@ const UpdatedCode = () => {
 
 
 
-
+  const [format, setFormat] = useState('json');
  
   const canvasRef = useRef(null);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
@@ -126,6 +132,9 @@ const [inputContents, setInputContents] = useState({
       lastModified: new Date()
     }
   ]);
+  
+
+
   const [activeScript, setActiveScript] = useState(scripts[0]);
   const [newScript, setNewScript] = useState("");
   const [scriptContent, setScriptContent] = useState(scripts[0].content);
@@ -460,15 +469,19 @@ const handleScriptContentChange = (e) => {
   };
   const normalizeJSON = (jsonString) => {
     try {
+      if (!jsonString || jsonString.trim() === '') {
+        return '';
+      }
       if (typeof jsonString === 'string') {
         return JSON.stringify(JSON.parse(jsonString));
       }
       return JSON.stringify(jsonString);
     } catch (error) {
-      console.error('JSON normalization error:', error);
-      return jsonString;
+      console.log('JSON normalization error:', error);
+      return jsonString || '';
     }
   };
+  
   useEffect(() => {
     const compareOutputs = () => {
       try {
@@ -671,6 +684,176 @@ const useMediaQuery = (query) => {
 // In your component
 const isTablet = useMediaQuery('(max-width: 1024px)');
 
+const monacoStyles = `
+  .monaco-editor {
+    padding-top: 8px;
+  }
+  
+  .monaco-editor .margin {
+    background-color: #f8f9fa;
+  }
+  
+  .monaco-editor .line-numbers {
+    color: #3498db !important;
+    font-size: 12px;
+  }
+  
+  .monaco-editor .current-line {
+    border: none !important;
+  }
+
+  /* Disable editor widgets that might interfere with typing */
+  .monaco-editor .suggest-widget,
+  .monaco-editor .parameter-hints-widget,
+  .monaco-editor .monaco-hover {
+    display: none !important;
+  }
+`;
+// const [jsonContent, setJsonContent] = useState('{\n  \n}');
+
+//   const handleEditorChange = (value) => {
+//     if (value !== undefined) {
+//       setJsonContent(value);
+//     }
+//   };
+
+
+  // const HighlightedJSON = ({ content, onChange, style }) => {
+  //   const editorRef = useRef(null);
+  //   const initialSetupDone = useRef(false);
+  //   const lastCursorPosition = useRef(null);
+  
+  //   const handleEditorDidMount = (editor, monaco) => {
+  //     editorRef.current = editor;
+  
+  //     monaco.editor.defineTheme('dataweaveTheme', {
+  //       base: 'vs',
+  //       inherit: true,
+  //       rules: [
+  //         { token: 'string.key.json', foreground: '000000' },
+  //         { token: 'string.value.json', foreground: '0000FF' },
+  //         { token: 'number.json', foreground: '098658' },
+  //         { token: 'delimiter.bracket.json', foreground: '000000' },
+  //         { token: 'delimiter.array.json', foreground: '000000' },
+  //         { token: 'delimiter.comma.json', foreground: '000000' }
+  //       ],
+  //       colors: {
+  //         'editor.background': '#FFFFFF',
+  //         'editor.lineHighlightBackground': '#F0F0F0',
+  //         'editorCursor.foreground': '#000000',
+  //         'editor.selectionBackground': '#ADD6FF',
+  //         'editor.inactiveSelectionBackground': '#E5EBF1'
+  //       }
+  //     });
+  
+  //     editor.updateOptions({
+  //       renderLineHighlight: 'all',
+  //       highlightActiveIndentGuide: true,
+  //       fontSize: 13,
+  //       lineHeight: 20,
+  //       padding: { top: 4, bottom: 4 },
+  //       lineNumbers: 'on',
+  //       roundedSelection: false,
+  //       scrollBeyondLastLine: false,
+  //       readOnly: false,
+  //       cursorStyle: 'line',
+  //       automaticLayout: true,
+  //       wordWrap: 'on',
+  //       autoIndent: 'full',
+  //       formatOnPaste: true,
+  //       formatOnType: false,
+  //       suggestOnTriggerCharacters: false,
+  //       quickSuggestions: false,
+  //       autoClosingBrackets: 'never',
+  //       autoClosingQuotes: 'never',
+  //       autoSurround: 'never'
+  //     });
+  
+  //     // Track cursor position changes
+  //     editor.onDidChangeCursorPosition((e) => {
+  //       lastCursorPosition.current = e.position;
+  //     });
+  
+  //     // Handle content changes with proper cursor positioning
+  //     editor.onDidChangeModelContent((event) => {
+  //       const newContent = editor.getValue();
+  //       const currentPosition = editor.getPosition();
+        
+  //       // Only update if content actually changed
+  //       if (newContent !== content) {
+  //         onChange(newContent);
+          
+  //         // Calculate the new cursor position
+  //         if (currentPosition) {
+  //           const newPosition = {
+  //             lineNumber: currentPosition.lineNumber,
+  //             column: currentPosition.column
+  //           };
+  
+  //           // Ensure cursor moves forward after typing
+  //           if (event.changes.length === 1 && event.changes[0].text) {
+  //             newPosition.column = currentPosition.column + 1;
+  //           }
+  
+  //           // Use setTimeout to ensure the position is set after the content update
+  //           setTimeout(() => {
+  //             editor.setPosition(newPosition);
+  //             editor.focus();
+  //           }, 0);
+  //         }
+  //       }
+  //     });
+  
+  //     if (!initialSetupDone.current) {
+  //       setTimeout(() => {
+  //         const model = editor.getModel();
+  //         if (model) {
+  //           const lastLine = model.getLineCount();
+  //           const lastColumn = model.getLineMaxColumn(lastLine - 1);
+  //           editor.setPosition({ lineNumber: lastLine - 1, column: lastColumn - 1 });
+  //           editor.focus();
+  //           initialSetupDone.current = true;
+  //         }
+  //       }, 100);
+  //     }
+  //   };
+  
+  //   return (
+  //     <div className="flex-1 border rounded-sm" style={{ ...style, overflow: 'hidden' }}>
+  //       <Editor
+  //         height="100%"
+  //         defaultLanguage="json"
+  //         value={content}
+  //         onMount={handleEditorDidMount}
+  //         theme="dataweaveTheme"
+  //         options={{
+  //           minimap: { enabled: false },
+  //           overviewRulerLanes: 0,
+  //           hideCursorInOverviewRuler: true,
+  //           overviewRulerBorder: false,
+  //           scrollbar: {
+  //             vertical: 'visible',
+  //             horizontal: 'visible',
+  //             verticalScrollbarSize: 10,
+  //             horizontalScrollbarSize: 10,
+  //             verticalSliderSize: 10,
+  //             horizontalSliderSize: 10,
+  //             useShadows: false
+  //           }
+  //         }}
+  //       />
+  //     </div>
+  //   );
+  // };
+
+  const handlePayloadChange = (newContent) => {
+    setPayloadContent(newContent);
+    // Also update any other necessary state or trigger side effects
+  };
+  const handleFormatChange = (newFormat) => {
+    setFormat(newFormat);
+  };
+  
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -919,28 +1102,29 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
      
       <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
-    <FormatDropdown />
+    <FormatDropdown onFormatChange={handleFormatChange} />
   </div>
 </div>
-<div className="flex flex-1  ">
-  <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
-  {Array.from({ length: payloadContent.split('\n').length }, (_, i) => (
-      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">
-        {i + 1}
-      </div>
-    ))}
-  </div>
- 
-  <textarea
-    value={payloadContent}
-    onChange={(e) => setPayloadContent(e.target.value)}
-    className="flex-1 p-2 font-mono text-sm resize-none outline-none bg-white leading-6"
-    spellCheck="false"
-    style={{ lineHeight: '1.5rem' ,
-      ...scrollbarStyle
-    }}
-  />
-</div>
+
+          {/* <HighlightedJSON
+            content={jsonContent}
+            onChange={handleEditorChange}
+            style={{ height: '100%' }}
+          /> */}
+          <HighLightedJSON
+      content={payloadContent}
+      onChange={handlePayloadChange}
+      format={format} 
+      style={{
+        lineHeight: '1.5rem',
+        ...scrollbarStyle,
+        height: '100%',
+        backgroundColor: 'white'
+      }}
+    />
+
+
+
             </div>
           ) : (
             <>
