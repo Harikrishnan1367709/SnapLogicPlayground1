@@ -26,9 +26,11 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
         { token: 'delimiter.curly', foreground: '000000' },
         { token: 'delimiter.bracket', foreground: '000000' },
         { token: 'delimiter.square', foreground: '000000' },
-        { token: 'punctuation', foreground: '000000' }
+        { token: 'punctuation', foreground: '000000' },
+        { token: '', foreground: '000000' }  // Default color for all other tokens including brackets
       ],
       colors: {
+        'editor.foreground': '#000000',
         'editor.background': '#FFFFFF',
         'editor.lineHighlightBackground': '#F0F0F0',
         'editorCursor.foreground': '#000000',
