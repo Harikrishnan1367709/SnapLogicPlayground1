@@ -108,26 +108,21 @@ class SnapLogicFunctionsHandler {
         newArr.push(...items);
         return newArr;
       },
-      reduce: (arr, reducer, initialValue) => {
+      reduce: (arr, reducer, initial) => {
         if (typeof reducer === 'string') {
-          // Handle string reducer like "acc + curr"
-          return arr.reduce((acc, curr) => {
-            const fn = new Function('acc', 'curr', `return ${reducer}`);
-            return fn(acc, curr);
-          }, initialValue);
+          // Convert string to function if needed
+          reducer = eval(`(${reducer})`);
         }
-        return arr.reduce(reducer, initialValue);
+        return arr.reduce(reducer, initial);
       },
-      reduceRight: (arr, reducer, initialValue) => {
+      reduceRight: (arr, reducer, initial) => {
         if (typeof reducer === 'string') {
-          // Handle string reducer like "acc + curr"
-          return arr.reduceRight((acc, curr) => {
-            const fn = new Function('acc', 'curr', `return ${reducer}`);
-            return fn(acc, curr);
-          }, initialValue);
+          // Convert string to function if needed
+          reducer = eval(`(${reducer})`);
         }
-        return arr.reduceRight(reducer, initialValue);
+        return arr.reduceRight(reducer, initial);
       },
+    
     
       reverse: (arr) => [...arr].reverse(),
       shift: (arr) => arr.slice(1),
@@ -728,32 +723,33 @@ if (script.startsWith('Date.')) {
   parseArguments(argsString, data) {
     if (!argsString) return [];
     
+    // Special handling for reduce/reduceRight
+    if (argsString.includes('=>') && argsString.includes(',')) {
+      const [reducer, initial] = argsString.split(/,(?![^(]*\))/);
+      return [
+        eval(`(${reducer.trim()})`),
+        initial ? JSON.parse(initial.trim()) : undefined
+      ];
+    }
+    
     return argsString.split(',').map(arg => {
       arg = arg.trim();
-      
-      // Handle arrow functions for array methods
       if (arg.includes('=>')) {
-        return eval(arg);
+        return eval(`(${arg})`);
       }
-      
-      // Handle variable references
       if (arg.startsWith('$')) {
         return data[arg.slice(1)];
       }
-      
-      // Handle numeric values
       if (!isNaN(arg)) {
         return Number(arg);
       }
-      
-      // Handle string literals
       if (arg.startsWith('"') || arg.startsWith("'")) {
         return arg.slice(1, -1);
       }
-      
       return arg;
     });
   }
+  
   
   
 
