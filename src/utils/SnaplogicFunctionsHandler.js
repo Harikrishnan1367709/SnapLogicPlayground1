@@ -7,86 +7,243 @@ class SnapLogicFunctionsHandler {
   constructor() {
     this.stringFunctions = {
       camelCase: (str) => str.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase()),
-      capitalize: (str) => str.charAt(0).toUpperCase() + str.slice(1),
+      capitalize: (str) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase(),
       charAt: (str, index) => str.charAt(index),
       charCodeAt: (str, index) => str.charCodeAt(index),
       concat: (...args) => args.join(''),
-      contains: (str, search) => str.includes(search),
-      endsWith: (str, search) => str.endsWith(search),
-      indexOf: (str, search) => str.indexOf(search),
+      contains: (str, search, position = 0) => str.indexOf(search, position) !== -1,
+      endsWith: (str, searchString, length) => str.endsWith(searchString, length),
+      indexOf: (str, searchValue, fromIndex) => str.indexOf(searchValue, fromIndex),
       kebabCase: (str) => str.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).replace(/^-/, ''),
-      lastIndexOf: (str, search) => str.lastIndexOf(search),
+      lastIndexOf: (str, searchValue, fromIndex) => str.lastIndexOf(searchValue, fromIndex),
       length: (str) => str.length,
-      localeCompare: (str, compareStr) => str.localeCompare(compareStr),
+      localeCompare: (str, compareString) => str.localeCompare(compareString),
+      lowerFirst: (str) => str.charAt(0).toLowerCase() + str.slice(1),
+      match: (str, regexp) => str.match(regexp),
+      repeat: (str, count) => str.repeat(count),
+      replace: (str, searchValue, replaceValue) => str.replace(searchValue, replaceValue),
+      replaceAll: (str, searchValue, replaceValue) => str.replaceAll(searchValue, replaceValue),
+      search: (str, regexp) => str.search(regexp),
+      slice: (str, beginIndex, endIndex) => str.slice(beginIndex, endIndex),
+      snakeCase: (str) => str.replace(/[A-Z]/g, m => `_${m.toLowerCase()}`).replace(/^_/, ''),
+      split: (str, separator, limit) => str.split(separator, limit),
+      sprintf: (str, ...args) => {
+        return str.replace(/%(\d+\$)?s/g, (match, num) => {
+          if (num) {
+            const position = parseInt(num) - 1;
+            return args[position] || '';
+          }
+          return args.shift() || '';
+        });
+      },
+      startsWith: (str, searchString, position) => str.startsWith(searchString, position),
+      substr: (str, start, length) => str.substr(start, length),
+      substring: (str, start, end) => str.substring(start, end),
       toLowerCase: (str) => str.toLowerCase(),
       toUpperCase: (str) => str.toUpperCase(),
       trim: (str) => str.trim(),
       trimLeft: (str) => str.trimStart(),
       trimRight: (str) => str.trimEnd(),
-      replace: (str, search, replacement) => str.replace(search, replacement),
-      replaceAll: (str, search, replacement) => str.replaceAll(search, replacement),
-      split: (str, separator) => str.split(separator),
-      substring: (str, start, end) => str.substring(start, end),
-      substr: (str, start, length) => str.substr(start, length)
+      upperFirst: (str) => str.charAt(0).toUpperCase() + str.slice(1)
     };
+    
 
 
     this.arrayFunctions = {
-      filter: (arr, predicate) => arr.filter(predicate),
-      find: (arr, predicate) => arr.find(predicate),
-      findIndex: (arr, predicate) => arr.findIndex(predicate),
-      concat: (arr1, arr2) => arr1.concat(arr2),
-      map: (arr, mapper) => arr.map(mapper),
-      indexOf: (arr, value) => arr.indexOf(value),
-      lastIndexOf: (arr, value) => arr.lastIndexOf(value),
+      concat: (arr1, ...arrays) => {
+        // Convert any string references to actual arrays
+        const resolvedArrays = arrays.map(arr => 
+          typeof arr === 'string' && arr.startsWith('$') ? 
+          data[arr.slice(1)] : arr
+        );
+        
+        // Perform concatenation with all resolved arrays
+        return arr1.concat(...resolvedArrays);
+      },
+      
+      filter: (arr, predicate) => {
+        if (typeof predicate === 'string') {
+          // Handle string predicate like "x > 3"
+          return arr.filter(x => {
+            const fn = new Function('x', `return ${predicate}`);
+            return fn(x);
+          });
+        }
+        return arr.filter(predicate);
+      },
+      find: (arr, searchValue) => {
+        if (typeof searchValue === 'string') {
+          const predicate = new Function('x', `return ${searchValue}`);
+          return arr.find(x => predicate(x));
+        }
+        return arr.find(searchValue);
+      },
+      
+      findIndex: (arr, searchValue) => {
+        if (typeof searchValue === 'string') {
+          const predicate = new Function('x', `return ${searchValue}`);
+          return arr.findIndex(x => predicate(x));
+        }
+        return arr.findIndex(searchValue);
+      },
+      includes: (arr, element) => arr.includes(element),
+      indexOf: (arr, element) => arr.indexOf(element),
+      lastIndexOf: (arr, element) => arr.lastIndexOf(element),
+      length: (arr) => arr.length,
       join: (arr, separator) => arr.join(separator),
-      reduce: (arr, reducer, initial) => arr.reduce(reducer, initial),
-      reduceRight: (arr, reducer, initial) => arr.reduceRight(reducer, initial),
+      map: (arr, mapper) => {
+        if (typeof mapper === 'string') {
+          const mapFn = new Function('x', `return ${mapper}`);
+          return arr.map(x => mapFn(x));
+        }
+        return arr.map(mapper);
+      },
+      pop: (arr) => {
+        const newArr = [...arr];
+        newArr.pop();
+        return newArr;
+      },
+      push: (arr, ...items) => {
+        const newArr = [...arr];
+        newArr.push(...items);
+        return newArr;
+      },
+      reduce: (arr, reducer, initialValue) => {
+        if (typeof reducer === 'string') {
+          // Handle string reducer like "acc + curr"
+          return arr.reduce((acc, curr) => {
+            const fn = new Function('acc', 'curr', `return ${reducer}`);
+            return fn(acc, curr);
+          }, initialValue);
+        }
+        return arr.reduce(reducer, initialValue);
+      },
+      reduceRight: (arr, reducer, initialValue) => {
+        if (typeof reducer === 'string') {
+          // Handle string reducer like "acc + curr"
+          return arr.reduceRight((acc, curr) => {
+            const fn = new Function('acc', 'curr', `return ${reducer}`);
+            return fn(acc, curr);
+          }, initialValue);
+        }
+        return arr.reduceRight(reducer, initialValue);
+      },
+    
       reverse: (arr) => [...arr].reverse(),
-      sort: (arr) => [...arr].sort(),
-      slice: (arr, start, end) => arr.slice(start, end),
+      shift: (arr) => arr.slice(1),
+      slice: (arr, begin, end) => arr.slice(begin, end),
+      sort: (arr, compareFunction) => [...arr].sort(compareFunction),
       splice: (arr, start, deleteCount, ...items) => {
         const copy = [...arr];
         copy.splice(start, deleteCount, ...items);
         return copy;
       },
-      length: (arr) => Array.isArray(arr) ? arr.length : 0,
-      unique: (arr) => [...new Set(arr)],
-      groupBy: (arr, key) => _.groupBy(arr, key),
-      sortBy: (arr, key) => _.sortBy(arr, key)
+      toObject: (arr, keyCallback, valueCallback) => {
+        const result = {};
+        arr.forEach((item, index) => {
+          const key = keyCallback(item, index);
+          const value = valueCallback ? valueCallback(item, index) : item;
+          result[key] = value;
+        });
+        return result;
+      },
+      toString: (arr) => arr.toString(),
+      unshift: (arr, ...elements) => [...elements, ...arr],
+    
+      // Uint8Array specific methods
+      uint8Of: (...args) => Uint8Array.of(...args),
+      uint8Subarray: (arr, begin, end) => {
+        const uint8Arr = new Uint8Array(arr);
+        return uint8Arr.subarray(begin, end);
+      },
+      uint8IndexOf: (arr, element) => {
+        const uint8Arr = new Uint8Array(arr);
+        return uint8Arr.indexOf(element);
+      },
+      uint8LastIndexOf: (arr, element) => {
+        const uint8Arr = new Uint8Array(arr);
+        return uint8Arr.lastIndexOf(element);
+      }
     };
+    
 
 
     this.dateFunctions = {
+      // Core Date Methods
       now: () => new Date(),
-      parse: Date.parse,
-      UTC: Date.UTC,
-      plus: {
-        days: (date, n) => moment(date).add(n, 'days').toDate(),
-        hours: (date, n) => moment(date).add(n, 'hours').toDate(),
-        minutes: (date, n) => moment(date).add(n, 'minutes').toDate(),
-        months: (date, n) => moment(date).add(n, 'months').toDate(),
-        years: (date, n) => moment(date).add(n, 'years').toDate()
-      },
-      minus: {
-        days: (date, n) => moment(date).subtract(n, 'days').toDate(),
-        hours: (date, n) => moment(date).subtract(n, 'hours').toDate(),
-        minutes: (date, n) => moment(date).subtract(n, 'minutes').toDate(),
-        months: (date, n) => moment(date).subtract(n, 'months').toDate(),
-        years: (date, n) => moment(date).subtract(n, 'years').toDate()
-      },
-      format: (date, format) => moment(date).format(format),
-      get: {
-        date: (date) => date.getDate(),
-        day: (date) => date.getDay(),
-        year: (date) => date.getFullYear(),
-        month: (date) => date.getMonth(),
-        hours: (date) => date.getHours(),
-        minutes: (date) => date.getMinutes(),
-        seconds: (date) => date.getSeconds(),
-        milliseconds: (date) => date.getMilliseconds()
-      }
+      parse: (dateStr, format) => format ? moment(dateStr, format).toDate() : new Date(dateStr),
+      UTC: (year, month, day = 1, hour = 0, minute = 0, second = 0, millisecond = 0) => 
+        Date.UTC(year, month, day, hour, minute, second, millisecond),
+    
+      // Local Date/Time Parsing
+      LocalDateTime: (dateStr) => moment(dateStr).toDate(),
+      LocalDate: (dateStr) => moment(dateStr).startOf('day').toDate(),
+      LocalTime: (timeStr) => moment(`1970-01-01 ${timeStr}`).toDate(),
+    
+      // Getters
+      getDate: (date) => date.getDate(),
+      getDay: (date) => date.getDay(),
+      getFullYear: (date) => date.getFullYear(),
+      getHours: (date) => date.getHours(),
+      getMilliseconds: (date) => date.getMilliseconds(),
+      getMinutes: (date) => date.getMinutes(),
+      getMonth: (date) => date.getMonth() + 1,
+      getMonthFromZero: (date) => date.getMonth(),
+      getUTCMonthFromZero: (date) => date.getUTCMonth(),
+      getSeconds: (date) => date.getSeconds(),
+      getTime: (date) => date.getTime(),
+      
+      // UTC Getters
+      getUTCDate: (date) => date.getUTCDate(),
+      getUTCDay: (date) => date.getUTCDay(),
+      getUTCFullYear: (date) => date.getUTCFullYear(),
+      getUTCHours: (date) => date.getUTCHours(),
+      getUTCMilliseconds: (date) => date.getUTCMilliseconds(),
+      getUTCMinutes: (date) => date.getUTCMinutes(),
+      getUTCMonth: (date) => date.getUTCMonth() + 1,
+      getUTCSeconds: (date) => date.getUTCSeconds(),
+      getTimezoneOffset: (date) => date.getTimezoneOffset(),
+    
+      // Conversion Methods
+      toString: (date) => date.toISOString(),
+      toLocaleString: (date, options) => date.toLocaleString(options?.locale, options),
+      toLocaleDateString: (date, options) => date.toLocaleDateString(options?.locale, options),
+      toLocaleDateTimeString: (date, options) => moment(date).format(options?.format || 'YYYY-MM-DDTHH:mm:ss.SSS'),
+      toLocaleTimeString: (date, options) => date.toLocaleTimeString(options?.locale, options),
+    
+      // Plus Methods
+      plus: (date, value) => moment(date).add(value, 'milliseconds').toDate(),
+      plusDays: (date, days) => moment(date).add(days, 'days').toDate(),
+      plusHours: (date, hours) => moment(date).add(hours, 'hours').toDate(),
+      plusMillis: (date, millis) => moment(date).add(millis, 'milliseconds').toDate(),
+      plusMinutes: (date, minutes) => moment(date).add(minutes, 'minutes').toDate(),
+      plusMonths: (date, months) => moment(date).add(months, 'months').toDate(),
+      plusSeconds: (date, seconds) => moment(date).add(seconds, 'seconds').toDate(),
+      plusWeeks: (date, weeks) => moment(date).add(weeks, 'weeks').toDate(),
+      plusYears: (date, years) => moment(date).add(years, 'years').toDate(),
+    
+      // Minus Methods
+      minus: (date, value) => moment(date).subtract(value, 'milliseconds').toDate(),
+      minusDays: (date, days) => moment(date).subtract(days, 'days').toDate(),
+      minusHours: (date, hours) => moment(date).subtract(hours, 'hours').toDate(),
+      minusMillis: (date, millis) => moment(date).subtract(millis, 'milliseconds').toDate(),
+      minusMinutes: (date, minutes) => moment(date).subtract(minutes, 'minutes').toDate(),
+      minusMonths: (date, months) => moment(date).subtract(months, 'months').toDate(),
+      minusSeconds: (date, seconds) => moment(date).subtract(seconds, 'seconds').toDate(),
+      minusWeeks: (date, weeks) => moment(date).subtract(weeks, 'weeks').toDate(),
+      minusYears: (date, years) => moment(date).subtract(years, 'years').toDate(),
+    
+      // With Methods
+      withDayOfMonth: (date, day) => moment(date).date(day).toDate(),
+      withDayOfYear: (date, day) => moment(date).dayOfYear(day).toDate(),
+      withHourOfDay: (date, hour) => moment(date).hour(hour).toDate(),
+      withMillisOfSecond: (date, millis) => moment(date).millisecond(millis).toDate(),
+      withMinuteOfHour: (date, minute) => moment(date).minute(minute).toDate(),
+      withMonthOfYear: (date, month) => moment(date).month(month - 1).toDate(),
+      withSecondOfMinute: (date, second) => moment(date).second(second).toDate(),
+      withYear: (date, year) => moment(date).year(year).toDate()
     };
+    
 
 
     this.mathFunctions = {
@@ -437,587 +594,168 @@ class SnapLogicFunctionsHandler {
  
   executeScript(script, data) {
     if (!script) return null;
-
-
+  
     try {
-    
-
-    //   console.log('Script:', script);
-    // console.log('Data:', data);
-
-    // // Handle static String.fromCharCode method
-    // const staticMethodMatch = script.match(/String\.fromCharCode\((.*)\)/);
-    // if (staticMethodMatch) {
-    //   const args = staticMethodMatch[1].split(',').map(arg => parseInt(arg.trim()));
-    //   return String.fromCharCode(...args);
-    // }
-
-
-    // Handle string operations with arguments
-    const stringmethodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-    if (stringmethodMatch) {
-      const [, variableName, methodName, argsString] = stringmethodMatch;
-      const value = data[variableName];
-
-
-      if (value === undefined) {
-        throw new Error(`Variable '${variableName}' not found in data`);
-      }
-
-
-      // Parse arguments if they exist
-      const args = argsString ?
-        argsString.split(',').map(arg => {
-          arg = arg.trim();
-          // Handle number arguments
-          if (!isNaN(arg)) {
-            return Number(arg);
-          }
-          // Handle string arguments (remove quotes)
-          if (arg.startsWith('"') || arg.startsWith("'")) {
-            return arg.slice(1, -1);
-          }
-          // Handle regex arguments
-          if (arg.startsWith('/') && arg.endsWith('/g')) {
-            return new RegExp(arg.slice(1, -2), 'g');
-          }
-          if (arg.startsWith('/') && arg.endsWith('/')) {
-            return new RegExp(arg.slice(1, -1));
-          }
-          return arg;
-        }) : [];
-
-
-      // String operations
-      switch (methodName) {
-        // Basic operations
-        case 'toUpperCase': return value.toUpperCase();
-        case 'toLowerCase': return value.toLowerCase();
-        case 'trim': return value.trim();
-        case 'trimLeft': return value.trimStart();
-        case 'trimRight': return value.trimEnd();
-        case 'length': return value.length;
-
-
-        // Case conversions
-        case 'camelCase': return _.camelCase(value);
-        case 'kebabCase': return _.kebabCase(value);
-        case 'snakeCase': return _.snakeCase(value);
-        case 'capitalize': return _.capitalize(value);
-        case 'upperFirst': return _.upperFirst(value);
-        case 'lowerFirst': return _.lowerFirst(value);
-
-
-        // Character operations
-        case 'charAt': {
-          const index = parseInt(args[0]);
-          if (isNaN(index)) {
-            throw new Error('charAt requires a numeric index');
-          }
-          return value.charAt(index);
-        }
-        case 'charCodeAt': {
-          const index = parseInt(args[0]);
-          if (isNaN(index)) {
-            throw new Error('charCodeAt requires a numeric index');
-          }
-          return value.charCodeAt(index);
-        }
-
-
-        // Search operations
-        case 'contains': return value.includes(args[0], args[1]);
-        case 'startsWith': return value.startsWith(args[0], args[1]);
-        case 'endsWith': return value.endsWith(args[0], args[1]);
-        case 'indexOf': return value.indexOf(args[0], args[1]);
-        case 'lastIndexOf': return value.lastIndexOf(args[0], args[1]);
-        case 'search': return value.search(args[0]);
-
-
-        // String manipulation
-        case 'concat': return value.concat(...args);
-        case 'substring': return value.substring(args[0], args[1]);
-        case 'substr': return value.substr(args[0], args[1]);
-        case 'slice': return value.slice(args[0], args[1]);
-        case 'repeat': return value.repeat(args[0]);
-
-
-        // String replacement
-        case 'replace':
-          if (args[0] instanceof RegExp) {
-            return value.replace(args[0], args[1]);
-          }
-          return value.replace(args[0], args[1]);
-        case 'replaceAll': return value.replaceAll(args[0], args[1]);
-
-
-        // String split and match
-        case 'split': return value.split(args[0], args[1]);
-        case 'match': return value.match(args[0]);
-
-
-        // String comparison
-        case 'localeCompare': return value.localeCompare(args[0]);
-
-
-        // String formatting
-        case 'sprintf': {
-          let result = value;
-          if (args.length === 0) return result;
-
-
-          // Handle numbered placeholders like %1$s
-          if (value.includes('$')) {
-            const matches = value.match(/%\d+\$s/g) || [];
-            matches.forEach(match => {
-              const index = parseInt(match.match(/\d+/)[0]) - 1;
-              if (index >= 0 && index < args.length) {
-                result = result.replace(match, args[index]);
-              }
-            });
-          } else {
-            // Handle simple %s placeholders
-            let argIndex = 0;
-            result = result.replace(/%s/g, () => {
-              return argIndex < args.length ? args[argIndex++] : '%s';
-            });
-          }
-          return result;
-        }
-
-
-        default:
-          throw new Error(`Unknown string method: ${methodName}`);
-      }
+      // First convert string dates to Date objects in the data
+if (data) {
+  Object.keys(data).forEach(key => {
+    if (typeof data[key] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data[key])) {
+      data[key] = new Date(data[key]);
     }
+  });
+}
+// Handle Local parsing methods
 
+if (script.includes('Local')) {
+  // Handle LocalDateTime.parse
+  const dateTimeMatch = script.match(/LocalDateTime\.parse\("([^"]+)"\)/);
+  if (dateTimeMatch) {
+    const [, dateStr] = dateTimeMatch;
+    const date = moment(dateStr).toDate();
+    return date;
+  }
 
-    // Handle string operations without arguments
-    // const simpleMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
-    // if (simpleMatch) {
-    //   const [, variableName, methodName] = simpleMatch;
-    //   const value = data[variableName];
+  // Handle LocalDate.parse
+  const dateMatch = script.match(/LocalDate\.parse\("([^"]+)"\)/);
+  if (dateMatch) {
+    const [, dateStr] = dateMatch;
+    const date = moment(dateStr).startOf('day').toDate();
+    return date;
+  }
 
+  // Handle LocalTime.parse
+  const timeMatch = script.match(/LocalTime\.parse\("([^"]+)"\)/);
+  if (timeMatch) {
+    const [, timeStr] = timeMatch;
+    const date = moment(`1970-01-01 ${timeStr}`).toDate();
+    return date;
+  }
+}
 
-    //   if (value === undefined) {
-    //     throw new Error(`Variable '${variableName}' not found in data`);
-    //   }
+// Static Date methods
+if (script.startsWith('Date.')) {
+  const staticMatch = script.match(/Date\.(\w+)\((.*)\)/);
+  if (staticMatch) {
+    const [, staticMethod, staticArgs] = staticMatch;
+    const parsedArgs = staticArgs ? staticArgs.split(',').map(arg => 
+      !isNaN(arg.trim()) ? Number(arg.trim()) : arg.trim().replace(/['"]/g, '')
+    ) : [];
+    
+    if (this.dateFunctions[staticMethod]) {
+      return this.dateFunctions[staticMethod](...parsedArgs);
+    }
+  }
+}
 
+      // Handle string and array operations
+      const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
+      if (methodMatch) {
+        const [, variableName, methodName, argsString] = methodMatch;
+        const value = data[variableName];
+        if (methodName === 'concat') {
+          const args = argsString.split(',').map(arg => {
+            arg = arg.trim();
+            if (arg.startsWith('$')) {
+              return data[arg.slice(1)];
+            }
+            return arg;
+          });
+          return value.concat(...args);
+        }
+        if (value === undefined) {
+          throw new Error(`Variable '${variableName}' not found in data`);
+        }
+  
+        const args = this.parseArguments(argsString, data);
+  
+        // String operations
+        if (typeof value === "string" && this.stringFunctions[methodName]) {
+          return this.stringFunctions[methodName](value, ...args);
+        }
+  
+        // Array operations
+        if (Array.isArray(value) && this.arrayFunctions[methodName]) {
+          return this.arrayFunctions[methodName](value, ...args);
+        }
 
-    //   switch (methodName) {
-    //     case 'toUpperCase': return value.toUpperCase();
-    //     case 'toLowerCase': return value.toLowerCase();
-    //     case 'trim': return value.trim();
-    //     case 'length': return value.length;
-    //     // Add other no-argument methods here
-    //     default:
-    //       throw new Error(`Unknown string method: ${methodName}`);
-    //   }
-    // }
+        // Date operations
+  if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
+    return this.dateFunctions[methodName](value, ...args);
+  }
 
+  
+ 
+  
+        throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
+      }
+
+      
+  
       // Handle array length without parentheses
-    const lengthMatch = script.match(/\$(\w+)\.length$/);
-    if (lengthMatch) {
-      const [, variableName] = lengthMatch;
-      const value = data[variableName];
-      if (Array.isArray(value) || value instanceof Uint8Array) {
-        return value.length;
-      }
-      throw new Error(`Variable '${variableName}' is not an array`);
-    }
-    // Handle Uint8Array.subarray static method
-    if (script.startsWith('Uint8Array.subarray')) {
-      const match = script.match(/Uint8Array\.subarray\s*\(([^)]*)\)/);
-      if (match) {
-        const [start = 0, end] = match[1].split(',').map(arg =>
-          arg ? parseInt(arg.trim()) : undefined
-        );
-        // Convert regular array to Uint8Array if needed
-        const uint8Array = new Uint8Array(data.uint8);
-        return Array.from(uint8Array.subarray(start, end));
-      }
-    }
-     // Handle array operations
-     const arrayMethodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-     if (arrayMethodMatch) {
-       const [, variableName, methodName, argsString] = arrayMethodMatch;
-       const value = data[variableName];
- 
-       if (!Array.isArray(value) && !(value instanceof Uint8Array)) {
-         throw new Error(`Variable '${variableName}' is not an array`);
-       }
-       // Handle length with parentheses
-      if (methodName === 'length') {
-        return value.length;
-      }
- 
-       // Parse arguments if they exist
-       const args = argsString ?
-         argsString.split(',').map(arg => {
-           arg = arg.trim();
-           // Handle arrow functions
-           if (arg.includes('=>')) {
-             return eval(`(${arg})`);
-           }
-           // Handle number arguments
-           if (!isNaN(arg)) {
-             return Number(arg);
-           }
-           // Handle string arguments
-           if (arg.startsWith('"') || arg.startsWith("'")) {
-             return arg.slice(1, -1);
-           }
-           return arg;
-         }) : [];
- 
-       // Array operations
-       switch (methodName) {
-         // Basic array operations
-         case 'concat':
-           const arraysToConcat = args.map(arg =>
-             typeof arg === 'string' && arg.startsWith('$') ?
-               data[arg.slice(1)] : arg
-           );
-           return value.concat(...arraysToConcat);
- 
-         case 'filter':
-           return value.filter(...args);
- 
-         case 'find':
-           return value.find(...args);
- 
-         case 'findIndex':
-           return value.findIndex(...args);
- 
-           case 'indexOf': {
-            const [searchElement, fromIndex] = args;
-            return value.indexOf(searchElement, fromIndex);
-          }
-
-
-          case 'lastIndexOf': {
-            const [searchElement, fromIndex] = args;
-            return value.lastIndexOf(searchElement, fromIndex);
-          }
- 
-         case 'join':
-           return value.join(...args);
- 
-         case 'map':
-           return value.map(...args);
- 
-           case 'reduce':
-        case 'reduceRight': {
-          // Extract the callback function and initial value
-          const lastCommaIndex = argsString.lastIndexOf(',');
-          if (lastCommaIndex === -1) {
-            // No initial value provided
-            const callback = createReducerFunction(argsString);
-            return methodName === 'reduce' ?
-              value.reduce(callback) :
-              value.reduceRight(callback);
-          }
-
-
-          const callbackStr = argsString.substring(0, lastCommaIndex);
-          const initialValueStr = argsString.substring(lastCommaIndex + 1).trim();
-         
-          // Create the reducer function
-          const callback = createReducerFunction(callbackStr);
-         
-          // Evaluate the initial value
-          let initialValue;
-          if (initialValueStr === '0') {
-            initialValue = 0;
-          } else if (initialValueStr === '""') {
-            initialValue = "";
-          } else {
-            initialValue = eval(initialValueStr);
-          }
-
-
-          return methodName === 'reduce' ?
-            value.reduce(callback, initialValue) :
-            value.reduceRight(callback, initialValue);
+      const lengthMatch = script.match(/\$(\w+)\.length$/);
+      if (lengthMatch) {
+        const [, variableName] = lengthMatch;
+        const value = data[variableName];
+        if (Array.isArray(value) || value instanceof Uint8Array) {
+          return value.length;
         }
-     
-   
-
-
-
-
- 
-         case 'reverse':
-           return [...value].reverse();
- 
-         case 'slice':
-           return value.slice(...args);
- 
-         case 'sort':
-           return [...value].sort(...args);
- 
-           case 'splice': {
-            const arrayCopy = [...value];
-            const [start, deleteCount, ...items] = args;
-            const removed = arrayCopy.splice(start, deleteCount, ...items);
-            data[variableName] = arrayCopy; // Update the original array
-            return removed;
-          }
- 
-         // Array modification methods
-         case 'pop': {
-           const arrayCopy = [...value];
-           return arrayCopy.pop();
-         }
- 
-         case 'push': {
-           const arrayCopy = [...value];
-           arrayCopy.push(...args);
-           return arrayCopy;
-         }
- 
-         case 'shift': {
-           const arrayCopy = [...value];
-           return arrayCopy.shift();
-         }
- 
-         case 'unshift': {
-           const arrayCopy = [...value];
-           arrayCopy.unshift(...args);
-           return arrayCopy;
-         }
- 
-         // Special methods
-         case 'toObject': {
-           if (args.length === 1) {
-             return Object.fromEntries(value.map((item, index) => [
-               args[0](item, index),
-               item
-             ]));
-           }
-           return Object.fromEntries(value.map((item, index) => [
-             args[0](item, index),
-             args[1](item, index)
-           ]));
-         }
- 
-         case 'toString':
-           return value.toString();
- 
-         // Uint8Array specific methods
-         case 'subarray': {
-          if (!(value instanceof Uint8Array)) {
-            throw new Error('subarray is only available for Uint8Array');
-          }
-
-
-          // Parse start and end indices
-          const [start = 0, end] = argsString.split(',').map(arg =>
-            arg ? parseInt(arg.trim()) : undefined
-          );
-
-
-          return value.subarray(start, end);
-        }
-       }
-     }
- 
-     // Handle Uint8Array.of
-     if (script.startsWith('Uint8Array.of')) {
-       const argsMatch = script.match(/Uint8Array\.of\((.*)\)/);
-       const args = argsMatch[1] ?
-         argsMatch[1].split(',').map(arg => Number(arg.trim())) :
-         [];
-       return Uint8Array.of(...args);
-     }
- 
-    
-
-
-    //   console.log('Executing script:', script);
-    // console.log('Input data:', data);
-
-
-    // // String Functions
-    // if (script.startsWith('$string.')) {
-    //   const match = script.match(/\$string\.(\w+)\((.*)\)/);
-    //   if (!match) throw new Error('Invalid string function syntax');
-    //   const [, functionName, args] = match;
-    //   const evaluatedArgs = args.split(',').map(arg => {
-    //     arg = arg.trim();
-    //     if (arg.startsWith('$.')) {
-    //       const path = arg.slice(2);
-    //       return data[path];
-    //     }
-    //     return arg.replace(/['"]/g, ''); // Remove quotes
-    //   });
-    //   return this.stringFunctions[functionName](...evaluatedArgs);
-    // }
-
-
-    // // Array Functions
-    // if (script.startsWith('$array.')) {
-    //   const match = script.match(/\$array\.(\w+)\((.*)\)/);
-    //   if (!match) throw new Error('Invalid array function syntax');
-    //   const [, functionName, args] = match;
-    //   const evaluatedArgs = args.split(',').map(arg => {
-    //     arg = arg.trim();
-    //     if (arg.startsWith('$.')) {
-    //       const path = arg.slice(2);
-    //       return data[path];
-    //     }
-    //     return arg.replace(/['"]/g, '');
-    //   });
-    //   return this.arrayFunctions[functionName](...evaluatedArgs);
-    // }
-
-
-    // // Math Functions
-    // if (script.startsWith('$math.')) {
-    //   const match = script.match(/\$math\.(\w+)\((.*)\)/);
-    //   if (!match) throw new Error('Invalid math function syntax');
-    //   const [, functionName, args] = match;
-    //   const evaluatedArgs = args.split(',').map(arg => {
-    //     arg = arg.trim();
-    //     if (arg.startsWith('$.')) {
-    //       const path = arg.slice(2);
-    //       return data[path];
-    //     }
-    //     return Number(arg);
-    //   });
-    //   return this.mathFunctions[functionName](...evaluatedArgs);
-    // }
-
-
-    // // Object Functions
-    // if (script.startsWith('$object.')) {
-    //   const match = script.match(/\$object\.(\w+)\((.*)\)/);
-    //   if (!match) throw new Error('Invalid object function syntax');
-    //   const [, functionName, args] = match;
-    //   const evaluatedArgs = args.split(',').map(arg => {
-    //     arg = arg.trim();
-    //     if (arg.startsWith('$.')) {
-    //       const path = arg.slice(2);
-    //       return data[path];
-    //     }
-    //     return JSON.parse(arg);
-    //   });
-    //   return this.objectFunctions[functionName](...evaluatedArgs);
-    // }
-
-
-    // // Date Functions
-    // if (script.startsWith('$date.')) {
-    //   const match = script.match(/\$date\.(\w+)\.?(\w+)?\((.*)\)/);
-    //   if (!match) throw new Error('Invalid date function syntax');
-    //   const [, category, method, args] = match;
-    //   const evaluatedArgs = args.split(',').map(arg => {
-    //     arg = arg.trim();
-    //     if (arg.startsWith('$.')) {
-    //       const path = arg.slice(2);
-    //       return data[path];
-    //     }
-    //     return arg.replace(/['"]/g, '');
-    //   });
-     
-    //   if (method) {
-    //     return this.dateFunctions[category][method](...evaluatedArgs);
-    //   }
-    //   return this.dateFunctions[category](...evaluatedArgs);
-    // }
-    // console.log('Script:', script);
-    // console.log('Data:', data);
-
-
-    // Handle direct function calls like $text.toUpperCase()
-    // const directFunctionMatch = script.match(/\$(\w+)\.(\w+)\(\)/);
-    // if (directFunctionMatch) {
-    //   const [, variableName, functionName] = directFunctionMatch;
-    //   console.log('Variable:', variableName);
-    //   console.log('Function:', functionName);
-     
-    //   const value = data[variableName];
-    //   console.log('Value:', value);
-     
-    //   if (value === undefined) {
-    //     throw new Error(`Variable '${variableName}' not found in data`);
-    //   }
-
-
-    //   // Check which type of function to call based on the value type
-    //   if (typeof value === 'string' && this.stringFunctions[functionName]) {
-    //     return this.stringFunctions[functionName](value);
-    //   }
-     
-    //   if (Array.isArray(value) && this.arrayFunctions[functionName]) {
-    //     return this.arrayFunctions[functionName](value);
-    //   }
-     
-    //   if (typeof value === 'number' && this.mathFunctions[functionName]) {
-    //     return this.mathFunctions[functionName](value);
-    //   }
-     
-    //   if (value instanceof Date && this.dateFunctions[functionName]) {
-    //     return this.dateFunctions[functionName](value);
-    //   }
-     
-    //   if (typeof value === 'object' && value !== null && this.objectFunctions[functionName]) {
-    //     return this.objectFunctions[functionName](value);
-    //   }
-
-
-    //   throw new Error(`No matching function '${functionName}' found for type ${typeof value}`);
-    // }
-
-
-
-
+        throw new Error(`Variable '${variableName}' is not an array`);
+      }
+  
+      // Keep your existing handlers for other operations
       if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
       }
- 
-      // Handle complex date expressions with ternary operators
+  
       if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
         return this.handleComplexDateExpression(script);
       }
-       // Handle object mapping with JSONPath
-    if (script.trim().startsWith('{') && script.includes('$.')) {
-      console.log('Processing object mapping:', script);
-      console.log('Input data:', data);
-      return this.handleObjectMapping(script, data);
-    }
-      // Handle direct JSONPath expressions
+  
+      if (script.trim().startsWith('{') && script.includes('$.')) {
+        return this.handleObjectMapping(script, data);
+      }
+  
       if (script.includes('$')) {
         return this.handleJSONPath(script, data);
       }
-      if (script.includes('$string.')) {
-        return this.handleStringOperation(script, data);
-      }
-
-
-      if (script.includes('$array.')) {
-        return this.handleArrayOperation(script, data);
-      }
-
-
-      if (script.includes('Date.') || script.includes('&&') || script.includes('||')) {
-        return this.handleLogicalExpression(script, data);
-      }
-      if (script.includes('$math.')) {
-        return this.handleMathOperation(script, data);
-      }
-
-
-      if (script.includes('$object.')) {
-        return this.handleObjectOperation(script, data);
-      }
-
-
-      return this.handleJSONPath(script, data);
+  
+      throw new Error(`Unsupported script: ${script}`);
     } catch (error) {
       throw new Error(`Script execution failed: ${error.message}`);
     }
   }
+  
+  parseArguments(argsString, data) {
+    if (!argsString) return [];
+    
+    return argsString.split(',').map(arg => {
+      arg = arg.trim();
+      
+      // Handle arrow functions for array methods
+      if (arg.includes('=>')) {
+        return eval(arg);
+      }
+      
+      // Handle variable references
+      if (arg.startsWith('$')) {
+        return data[arg.slice(1)];
+      }
+      
+      // Handle numeric values
+      if (!isNaN(arg)) {
+        return Number(arg);
+      }
+      
+      // Handle string literals
+      if (arg.startsWith('"') || arg.startsWith("'")) {
+        return arg.slice(1, -1);
+      }
+      
+      return arg;
+    });
+  }
+  
+  
 
 
   handleStringOperation(script, data) {
