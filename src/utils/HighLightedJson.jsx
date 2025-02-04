@@ -14,7 +14,7 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
       inherit: false,
       rules: [
         { token: 'string.key.json', foreground: '800000' },
-        { token: 'string.value.json', foreground: '0000FF' },
+        { token: 'string.value.json', foreground: '0451A5' },
         { token: 'number.json', foreground: '098658' },
         { token: 'punctuation.bracket.json', foreground: '000000' },
         { token: 'punctuation.array.json', foreground: '000000' },
