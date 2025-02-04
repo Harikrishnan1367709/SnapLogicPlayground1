@@ -33,6 +33,7 @@ import moment from 'moment';
 import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
 import HighLightedJSON from './utils/HighLightedJson';
+import HighlightedScript from './utils/HighlightedScript';
 
 
 
@@ -1418,7 +1419,7 @@ const monacoStyles = `
           <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative "
           style={{ overflow: 'hidden' }}>
             <div className="flex flex-1 " style={scrollbarStyle}>
-  <div className="w-12 text-right pr-4 select-none flex-shrink-0">
+  {/* <div className="w-12 text-right pr-4 select-none flex-shrink-0">
   {Array.from({ length: getLineCount(scriptContent) }, (_, i) => (
     <div key={i} className="text-blue-400 h-6 leading-6">
       {i + 1}
@@ -1443,7 +1444,16 @@ const monacoStyles = `
       // ...scrollbarStyle
       // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
-  />
+  /> */}
+  <HighlightedScript
+      content={scriptContent}
+      onChange={(newContent) => {
+        handleScriptContentChange({ target: { value: newContent } });
+        const lines = newContent.split('\n');
+        setActiveLineIndex(lines.length - 1);
+      }}
+      activeLineIndex={activeLineIndex}
+    />
   </div>
  <canvas
           ref={canvasRef}
