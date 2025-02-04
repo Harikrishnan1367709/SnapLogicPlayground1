@@ -108,21 +108,26 @@ class SnapLogicFunctionsHandler {
         newArr.push(...items);
         return newArr;
       },
-      reduce: (arr, reducer, initial) => {
+      reduce: (arr, reducer, initialValue) => {
         if (typeof reducer === 'string') {
-          // Convert string to function if needed
-          reducer = eval(`(${reducer})`);
+          // Handle string reducer like "acc + curr"
+          return arr.reduce((acc, curr) => {
+            const fn = new Function('acc', 'curr', `return ${reducer}`);
+            return fn(acc, curr);
+          }, initialValue);
         }
-        return arr.reduce(reducer, initial);
+        return arr.reduce(reducer, initialValue);
       },
-      reduceRight: (arr, reducer, initial) => {
+      reduceRight: (arr, reducer, initialValue) => {
         if (typeof reducer === 'string') {
-          // Convert string to function if needed
-          reducer = eval(`(${reducer})`);
+          // Handle string reducer like "acc + curr"
+          return arr.reduceRight((acc, curr) => {
+            const fn = new Function('acc', 'curr', `return ${reducer}`);
+            return fn(acc, curr);
+          }, initialValue);
         }
-        return arr.reduceRight(reducer, initial);
+        return arr.reduceRight(reducer, initialValue);
       },
-    
     
       reverse: (arr) => [...arr].reverse(),
       shift: (arr) => arr.slice(1),
@@ -555,50 +560,217 @@ class SnapLogicFunctionsHandler {
     }
   }
  
+  // Add to SnapLogicFunctionsHandler class
+
   handleJSONPath(script, data) {
     try {
-      // If script is just $, return the full data
-      if (script.trim() === '$') {
+      // Handle root reference
+      if (script === '$') {
         return data;
       }
- 
-      // Check if the expression is incomplete (ends with a dot)
-      if (script.endsWith('.')) {
-        return null;
-      }
- 
-      // Handle complete expressions
-      const results = [];
-      data.forEach(item => {
-        const value = JSONPath({ path: script, json: item });
-        if (value && value.length > 0) {
-          results.push(...value);
+  
+      // Handle jsonPath function calls
+      if (script.startsWith('jsonPath(')) {
+        const pathMatch = script.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
+        if (pathMatch) {
+          const [, path] = pathMatch;
+          // Configure options for jsonPath function calls
+          const options = {
+            path,
+            json: data,
+            wrap: false,
+            resultType: 'value',
+            flatten: true
+          };
+          return JSONPath(options);
         }
-      });
-     
-      return results.length === 1 ? results[0] : results;
-    } catch (error) {
-      // Don't throw error for incomplete expressions
-      if (script.includes('$')) {
-        return null;
       }
-      console.error('JSONPath error:', error);
-      return null;
+  
+      // Handle direct property access (e.g., $user.screenName)
+      if (script.match(/^\$[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/)) {
+        const [, object, property] = script.match(/^\$([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)$/);
+        return data[object]?.[property];
+      }
+  
+      // Handle bracket notation (e.g., $user.['full name'])
+      if (script.match(/^\$[a-zA-Z0-9_]+\.\['[^']+'\]$/)) {
+        const [, object, property] = script.match(/^\$([a-zA-Z0-9_]+)\.\['([^']+)'\]$/);
+        return data[object]?.[property];
+      }
+  
+      // For all other JSONPath expressions
+      const options = {
+        path: script.startsWith('$.') ? script : `$.${script.slice(1)}`,
+        json: data,
+        wrap: false,
+        resultType: 'value',
+        flatten: true,
+        sandbox: {
+          allowInfinite: true,
+          maxLength: Number.MAX_SAFE_INTEGER
+        },
+        callback: function(payload, type) {
+          if (type === 'filter' || type === 'script') {
+            return Function(`"use strict";return(${payload})`)();
+          }
+          return payload;
+        }
+      };
+  
+      // Execute JSONPath query
+      const result = JSONPath(options);
+  
+      // Handle different result types
+      if (Array.isArray(result)) {
+        return result.length === 1 ? result[0] : result;
+      }
+  
+      return result;
+    } catch (error) {
+      console.error('JSONPath evaluation error:', error);
+      console.error('Script:', script);
+      console.error('Data:', data);
+      return null; // Return null instead of throwing error for better error handling
     }
   }
+  
  
   executeScript(script, data) {
     if (!script) return null;
   
     try {
-      // First convert string dates to Date objects in the data
-if (data) {
-  Object.keys(data).forEach(key => {
-    if (typeof data[key] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data[key])) {
-      data[key] = new Date(data[key]);
+
+      // Handle JSONPath expressions first - this should be at the top
+      // if (script.startsWith('$') || script.startsWith('jsonPath')) {
+      //   console.log('Handling JSONPath:', script);
+      //   console.log('Input data:', data);
+        
+      //   try {
+      //     const result = this.handleJSONPath(script, data);
+      //     console.log('JSONPath result:', result);
+      //     return result;
+      //   } catch (jsonPathError) {
+      //     console.error('JSONPath handling error:', jsonPathError);
+      //     return null;
+      //   }
+      // }
+//        // Handle JSONPath expressions
+// if (script.startsWith('$') || script.startsWith('jsonPath')) {
+//   const jsonData = data;
+
+//   // Handle jsonPath function syntax
+//   if (script.startsWith('jsonPath')) {
+//     const pathMatch = script.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
+//     if (pathMatch) {
+//       const [, path] = pathMatch;
+//       return JSONPath({
+//         path: path,
+//         json: jsonData,
+//         wrap: false
+//       });
+//     }
+//   }
+
+//   // Handle direct property access with dot notation
+//   const dotMatch = script.match(/^\$(\w+)\.(\w+)$/);
+//   if (dotMatch) {
+//     const [, obj, prop] = dotMatch;
+//     const path = `$.${obj}.${prop}`;
+//     return JSONPath({
+//       path: path,
+//       json: jsonData,
+//       wrap: false
+//     });
+//   }
+
+//   // Handle bracket notation with spaces
+//   const bracketMatch = script.match(/^\$(\w+)\.\['(.+?)'\]$/);
+//   if (bracketMatch) {
+//     const [, obj, prop] = bracketMatch;
+//     const path = `$.${obj}['${prop}']`;
+//     return JSONPath({
+//       path: path,
+//       json: jsonData,
+//       wrap: false
+//     });
+//   }
+
+//   // Handle array operations with wildcards
+//   if (script.includes('[*]')) {
+//     const path = script.startsWith('$.') ? script : `$.${script.slice(1)}`;
+//     return JSONPath({
+//       path: path,
+//       json: jsonData,
+//       wrap: false
+//     });
+//   }
+
+//   // Default JSONPath evaluation
+//   const path = script.startsWith('$.') ? script : `$.${script.slice(1)}`;
+//   return JSONPath({
+//     path: path,
+//     json: jsonData,
+//     wrap: false
+//   });
+// }
+
+     // Handle JSONPath expressions first
+    if (script.startsWith('$.')) {
+      // Convert input data to proper format
+      const jsonData = data;
+      
+      // Direct JSONPath evaluation
+      const result = JSONPath({
+        path: script,
+        json: jsonData,
+        wrap: true,
+        flatten: true
+      });
+
+      // Log for verification
+      console.log('Path:', script);
+      console.log('Data:', jsonData);
+      console.log('Result:', result);
+
+      // Return array results directly
+      if (Array.isArray(result) && result.length > 0) {
+        return result.length === 1 ? result[0] : result;
+      }
+
+      return result;
     }
-  });
+
+      // First convert string dates to Date objects in the data
+// Inside executeScript method
+if (data) {
+  // Handle both single objects and arrays of objects
+  const processData = (input) => {
+    if (Array.isArray(input)) {
+      return input.map(item => processData(item));
+    }
+    
+    if (typeof input === 'object' && input !== null) {
+      Object.keys(input).forEach(key => {
+        const value = input[key];
+        
+        // Convert dates
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          input[key] = new Date(value);
+        }
+        // Process nested objects/arrays
+        else if (typeof value === 'object') {
+          input[key] = processData(value);
+        }
+      });
+    }
+    return input;
+  };
+
+  data = processData(data);
 }
+
+
+
 // Handle Local parsing methods
 
 if (script.includes('Local')) {
@@ -642,21 +814,22 @@ if (script.startsWith('Date.')) {
   }
 }
 
-      // Handle string and array operations
+
+      // Handle string,array and date operations
       const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
       if (methodMatch) {
         const [, variableName, methodName, argsString] = methodMatch;
         const value = data[variableName];
-        if (methodName === 'concat') {
-          const args = argsString.split(',').map(arg => {
-            arg = arg.trim();
-            if (arg.startsWith('$')) {
-              return data[arg.slice(1)];
-            }
-            return arg;
-          });
-          return value.concat(...args);
-        }
+        // if (methodName === 'concat') {
+        //   const args = argsString.split(',').map(arg => {
+        //     arg = arg.trim();
+        //     if (arg.startsWith('$')) {
+        //       return data[arg.slice(1)];
+        //     }
+        //     return arg;
+        //   });
+        //   return value.concat(...args);
+        // }
         if (value === undefined) {
           throw new Error(`Variable '${variableName}' not found in data`);
         }
@@ -722,34 +895,50 @@ if (script.startsWith('Date.')) {
   
   parseArguments(argsString, data) {
     if (!argsString) return [];
-    
-    // Special handling for reduce/reduceRight
-    if (argsString.includes('=>') && argsString.includes(',')) {
-      const [reducer, initial] = argsString.split(/,(?![^(]*\))/);
-      return [
-        eval(`(${reducer.trim()})`),
-        initial ? JSON.parse(initial.trim()) : undefined
-      ];
+     // Handle arrow functions for reduce/reduceRight
+  if (argsString.includes('=>')) {
+    const lastCommaIndex = argsString.lastIndexOf(',');
+    if (lastCommaIndex !== -1) {
+      const arrowFunction = argsString.substring(0, lastCommaIndex).trim();
+      const initialValue = argsString.substring(lastCommaIndex + 1).trim();
+      
+      // Create the reducer function
+      const reducer = (acc, curr) => {
+        const fn = new Function('acc', 'curr', `return ${arrowFunction.match(/=>\s*(.+)/)[1]};`);
+        return fn(acc, curr);
+      };
+      
+      return [reducer, eval(initialValue)];
     }
-    
+  }
+
+
     return argsString.split(',').map(arg => {
       arg = arg.trim();
+      
+      // Handle arrow functions for array methods
       if (arg.includes('=>')) {
-        return eval(`(${arg})`);
+        return eval(arg);
       }
+      
+      // Handle variable references
       if (arg.startsWith('$')) {
         return data[arg.slice(1)];
       }
+      
+      // Handle numeric values
       if (!isNaN(arg)) {
         return Number(arg);
       }
+      
+      // Handle string literals
       if (arg.startsWith('"') || arg.startsWith("'")) {
         return arg.slice(1, -1);
       }
+      
       return arg;
     });
   }
-  
   
   
 
