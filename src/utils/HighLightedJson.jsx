@@ -60,32 +60,47 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
     monaco.editor.setTheme(format === 'json' ? 'dataweaveTheme' : 'plainTheme');
 
     editor.updateOptions({
-      renderLineHighlight: 'all',
-      highlightActiveIndentGuide: true,
-      fontSize: 13,
-      fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-      lineHeight: 20,
-      padding: { top: 4, bottom: 4 },
-      lineNumbers: 'on',
-      roundedSelection: false,
-      scrollBeyondLastLine: false,
-      readOnly: false,
-      cursorStyle: 'line',
-      automaticLayout: true,
-      wordWrap: 'on',
-      autoIndent: 'full',
-      formatOnPaste: true,
-      formatOnType: false,
-      suggestOnTriggerCharacters: false,
-      quickSuggestions: false,
-      autoClosingBrackets: 'never',
-      autoClosingQuotes: 'never',
-      autoSurround: 'never',
-      renderWhitespace: 'none',
-      occurrencesHighlight: false,
-      links: false,
-      contextmenu: false
-    });
+        renderLineHighlight: 'all',
+        highlightActiveIndentGuide: true,
+        fontSize: 13,
+        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+        lineHeight: 20,
+        padding: { top: 4, bottom: 4 },
+        lineNumbers: 'on',
+        roundedSelection: false,
+        scrollBeyondLastLine: false,
+        readOnly: false,
+        cursorStyle: 'line',
+        automaticLayout: true,
+        wordWrap: 'on',
+        autoIndent: 'full',
+        formatOnPaste: true,
+        formatOnType: false,
+        suggestOnTriggerCharacters: false,
+        quickSuggestions: false,
+        autoClosingBrackets: 'never',
+        autoClosingQuotes: 'never',
+        autoSurround: 'never',
+        renderWhitespace: 'none',
+        occurrencesHighlight: false,
+        links: false,
+        contextmenu: false,
+        // Add these new properties for bracket highlighting
+        matchBrackets: 'always',
+        renderIndentGuides: true,
+        highlightMatchingBrackets: true,
+        bracketPairColorization: {
+          enabled: true,
+          independentColorPoolPerBracketType: true
+        },
+        guides: {
+          bracketPairs: true,
+          indentation: true,
+          highlightActiveIndentation: true,
+          highlightActiveBracketPair: true
+        }
+      });
+      
 
     // Handle content changes
     editor.onDidChangeModelContent((event) => {
