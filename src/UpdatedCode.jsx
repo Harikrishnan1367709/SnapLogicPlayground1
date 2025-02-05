@@ -34,6 +34,10 @@ import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
 import HighLightedJSON from './utils/HighLightedJson';
 import HighlightedScript from './utils/HighlightedScript';
+import HighlightedActualOutput from './utils/HighlightedActualOutput';
+import HighlightedExpectedOutput from './utils/HighlightedExpectedOutput';
+
+
 
 
 
@@ -319,9 +323,8 @@ const [inputContents, setInputContents] = useState({
   };
 
 
-  const handleActualOutputChange = (e) => {
-    setActualOutput(e.target.value);
-    compareOutputs();
+  const handleActualOutputChange = (newValue) => {
+    setActualOutput(newValue);
   };
   const scrollbarStyle = {
     overflowY: 'auto',
@@ -378,8 +381,8 @@ const [inputContents, setInputContents] = useState({
       background: '#ffffff'
     }
   };
-  const handleExpectedOutputChange = (e) => {
-    setExpectedOutput(e.target.value);
+  const handleExpectedOutputChange = (newValue) => {
+    setExpectedOutput(newValue);
   };
   const detectFunctionType = (script) => {
     if (script.startsWith('$')) return 'jsonPath';
@@ -512,37 +515,57 @@ const handleScriptContentChange = (e) => {
     padding: '0',
     border: 'none'
   };
-  const normalizeJSON = (jsonString) => {
+  const normalizeJSON = (input) => {
     try {
-      if (!jsonString || jsonString.trim() === '') {
-        return '';
+      if (!input) return '';
+      
+      // If input is already an object/array, stringify it
+      if (typeof input === 'object') {
+        return JSON.stringify(input);
       }
-      if (typeof jsonString === 'string') {
-        return JSON.stringify(JSON.parse(jsonString));
+  
+      // If input is a string, try to parse and re-stringify to normalize
+      if (typeof input === 'string') {
+        const parsed = JSON.parse(input.trim());
+        return JSON.stringify(parsed);
       }
-      return JSON.stringify(jsonString);
+  
+      return String(input);
     } catch (error) {
-      console.log('JSON normalization error:', error);
-      return jsonString || '';
+      console.error('JSON normalization error:', error);
+      return String(input);
     }
   };
   
   useEffect(() => {
     const compareOutputs = () => {
       try {
+        if (!actualOutput || !expectedOutput) {
+          setOutputMatch(false);
+          return;
+        }
+  
+        const normalizeJSON = (input) => {
+          try {
+            return JSON.stringify(JSON.parse(input));
+          } catch {
+            return input;
+          }
+        };
+  
         const normalizedActual = normalizeJSON(actualOutput);
         const normalizedExpected = normalizeJSON(expectedOutput);
-        console.log('Normalized Actual:', normalizedActual);
-        console.log('Normalized Expected:', normalizedExpected);
+  
         setOutputMatch(normalizedActual === normalizedExpected);
       } catch (error) {
         console.error('Comparison error:', error);
         setOutputMatch(false);
       }
     };
- 
+  
     compareOutputs();
   }, [actualOutput, expectedOutput]);
+  
 
 
  
@@ -1522,9 +1545,13 @@ const monacoStyles = `
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
-            style={scrollbarStyle}>
-    <div className="flex">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)]  "
+            >
+               <HighlightedActualOutput
+  actualOutput={actualOutput}
+  onActualOutputChange={handleActualOutputChange}
+/>
+    {/* <div className="flex">
         {renderLineNumbers(actualLines)}
        
         <textarea
@@ -1541,7 +1568,13 @@ const monacoStyles = `
                 minHeight: '100%'
             }}
         />
-    </div>
+        <HighlightedActualOutput
+        actualOutput={actualOutput}
+        actualLines={actualLines}
+        scrollbarStyle={scrollbarStyle}
+        textAreaStyles={textAreaStyles}
+      />
+    </div> */}
 </div>
 
 
@@ -1560,7 +1593,11 @@ const monacoStyles = `
             </div>
             <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
             style={scrollbarStyle}>
-              <div className="flex">
+              <HighlightedExpectedOutput
+  expectedOutput={expectedOutput}
+  onExpectedOutputChange={handleExpectedOutputChange}
+/>
+              {/* <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
@@ -1568,7 +1605,7 @@ const monacoStyles = `
                   className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm"
                   style={{textAreaStyles}}
                 />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
