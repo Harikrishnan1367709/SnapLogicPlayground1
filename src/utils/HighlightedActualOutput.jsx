@@ -60,7 +60,7 @@ const HighlightedActualOutput = ({
             verticalScrollbarSize: 8,
             horizontalScrollbarSize: 8,
             verticalSliderSize: 8,
-            horizontalSliderSize: 8,
+            horizontalSliderSize: 2,
             useShadows: false
           },
           automaticLayout: true // Enable automatic resizing
