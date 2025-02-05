@@ -817,45 +817,52 @@ if (script.startsWith('Date.')) {
 
       // Handle string,array and date operations
       const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-      if (methodMatch) {
-        const [, variableName, methodName, argsString] = methodMatch;
-        const value = data[variableName];
-        // if (methodName === 'concat') {
-        //   const args = argsString.split(',').map(arg => {
-        //     arg = arg.trim();
-        //     if (arg.startsWith('$')) {
-        //       return data[arg.slice(1)];
-        //     }
-        //     return arg;
-        //   });
-        //   return value.concat(...args);
-        // }
-        if (value === undefined) {
-          throw new Error(`Variable '${variableName}' not found in data`);
-        }
-  
-        const args = this.parseArguments(argsString, data);
-  
-        // String operations
-        if (typeof value === "string" && this.stringFunctions[methodName]) {
-          return this.stringFunctions[methodName](value, ...args);
-        }
-  
-        // Array operations
-        if (Array.isArray(value) && this.arrayFunctions[methodName]) {
-          return this.arrayFunctions[methodName](value, ...args);
-        }
+    if (methodMatch) {
+      const [, propertyName, methodName, argsString] = methodMatch;
+      
+      // If data is an array, treat it as a collection of objects
+      if (Array.isArray(data)) {
+        return data.map(item => {
+          const value = item[propertyName];
+          if (value === undefined) {
+            return item;
+          }
 
-        // Date operations
-  if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
-    return this.dateFunctions[methodName](value, ...args);
-  }
+          const args = this.parseArguments(argsString, data);
 
-  
- 
-  
-        throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
+          if (typeof value === 'string' && this.stringFunctions[methodName]) {
+            return this.stringFunctions[methodName](value, ...args);
+          }
+          if (Array.isArray(value) && this.arrayFunctions[methodName]) {
+            return this.arrayFunctions[methodName](value, ...args);
+          }
+          if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
+            return this.dateFunctions[methodName](value, ...args);
+          }
+          return value;
+        });
       }
+
+      // Original logic for non-array data
+      const value = data[propertyName];
+      if (value === undefined) {
+        throw new Error(`Property '${propertyName}' not found in data`);
+      }
+
+      const args = this.parseArguments(argsString, data);
+
+      if (typeof value === 'string' && this.stringFunctions[methodName]) {
+        return this.stringFunctions[methodName](value, ...args);
+      }
+      if (Array.isArray(value) && this.arrayFunctions[methodName]) {
+        return this.arrayFunctions[methodName](value, ...args);
+      }
+      if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
+        return this.dateFunctions[methodName](value, ...args);
+      }
+
+      throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
+    }
 
       
   
