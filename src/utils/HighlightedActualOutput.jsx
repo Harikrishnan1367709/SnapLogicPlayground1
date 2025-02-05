@@ -1,71 +1,94 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import PropTypes from 'prop-types';
 
 const HighlightedActualOutput = ({ 
-  actualOutput, 
-  onActualOutputChange
+  actualOutput = '', 
+  onActualOutputChange = () => {} 
 }) => {
-  const handleEditorDidMount = (editor, monaco) => {
-    monaco.editor.defineTheme('outputTheme', {
-      base: 'vs',
-      inherit: false,
-      rules: [
-        { token: 'error', foreground: 'FF0000' },
-        { token: 'string', foreground: '0451A5' },
-        { token: 'number', foreground: '098658' },
-        { token: 'keyword', foreground: '0000FF' },
-        { token: 'delimiter', foreground: '000000' }
-      ],
-      colors: {
-        'editor.foreground': '#000000',
-        'editor.background': '#FFFFFF',
-        'editor.lineHighlightBackground': '#FFFFFF'
-      }
-    });
+  const editorRef = useRef(null);
+  const monacoRef = useRef(null);
 
-    editor.updateOptions({
-      readOnly: true,
-      lineNumbers: 'on',
-      fontSize: 13,
-      fontFamily: 'Manrope, Monaco, Consolas, monospace',
-      lineHeight: 24,
-      minimap: { enabled: false },
-      scrollBeyondLastLine: false,
-      renderLineHighlight: 'none'
-    });
-  };
-  const handleEditorChange = (value) => {
-    if (onActualOutputChange) {
-      onActualOutputChange(value);
+  const isError = (output) => {
+    try {
+      if (typeof output === 'string') {
+        const parsed = JSON.parse(output);
+        return parsed && parsed.error;
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
   };
 
+  useEffect(() => {
+    if (editorRef.current && monacoRef.current) {
+      const editor = editorRef.current;
+      const monaco = monacoRef.current;
+
+      if (isError(actualOutput)) {
+        // Add red color decoration to the entire content
+        const model = editor.getModel();
+        const decorations = [{
+          range: new monaco.Range(
+            1,
+            1,
+            model.getLineCount(),
+            model.getLineMaxColumn(model.getLineCount())
+          ),
+          options: {
+            inlineClassName: 'error-text'
+          }
+        }];
+        editor.deltaDecorations([], decorations);
+      } else {
+        // Clear decorations if not an error
+        editor.deltaDecorations([], []);
+      }
+    }
+  }, [actualOutput]);
+
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    editor.updateOptions({
+        readOnly: true,
+        lineNumbers: 'on',
+        fontSize: 13,
+        fontFamily: 'Manrope, Monaco, Consolas, monospace',
+        lineHeight: 24,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        renderLineHighlight: 'none'
+  
+    });
+  };
 
   return (
     <div className="h-full w-full">
-    <div className="h-full w-full relative">
-      <Editor
-        height="100%"
-        width="100%"
-        defaultLanguage="json"
-        value={actualOutput || ''}
-        onChange={handleEditorChange}
-        onMount={handleEditorDidMount}
-        theme="outputTheme"
-        options={{
-          scrollbar: {
-            vertical: 'visible',
-            horizontal: 'visible',
-            verticalScrollbarSize: 8,
-            horizontalScrollbarSize: 8,
-            verticalSliderSize: 8,
-            horizontalSliderSize: 2,
-            useShadows: false
-          },
-          automaticLayout: true // Enable automatic resizing
-        }}
-      />
+      <div className="h-full w-full relative">
+        <Editor
+          height="100%"
+          width="100%"
+          defaultLanguage="json"
+          value={actualOutput}
+          onChange={onActualOutputChange}
+          onMount={handleEditorDidMount}
+          options={{
+            scrollbar: {
+                vertical: 'visible',
+                horizontal: 'visible',
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8,
+                verticalSliderSize: 8,
+                horizontalSliderSize: 2,
+                useShadows: false
+              },
+              automaticLayout: true // Enable automatic resizing
+    
+          }}
+        />
       </div>
       <style>{`
         .monaco-editor {
@@ -74,8 +97,9 @@ const HighlightedActualOutput = ({
         .monaco-editor .margin {
           background-color: #FFFFFF !important;
         }
-        .monaco-editor .line-numbers {
-          color: #237893 !important;
+        
+        .error-text {
+          color: #FF0000 !important;
         }
         
         ::-webkit-scrollbar {
@@ -101,14 +125,8 @@ const HighlightedActualOutput = ({
 };
 
 HighlightedActualOutput.propTypes = {
-    actualOutput: PropTypes.string,
-    onActualOutputChange: PropTypes.func
-  
-};
-
-HighlightedActualOutput.defaultProps = {
-    actualOutput: '',
-    onActualOutputChange: () => {}
+  actualOutput: PropTypes.string,
+  onActualOutputChange: PropTypes.func
 };
 
 export default HighlightedActualOutput;

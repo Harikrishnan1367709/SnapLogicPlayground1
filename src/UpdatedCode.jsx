@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"
@@ -227,13 +227,27 @@ const [inputContents, setInputContents] = useState({
     document.addEventListener('mouseup', handleMouseUp);
   };
   const [editorLines, setEditorLines] = useState(['']);
-  const scriptLines = scriptContent?.split('\n') || [''];
-  const expectedLines = expectedOutput.split('\n');
-  const actualLines = actualOutput.split('\n');
+  
+  // Convert these direct declarations to useMemo to prevent unnecessary recalculations
+  const scriptLines = useMemo(() => 
+    scriptContent?.split('\n') || [''], 
+    [scriptContent]
+  );
 
+  const expectedLines = useMemo(() => 
+    expectedOutput?.split('\n') || [''], 
+    [expectedOutput]
+  );
 
+  const actualLines = useMemo(() => 
+    actualOutput?.split('\n') || [''], 
+    [actualOutput]
+  );
+
+  // Button disable conditions
   const isCreateInputDisabled = newInput.trim() === "";
   const isCreateScriptDisabled = newScript.trim() === "";
+
 
 
   const renderLineNumbers = (content) => {
