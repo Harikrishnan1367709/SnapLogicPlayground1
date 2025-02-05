@@ -78,7 +78,7 @@ const HighlightedActualOutput = ({
           options={{
             scrollbar: {
                 vertical: 'visible',
-                horizontal: 'visible',
+                horizontal: 'hidden',
                 verticalScrollbarSize: 8,
                 horizontalScrollbarSize: 8,
                 verticalSliderSize: 8,
