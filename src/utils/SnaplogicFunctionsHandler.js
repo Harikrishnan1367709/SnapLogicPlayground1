@@ -751,6 +751,39 @@ class SnapLogicFunctionsHandler {
         return result;
       }
   
+
+      // First convert string dates to Date objects in the data
+// Inside executeScript method
+if (data) {
+  // Handle both single objects and arrays of objects
+  const processData = (input) => {
+    if (Array.isArray(input)) {
+      return input.map(item => processData(item));
+    }
+   
+    if (typeof input === 'object' && input !== null) {
+      Object.keys(input).forEach(key => {
+        const value = input[key];
+       
+        // Convert dates
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          input[key] = new Date(value);
+        }
+        // Process nested objects/arrays
+        else if (typeof value === 'object') {
+          input[key] = processData(value);
+        }
+      });
+    }
+    return input;
+  };
+
+
+  data = processData(data);
+}
+
+
+
       // Handle Local parsing methods
       if (script.includes('Local')) {
         // Handle LocalDateTime.parse
