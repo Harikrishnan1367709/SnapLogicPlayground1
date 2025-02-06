@@ -341,60 +341,40 @@ const [inputContents, setInputContents] = useState({
     setActualOutput(newValue);
   };
   const scrollbarStyle = {
-    overflowY: 'auto',
-    overflowX: 'auto',
-    '&::-webkit-scrollbar': {
+    WebkitScrollbar: {
       width: '8px',
-      height: '8px',
-      background: '#ffffff'
+      height: '8px'
     },
-    '&::-webkit-scrollbar-track': {
-      background: '#ffffff',
-      borderRadius: '0px',
-      margin: '4px 0'
+    WebkitScrollbarTrack: {
+      background: 'transparent'
     },
-    '&::-webkit-scrollbar-thumb': {
-      background: '#888888',
-      border: '2px solid #ffffff',
-      borderRadius: '4px',
-      minHeight: '40px',
-      transition: 'background-color 0.2s ease',
-      '&:hover': {
-        background: '#666666'
-      },
-      '&:active': {
-        background: '#555555'
-      }
+    WebkitScrollbarThumb: {
+      background: '#888',
+      borderRadius: '4px'
     },
-    '&::-webkit-scrollbar-corner': {
-      background: '#ffffff'
+    WebkitScrollbarCorner: {
+      background: 'transparent'
     },
-    // Firefox support
-    scrollbarWidth: 'thin',
-    scrollbarColor: '#888888 #ffffff',
-    // Edge support
-    'ms-overflow-style': '-ms-autohiding-scrollbar'
+    msOverflowStyle: '-ms-autohiding-scrollbar'
   };
   const scrollbarStyle1 = {
-    '&::-webkit-scrollbar': {
+    WebkitScrollbar: {
       width: '8px',
-      height: '10px'
+      height: '8px'
     },
-    '&::-webkit-scrollbar-track': {
-      background: '#ffffff'
+    WebkitScrollbarTrack: {
+      background: 'transparent'
     },
-    '&::-webkit-scrollbar-thumb': {
-      background: '#ffffff',
-      borderRadius: '0px',
-      border: '1px solid #ffffff'
+    WebkitScrollbarThumb: {
+      background: '#888',
+      borderRadius: '4px'
     },
-    '&::-webkit-scrollbar-thumb:hover': {
-      background: '#ffffff'
+    WebkitScrollbarCorner: {
+      background: 'transparent'
     },
-    '&::-webkit-scrollbar-corner': {
-      background: '#ffffff'
-    }
+    msOverflowStyle: '-ms-autohiding-scrollbar'
   };
+  
   const handleExpectedOutputChange = (newValue) => {
     setExpectedOutput(newValue);
   };
@@ -506,7 +486,7 @@ const handleScriptContentChange = (e) => {
 
 
   } catch (error) {
-    console.error("Transformation Error:", error);
+    // console.error("Transformation Error:", error);
     setActualOutput(JSON.stringify({
       error: "Transformation Error",
       message: error.message || "Unknown error occurred",
@@ -519,9 +499,9 @@ const handleScriptContentChange = (e) => {
 
 
 
-  useEffect(() => {
-    console.log("Actual output updated:", actualOutput) // Debugging log
-  }, [actualOutput])
+  // useEffect(() => {
+  //   console.log("Actual output updated:", actualOutput) // Debugging log
+  // }, [actualOutput])
  
   const textAreaStyles = {
     minHeight: '100px',

@@ -7,16 +7,52 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
 
+    // Register completion provider for method suggestions
+    monaco.languages.registerCompletionItemProvider('javascript', {
+      provideCompletionItems: (model, position) => {
+        const lineContent = model.getLineContent(position.lineNumber);
+        const wordUntilPosition = model.getWordUntilPosition(position);
+
+        if (lineContent.charAt(wordUntilPosition.startColumn - 2) === '.') {
+          const varName = lineContent.substring(0, wordUntilPosition.startColumn - 2);
+          
+          if (varName.startsWith('$')) {
+            const methods = [
+              'concat', 'map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every',
+              'includes', 'indexOf', 'join', 'slice', 'splice', 'sort', 'reverse',
+              'push', 'pop', 'shift', 'unshift', 'toString', 'valueOf', 'length',
+              'toLowerCase', 'toUpperCase', 'trim', 'replace', 'split', 'substring'
+            ];
+            
+            return {
+              suggestions: methods.map(method => ({
+                label: method,
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: method,
+                range: {
+                  startLineNumber: position.lineNumber,
+                  endLineNumber: position.lineNumber,
+                  startColumn: wordUntilPosition.startColumn,
+                  endColumn: wordUntilPosition.endColumn
+                }
+              }))
+            };
+          }
+        }
+        return { suggestions: [] };
+      },
+      triggerCharacters: ['.']
+    });
+
     // Define custom theme for script syntax highlighting
     monaco.editor.defineTheme('scriptTheme', {
       base: 'vs',
       inherit: false,
       rules: [
         // JSONPath specific rules
-        { token: 'jsonpath', foreground: '0000FF', fontStyle: 'bold' },  // $ expressions
-        { token: 'delimiter', foreground: '000000' },                    // dots and brackets
-        { token: 'property', foreground: '001080' },                     // property names
-        
+        { token: 'jsonpath', foreground: '800000', fontStyle: 'bold' },  // Changed to maroon color for $ expressions
+        { token: 'delimiter', foreground: '000000' },
+        { token: 'property', foreground: '001080' },
         
         // General syntax rules
         { token: 'string', foreground: '0451A5' },
@@ -56,8 +92,8 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
       formatOnType: false,
       autoClosingBrackets: 'never',
       autoClosingQuotes: 'never',
-      suggestOnTriggerCharacters: false,
-      quickSuggestions: false
+      suggestOnTriggerCharacters: true,
+      quickSuggestions: { other: true }
     });
 
     // Handle content changes
@@ -103,17 +139,20 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
           }
         }}
       />
-      <style jsx global>{`
-        .currentLineDecoration {
-          background-color: #F7F7F7;
-        }
-        .monaco-editor .margin {
-          background-color: #FFFFFF !important;
-        }
-        .monaco-editor {
-          padding-top: 4px;
-        }
-      `}</style>
+     <style dangerouslySetInnerHTML={{
+  __html: `
+    .currentLineDecoration {
+      background-color: #F7F7F7;
+    }
+    .monaco-editor .margin {
+      background-color: #FFFFFF !important;
+    }
+    .monaco-editor {
+      padding-top: 4px;
+    }
+  `
+}} />
+
     </div>
   );
 };

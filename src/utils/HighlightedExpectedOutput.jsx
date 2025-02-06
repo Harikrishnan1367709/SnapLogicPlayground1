@@ -3,8 +3,8 @@ import Editor from '@monaco-editor/react';
 import PropTypes from 'prop-types';
 
 const HighlightedExpectedOutput = ({ 
-    expectedOutput, 
-  onExpectedOutputChange 
+    expectedOutput = '', 
+    onExpectedOutputChange = ()=>{}
 }) => {
   const handleEditorDidMount = (editor, monaco) => {
     monaco.editor.defineTheme('outputTheme', {
@@ -106,10 +106,10 @@ HighlightedExpectedOutput.propTypes = {
   
 };
 
-HighlightedExpectedOutput.defaultProps = {
-    expectedOutput: '',
-    onExpectedOutputChange: () => {}
+// HighlightedExpectedOutput.defaultProps = {
+//     expectedOutput: '',
+//     onExpectedOutputChange: () => {}
   
-};
+// };
 
 export default HighlightedExpectedOutput;
