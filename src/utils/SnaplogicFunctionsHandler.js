@@ -262,16 +262,112 @@ class SnapLogicFunctionsHandler {
 
 
     this.objectFunctions = {
-      entries: Object.entries,
-      keys: Object.keys,
-      values: Object.values,
-      merge: Object.assign,
-      get: (obj, path) => _.get(obj, path),
+      entries: (obj) => Object.entries(obj),
+      
+      keys: (obj) => Object.keys(obj),
+      
+      values: (obj) => Object.values(obj),
+      
+      filter: (obj, predicate) => {
+        if (typeof predicate === 'string') {
+          const fn = new Function('value', 'key', 'obj', `return ${predicate}`);
+          return Object.fromEntries(
+            Object.entries(obj).filter(([key, value]) => fn(value, key, obj))
+          );
+        }
+        return Object.fromEntries(
+          Object.entries(obj).filter(([key, value]) => predicate(value, key, obj))
+        );
+      },
+    
+      mapKeys: (obj, mapper) => {
+        // Input validation
+        if (!obj || typeof obj !== 'object') {
+          throw new Error('mapKeys: Input must be an object');
+        }
+
+        const result = {};
+        
+        // Handle string mapper (e.g., simple transformation expression)
+        if (typeof mapper === 'string') {
+          const fn = new Function('value', 'key', 'obj', `return ${mapper}`);
+          Object.entries(obj).forEach(([key, value]) => {
+            try {
+              const newKey = fn(value, key, obj);
+              result[newKey] = value;
+            } catch (error) {
+              console.error(`mapKeys: Error transforming key "${key}":`, error);
+              result[key] = value; // Keep original key on error
+            }
+          });
+          return result;
+        }
+        
+        // Handle function mapper
+        if (typeof mapper === 'function') {
+          Object.entries(obj).forEach(([key, value]) => {
+            try {
+              const newKey = mapper(value, key, obj);
+              result[newKey] = value;
+            } catch (error) {
+              console.error(`mapKeys: Error transforming key "${key}":`, error);
+              result[key] = value; // Keep original key on error
+            }
+          });
+          return result;
+        }
+
+        // Invalid mapper
+        throw new Error('mapKeys: Mapper must be a string expression or function');
+      },
+
+      
+    
+          
+    
+      get: (obj, path, defaultValue = null) => _.get(obj, path, defaultValue),
+      
+      getFirst: (obj, propertyName, defaultValue = null) => {
+        const value = obj[propertyName];
+        return Array.isArray(value) && value.length > 0 ? value[0] : (value || defaultValue);
+      },
+      
       hasPath: (obj, path) => _.has(obj, path),
-      isEmpty: (obj) => _.isEmpty(obj),
-      pick: (obj, paths) => _.pick(obj, paths),
-      omit: (obj, paths) => _.omit(obj, paths)
+      
+      hasOwnProperty: (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop),
+      
+      isEmpty: (obj) => Object.keys(obj).length === 0,
+      
+      merge: (obj, ...sources) => _.merge({}, obj, ...sources),
+      mapValues: (obj, mapper) => {
+        if (typeof mapper === 'string') {
+          const fn = new Function('value', 'key', 'obj', `return ${mapper}`);
+          return Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [key, fn(value, key, obj)])
+          );
+        }
+        return Object.fromEntries(
+          Object.entries(obj).map(([key, value]) => [key, mapper(value, key, obj)])
+        );
+      },
+    
+      
+      extend: (obj, ...sources) => {
+        const result = { ...obj };
+        sources.forEach(source => {
+          if (typeof source === 'string') {
+            try {
+              source = JSON.parse(source);
+            } catch (e) {
+              source = {};
+            }
+          }
+          Object.assign(result, source);
+        });
+        return result;
+      }
     };
+
     this.dateFormatter = {
       formatDate: (date, format) => {
         return moment(date).format(format);
@@ -639,232 +735,151 @@ class SnapLogicFunctionsHandler {
     if (!script) return null;
   
     try {
-
-      // Handle JSONPath expressions first - this should be at the top
-      // if (script.startsWith('$') || script.startsWith('jsonPath')) {
-      //   console.log('Handling JSONPath:', script);
-      //   console.log('Input data:', data);
-        
-      //   try {
-      //     const result = this.handleJSONPath(script, data);
-      //     console.log('JSONPath result:', result);
-      //     return result;
-      //   } catch (jsonPathError) {
-      //     console.error('JSONPath handling error:', jsonPathError);
-      //     return null;
-      //   }
-      // }
-//        // Handle JSONPath expressions
-// if (script.startsWith('$') || script.startsWith('jsonPath')) {
-//   const jsonData = data;
-
-//   // Handle jsonPath function syntax
-//   if (script.startsWith('jsonPath')) {
-//     const pathMatch = script.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
-//     if (pathMatch) {
-//       const [, path] = pathMatch;
-//       return JSONPath({
-//         path: path,
-//         json: jsonData,
-//         wrap: false
-//       });
-//     }
-//   }
-
-//   // Handle direct property access with dot notation
-//   const dotMatch = script.match(/^\$(\w+)\.(\w+)$/);
-//   if (dotMatch) {
-//     const [, obj, prop] = dotMatch;
-//     const path = `$.${obj}.${prop}`;
-//     return JSONPath({
-//       path: path,
-//       json: jsonData,
-//       wrap: false
-//     });
-//   }
-
-//   // Handle bracket notation with spaces
-//   const bracketMatch = script.match(/^\$(\w+)\.\['(.+?)'\]$/);
-//   if (bracketMatch) {
-//     const [, obj, prop] = bracketMatch;
-//     const path = `$.${obj}['${prop}']`;
-//     return JSONPath({
-//       path: path,
-//       json: jsonData,
-//       wrap: false
-//     });
-//   }
-
-//   // Handle array operations with wildcards
-//   if (script.includes('[*]')) {
-//     const path = script.startsWith('$.') ? script : `$.${script.slice(1)}`;
-//     return JSONPath({
-//       path: path,
-//       json: jsonData,
-//       wrap: false
-//     });
-//   }
-
-//   // Default JSONPath evaluation
-//   const path = script.startsWith('$.') ? script : `$.${script.slice(1)}`;
-//   return JSONPath({
-//     path: path,
-//     json: jsonData,
-//     wrap: false
-//   });
-// }
-
-     // Handle JSONPath expressions first
-    if (script.startsWith('$.')) {
-      // Convert input data to proper format
-      const jsonData = data;
-      
-      // Direct JSONPath evaluation
-      const result = JSONPath({
-        path: script,
-        json: jsonData,
-        wrap: true,
-        flatten: true
-      });
-
-      // Log for verification
-      console.log('Path:', script);
-      console.log('Data:', jsonData);
-      console.log('Result:', result);
-
-      // Return array results directly
-      if (Array.isArray(result) && result.length > 0) {
-        return result.length === 1 ? result[0] : result;
-      }
-
-      return result;
-    }
-
-      // First convert string dates to Date objects in the data
-// Inside executeScript method
-if (data) {
-  // Handle both single objects and arrays of objects
-  const processData = (input) => {
-    if (Array.isArray(input)) {
-      return input.map(item => processData(item));
-    }
-    
-    if (typeof input === 'object' && input !== null) {
-      Object.keys(input).forEach(key => {
-        const value = input[key];
-        
-        // Convert dates
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-          input[key] = new Date(value);
-        }
-        // Process nested objects/arrays
-        else if (typeof value === 'object') {
-          input[key] = processData(value);
-        }
-      });
-    }
-    return input;
-  };
-
-  data = processData(data);
-}
-
-
-
-// Handle Local parsing methods
-
-if (script.includes('Local')) {
-  // Handle LocalDateTime.parse
-  const dateTimeMatch = script.match(/LocalDateTime\.parse\("([^"]+)"\)/);
-  if (dateTimeMatch) {
-    const [, dateStr] = dateTimeMatch;
-    const date = moment(dateStr).toDate();
-    return date;
-  }
-
-  // Handle LocalDate.parse
-  const dateMatch = script.match(/LocalDate\.parse\("([^"]+)"\)/);
-  if (dateMatch) {
-    const [, dateStr] = dateMatch;
-    const date = moment(dateStr).startOf('day').toDate();
-    return date;
-  }
-
-  // Handle LocalTime.parse
-  const timeMatch = script.match(/LocalTime\.parse\("([^"]+)"\)/);
-  if (timeMatch) {
-    const [, timeStr] = timeMatch;
-    const date = moment(`1970-01-01 ${timeStr}`).toDate();
-    return date;
-  }
-}
-
-// Static Date methods
-if (script.startsWith('Date.')) {
-  const staticMatch = script.match(/Date\.(\w+)\((.*)\)/);
-  if (staticMatch) {
-    const [, staticMethod, staticArgs] = staticMatch;
-    const parsedArgs = staticArgs ? staticArgs.split(',').map(arg => 
-      !isNaN(arg.trim()) ? Number(arg.trim()) : arg.trim().replace(/['"]/g, '')
-    ) : [];
-    
-    if (this.dateFunctions[staticMethod]) {
-      return this.dateFunctions[staticMethod](...parsedArgs);
-    }
-  }
-}
-
-
-      // Handle string,array and date operations
-      const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-    if (methodMatch) {
-      const [, propertyName, methodName, argsString] = methodMatch;
-      
-      // If data is an array, treat it as a collection of objects
-      if (Array.isArray(data)) {
-        return data.map(item => {
-          const value = item[propertyName];
-          if (value === undefined) {
-            return item;
-          }
-
-          const args = this.parseArguments(argsString, data);
-
-          if (typeof value === 'string' && this.stringFunctions[methodName]) {
-            return this.stringFunctions[methodName](value, ...args);
-          }
-          if (Array.isArray(value) && this.arrayFunctions[methodName]) {
-            return this.arrayFunctions[methodName](value, ...args);
-          }
-          if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
-            return this.dateFunctions[methodName](value, ...args);
-          }
-          return value;
+      // Handle JSONPath expressions first
+      if (script.startsWith('$.')) {
+        const jsonData = data;
+        const result = JSONPath({
+          path: script,
+          json: jsonData,
+          wrap: true,
+          flatten: true
         });
+  
+        if (Array.isArray(result) && result.length > 0) {
+          return result.length === 1 ? result[0] : result;
+        }
+        return result;
       }
-
-      // Original logic for non-array data
-      const value = data[propertyName];
-      if (value === undefined) {
-        throw new Error(`Property '${propertyName}' not found in data`);
+  
+      // Handle Local parsing methods
+      if (script.includes('Local')) {
+        // Handle LocalDateTime.parse
+        const dateTimeMatch = script.match(/LocalDateTime\.parse\("([^"]+)"\)/);
+        if (dateTimeMatch) {
+          const [, dateStr] = dateTimeMatch;
+          const date = moment(dateStr).toDate();
+          return date;
+        }
+  
+        // Handle LocalDate.parse
+        const dateMatch = script.match(/LocalDate\.parse\("([^"]+)"\)/);
+        if (dateMatch) {
+          const [, dateStr] = dateMatch;
+          const date = moment(dateStr).startOf('day').toDate();
+          return date;
+        }
+  
+        // Handle LocalTime.parse
+        const timeMatch = script.match(/LocalTime\.parse\("([^"]+)"\)/);
+        if (timeMatch) {
+          const [, timeStr] = timeMatch;
+          const date = moment(`1970-01-01 ${timeStr}`).toDate();
+          return date;
+        }
       }
-
-      const args = this.parseArguments(argsString, data);
-
-      if (typeof value === 'string' && this.stringFunctions[methodName]) {
-        return this.stringFunctions[methodName](value, ...args);
+  
+      // Static Date methods
+      if (script.startsWith('Date.')) {
+        const staticMatch = script.match(/Date\.(\w+)\((.*)\)/);
+        if (staticMatch) {
+          const [, staticMethod, staticArgs] = staticMatch;
+          const parsedArgs = staticArgs ? staticArgs.split(',').map(arg => 
+            !isNaN(arg.trim()) ? Number(arg.trim()) : arg.trim().replace(/['"]/g, '')
+          ) : [];
+          
+          if (this.dateFunctions[staticMethod]) {
+            return this.dateFunctions[staticMethod](...parsedArgs);
+          }
+        }
       }
-      if (Array.isArray(value) && this.arrayFunctions[methodName]) {
-        return this.arrayFunctions[methodName](value, ...args);
+  
+      // Handle method calls (including arrow functions)
+      const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
+      if (methodMatch) {
+        const [, propertyName, methodName, argsString] = methodMatch;
+        const value = data[propertyName];
+  
+        // If data is an array, treat it as a collection of objects
+        if (Array.isArray(data)) {
+          return data.map(item => {
+            const value = item[propertyName];
+            if (value === undefined) {
+              return item;
+            }
+  
+            // Handle arrow functions
+            if (argsString.includes('=>')) {
+              const fn = eval(`(${argsString.trim()})`);
+              if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
+                return this.objectFunctions[methodName](value, fn);
+              }
+            }
+  
+            const args = this.parseArguments(argsString, data);
+  
+            if (typeof value === 'string' && this.stringFunctions[methodName]) {
+              return this.stringFunctions[methodName](value, ...args);
+            }
+            if (Array.isArray(value) && this.arrayFunctions[methodName]) {
+              return this.arrayFunctions[methodName](value, ...args);
+            }
+            if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
+              return this.dateFunctions[methodName](value, ...args);
+            }
+            if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
+              return this.objectFunctions[methodName](value, ...args);
+            }
+  
+            return value;
+          });
+        }
+  
+        // Handle single object with arrow function
+        if (argsString.includes('=>')) {
+          const fn = eval(`(${argsString.trim()})`);
+          if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
+            return this.objectFunctions[methodName](value, fn);
+          }
+        }
+  
+        // Handle regular arguments
+        const args = this.parseArguments(argsString, data);
+  
+        if (typeof value === 'string' && this.stringFunctions[methodName]) {
+          return this.stringFunctions[methodName](value, ...args);
+        }
+        if (Array.isArray(value) && this.arrayFunctions[methodName]) {
+          return this.arrayFunctions[methodName](value, ...args);
+        }
+        if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
+          return this.dateFunctions[methodName](value, ...args);
+        }
+        if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
+          let args;
+          if (argsString.includes('=>')) {
+            args = [eval(`(${argsString})`)];
+          } else if (argsString.includes('{')) {
+            try {
+              args = [JSON.parse(argsString)];
+            } catch (e) {
+              args = [eval(`(${argsString})`)];
+            }
+          } else {
+            args = argsString.split(',').map(arg => {
+              arg = arg.trim();
+              if (arg.startsWith('"') || arg.startsWith("'")) return arg.slice(1, -1);
+              if (!isNaN(arg)) return Number(arg);
+              if (arg === 'true') return true;
+              if (arg === 'false') return false;
+              if (arg === 'null') return null;
+              return arg;
+            }).filter(arg => arg !== '');
+          }
+          return this.objectFunctions[methodName](value, ...args);
+        }
+  
+        throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
       }
-      if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
-        return this.dateFunctions[methodName](value, ...args);
-      }
-
-      throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
-    }
-
-      
   
       // Handle array length without parentheses
       const lengthMatch = script.match(/\$(\w+)\.length$/);
@@ -877,7 +892,7 @@ if (script.startsWith('Date.')) {
         throw new Error(`Variable '${variableName}' is not an array`);
       }
   
-      // Keep your existing handlers for other operations
+      // Handle other expressions
       if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
         return this.handleLogicalExpression(script, data);
       }
@@ -896,6 +911,7 @@ if (script.startsWith('Date.')) {
   
       throw new Error(`Unsupported script: ${script}`);
     } catch (error) {
+      console.error('Script execution error:', error);
       throw new Error(`Script execution failed: ${error.message}`);
     }
   }
