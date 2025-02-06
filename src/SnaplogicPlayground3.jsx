@@ -1,7 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"
+
+
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import Editor from '@monaco-editor/react';
 
 import {
   Tooltip,
@@ -27,36 +32,55 @@ import _ from 'lodash';
 import moment from 'moment';
 import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
+import HighLightedJSON from './utils/HighLightedJson';
+import HighlightedScript from './utils/HighlightedScript';
+import HighlightedActualOutput from './utils/HighlightedActualOutput';
+import HighlightedExpectedOutput from './utils/HighlightedExpectedOutput';
+
+
+
+
+
 
 
 const UpdatedCode = () => {
 
 
-  
+
+  const [format, setFormat] = useState('json');
+ 
   const canvasRef = useRef(null);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
+
+
   const [cursorPosition, setCursorPosition] = useState(0);
   const [focusedLine, setFocusedLine] = useState(null);
-  const [wasChecked, setWasChecked] = useState(() => 
+  const [wasChecked, setWasChecked] = useState(() =>
     localStorage.getItem('wasChecked') === 'true'
 );
+
 
   const [selectedFile, setSelectedFile] = useState(null);
 
 
+
+
     const [hoveredLine, setHoveredLine] = useState(null);
 const [highlightedLine, setHighlightedLine] = useState(null);
+
 
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
    
 const [inputs, setInputs] = useState(['Payload']);
 
+
 const [inputContents, setInputContents] = useState({
   [inputs[0]]: '{}'  // Now we can safely use inputs[0]
 });
+
 
   const [isPayloadView, setIsPayloadView] = useState(false);
   const [selectedInputIndex, setSelectedInputIndex] = useState(null);
@@ -68,17 +92,25 @@ const [inputContents, setInputContents] = useState({
   const [isChecked, setIsChecked] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [activeInput, setActiveInput] = useState('Payload');
-
-  const [leftWidth, setLeftWidth] = useState(() => 
+ 
+  const [leftWidth, setLeftWidth] = useState(() =>
     parseInt(localStorage.getItem('leftWidth')) || 288
   );
-  const [middleWidth, setMiddleWidth] = useState(() => 
+  const [middleWidth, setMiddleWidth] = useState(() =>
     parseInt(localStorage.getItem('middleWidth')) || 500
   );
-  const [rightWidth, setRightWidth] = useState(() => 
+  const [rightWidth, setRightWidth] = useState(() =>
     parseInt(localStorage.getItem('rightWidth')) || 384
   );
-  
+  const data = {
+    "myarray": [3, 6, 8, 2, 9, 4],
+    "head": [1, 2],
+    "middle": [3, 4],
+    "tail": [5, 6],
+    "names": ["Fred", "Wilma", "Fred", "Betty", "Fred", "Barney"],
+    "Array": [0, 2, 4, 6, 8]
+  };
+ 
   useEffect(() => {
     localStorage.setItem('leftWidth', leftWidth);
     localStorage.setItem('middleWidth', middleWidth);
@@ -94,7 +126,7 @@ const [inputContents, setInputContents] = useState({
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
  
   const [newInput, setNewInput] = useState("");
-  
+ 
   const [expectedOutput, setExpectedOutput] = useState('');
   const [actualOutput, setActualOutput] = useState('[\n  "Phone"\n]');
   const [scripts, setScripts] = useState([
@@ -105,6 +137,9 @@ const [inputContents, setInputContents] = useState({
       lastModified: new Date()
     }
   ]);
+  
+
+
   const [activeScript, setActiveScript] = useState(scripts[0]);
   const [newScript, setNewScript] = useState("");
   const [scriptContent, setScriptContent] = useState(scripts[0].content);
@@ -129,6 +164,7 @@ const [inputContents, setInputContents] = useState({
     />
   );
 
+
   useEffect(() => {
     if (isDragging) {
       document.body.style.userSelect = 'none';
@@ -137,12 +173,14 @@ const [inputContents, setInputContents] = useState({
     }
   }, [isDragging]);
 
+
   const handleMouseDown = (e, isLeft, isBottom) => {
     setIsDragging(true);
-    
+   
     if (isBottom) {
       const startY = e.clientY;
       const startHeight = bottomHeight;
+
 
       const handleMouseMove = (e) => {
         const deltaY = startY - e.clientY;
@@ -150,11 +188,13 @@ const [inputContents, setInputContents] = useState({
         setBottomHeight(Math.max(32, Math.min(800, newHeight)));
       };
 
+
       const handleMouseUp = () => {
         setIsDragging(false);
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
+
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -163,6 +203,7 @@ const [inputContents, setInputContents] = useState({
     const startX = e.clientX;
     const startLeftWidth = leftWidth;
     const startRightWidth = rightWidth;
+
 
     const handleMouseMove = (e) => {
       if (isLeft) {
@@ -174,22 +215,40 @@ const [inputContents, setInputContents] = useState({
       }
     };
 
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
 
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
   const [editorLines, setEditorLines] = useState(['']);
-  const scriptLines = scriptContent?.split('\n') || [''];
-  const expectedLines = expectedOutput.split('\n');
-  const actualLines = actualOutput.split('\n');
+  
+  // Convert these direct declarations to useMemo to prevent unnecessary recalculations
+  const scriptLines = useMemo(() => 
+    scriptContent?.split('\n') || [''], 
+    [scriptContent]
+  );
 
+  const expectedLines = useMemo(() => 
+    expectedOutput?.split('\n') || [''], 
+    [expectedOutput]
+  );
+
+  const actualLines = useMemo(() => 
+    actualOutput?.split('\n') || [''], 
+    [actualOutput]
+  );
+
+  // Button disable conditions
   const isCreateInputDisabled = newInput.trim() === "";
   const isCreateScriptDisabled = newScript.trim() === "";
+
+
 
   const renderLineNumbers = (content) => {
     return (
@@ -203,15 +262,19 @@ const [inputContents, setInputContents] = useState({
     );
   };
 
+
   const handleInputChange = (e) => {
     setNewInput(e.target.value);
+    setPayloadContent(e.target.value);
   };
+
 
   const handleInputClick = (input, index) => {
     setIsPayloadView(true);
     setSelectedInputIndex(index);
     setPayloadContent(inputContents[input] || '{\n  \n}');
   };
+
 
   const handleBackClick = () => {
     if (selectedInputIndex !== null) {
@@ -223,7 +286,7 @@ const [inputContents, setInputContents] = useState({
     }
     setIsPayloadView(false);
   };
-  
+ 
   const handleCreateInput = () => {
     if (newInput.trim() !== "") {
       setInputs([...inputs, newInput]);
@@ -236,9 +299,11 @@ const [inputContents, setInputContents] = useState({
     }
   };
 
+
   const handleScriptChange = (e) => {
     setNewScript(e.target.value);
   };
+
 
   const handleCreateScript = () => {
     if (newScript.trim() !== "") {
@@ -255,38 +320,83 @@ const [inputContents, setInputContents] = useState({
     }
   };
 
+
   const handleScriptSelect = (script) => {
     if (activeScript) {
       // Auto-save current script
-      const updatedScripts = scripts.map(s => 
-        s.id === activeScript.id 
+      const updatedScripts = scripts.map(s =>
+        s.id === activeScript.id
           ? { ...s, content: scriptContent }
           : s
       );
       setScripts(updatedScripts);
     }
-    
+   
     setActiveScript(script);
     setScriptContent(script.content);
   };
 
-  const handleActualOutputChange = (e) => {
-    setActualOutput(e.target.value);
-    compareOutputs();
+
+  const handleActualOutputChange = (newValue) => {
+    setActualOutput(newValue);
   };
   const scrollbarStyle = {
-    scrollbarWidth: 'thin',
-    scrollbarColor: '#ffffff #f1f1f1',
-    WebkitScrollbarWidth: '8px',
-    WebkitScrollbarTrack: { background: '#f1f1f1' },
-    WebkitScrollbarThumb: { 
-      background: '#ffffff',
-      border: '1px solid #e0e0e0'
+    overflowY: 'auto',
+    overflowX: 'auto',
+    '&::-webkit-scrollbar': {
+      width: '8px',
+      height: '8px',
+      background: '#ffffff'
     },
-    WebkitScrollbarThumbHover: { background: '#f8f8f8' }
+    '&::-webkit-scrollbar-track': {
+      background: '#ffffff',
+      borderRadius: '0px',
+      margin: '4px 0'
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: '#888888',
+      border: '2px solid #ffffff',
+      borderRadius: '4px',
+      minHeight: '40px',
+      transition: 'background-color 0.2s ease',
+      '&:hover': {
+        background: '#666666'
+      },
+      '&:active': {
+        background: '#555555'
+      }
+    },
+    '&::-webkit-scrollbar-corner': {
+      background: '#ffffff'
+    },
+    // Firefox support
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#888888 #ffffff',
+    // Edge support
+    'ms-overflow-style': '-ms-autohiding-scrollbar'
   };
-  const handleExpectedOutputChange = (e) => {
-    setExpectedOutput(e.target.value);
+  const scrollbarStyle1 = {
+    '&::-webkit-scrollbar': {
+      width: '8px',
+      height: '10px'
+    },
+    '&::-webkit-scrollbar-track': {
+      background: '#ffffff'
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: '#ffffff',
+      borderRadius: '0px',
+      border: '1px solid #ffffff'
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+      background: '#ffffff'
+    },
+    '&::-webkit-scrollbar-corner': {
+      background: '#ffffff'
+    }
+  };
+  const handleExpectedOutputChange = (newValue) => {
+    setExpectedOutput(newValue);
   };
   const detectFunctionType = (script) => {
     if (script.startsWith('$')) return 'jsonPath';
@@ -294,96 +404,63 @@ const [inputContents, setInputContents] = useState({
     return 'general';
   };
 
-  
 
-  // Update handleScriptContentChange
-  // First, define the helper functions
-const $string = {
-  concat: (...args) => args.join(''),
-  toUpper: (str) => str.toUpperCase(),
-  toLower: (str) => str.toLowerCase(),
-  substring: (str, start, end) => str.substring(start, end),
-  trim: (str) => str.trim(),
-  replace: (str, search, replace) => str.replace(search, replace)
-};
-
-const $array = {
-  length: (arr) => arr.length,
-  distinct: (arr) => Array.from(new Set(arr)),
-  join: (arr, separator) => arr.join(separator),
-  contains: (arr, value) => arr.includes(value),
-  first: (arr) => arr[0],
-  last: (arr) => arr[arr.length - 1],
-  filter: (arr, predicate) => arr.filter(predicate),
-  map: (arr, mapping) => {
-    if (typeof mapping === 'object') {
-      return arr.map(item => {
-        const result = {};
-        Object.entries(mapping).forEach(([key, value]) => {
-          if (typeof value === 'string' && value.startsWith('$string.')) {
-            const [, method] = value.match(/\$string\.(\w+)/);
-            result[key] = $string[method](item[key]);
-          } else if (value.includes('===')) {
-            const [left, right] = value.split('===').map(x => x.trim());
-            result[key] = item[left] === right.replace(/['"]/g, '');
-          } else {
-            result[key] = item[value];
-          }
-        });
-        return result;
-      });
+  useEffect(() => {
+    if (activeScript && payloadContent) {
+      try {
+        const handler = new SnapLogicFunctionsHandler();
+        const inputData = JSON.parse(payloadContent);
+        const result = handler.executeScript(scriptContent, inputData);
+        setActualOutput(JSON.stringify(result, null, 2));
+      } catch (error) {
+        setActualOutput(JSON.stringify({
+          error: "Transformation Error",
+          message: error.message,
+          hint: "Check input format and script syntax"
+        }, null, 2));
+      }
     }
-    return arr.map(mapping);
-  }
-};
+  }, [payloadContent, scriptContent]);
 
-const $date = {
-  now: () => moment().format(),
-  format: (date, format) => moment(date).format(format),
-  add: (date, unit, amount) => moment(date).add(amount, unit).format(),
-  subtract: (date, unit, amount) => moment(date).subtract(amount, unit).format(),
-  parse: (dateStr) => moment(dateStr).format()
-};
 
-const $math = {
-  round: Math.round,
-  sum: (arr) => arr.reduce((a, b) => a + b, 0),
-  avg: (arr) => arr.reduce((a, b) => a + b, 0) / arr.length,
-  min: Math.min,
-  max: Math.max,
-  abs: Math.abs
-};
-
+ 
 const handleScriptContentChange = (e) => {
   if (!e?.target) {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
     return;
   }
-  
+
+
   const newScript = e.target.value || '';
   setScriptContent(newScript);
-  const newContent = e.target.value || '';
-  setScriptContent(newContent);
-  setScripts(prevScripts => 
-    prevScripts.map(script => 
-      script.id === activeScript.id 
+  setScriptContent(e.target.value);
+ 
+  // Update script content in scripts array
+  setScripts(prevScripts =>
+    prevScripts.map(script =>
+      script.id === activeScript.id
         ? { ...script, content: newScript, lastModified: new Date() }
         : script
     )
   );
 
+
   try {
-    // For single input case
-    if(inputs.length >1 && newScript.trim()==='$'){
-      setActualOutput(
-        "Not valid,access with the help of input name"
-      );
+    const handler = new SnapLogicFunctionsHandler();
+   
+    // Handle multiple inputs case
+    if (inputs.length > 1 && newScript.trim() === '$') {
+      setActualOutput("Not valid, access with the help of input name");
       return;
     }
+
+
+    // Handle single input case
     if (inputs.length === 1 && newScript.trim() === '$') {
       setActualOutput(inputContents[inputs[0]]);
       return;
     }
+
 
     // For multiple inputs case
     const inputMatch = newScript.match(/^\$(\w+)/);
@@ -395,400 +472,38 @@ const handleScriptContentChange = (e) => {
           setActualOutput(inputContents[requestedInput]);
           return;
         }
-        
-        // Get string value for property access like $inputName.property
+
+
+        // Execute script with specific input
         const path = newScript.replace(`$${requestedInput}`, '$');
         const inputData = JSON.parse(inputContents[requestedInput]);
-        const result = JSONPath({ path, json: inputData });
-        // Convert array result to single value if possible
-        const finalResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
-        setActualOutput(JSON.stringify(finalResult, null, 2));
+        const result = handler.executeScript(path, inputData);
+        setActualOutput(JSON.stringify(result, null, 2));
         return;
       }
     }
-    // Default to active input if no specific input is referenced
-    const activeInput = inputs[selectedInputIndex] || inputs[0];
-    const inputData = inputContents[activeInput];
-    let parsedData = JSON.parse(inputData);
 
+
+    // Default to active input
+    const activeInput = inputs[selectedInputIndex] || inputs[0];
+    let inputData;
+   
     try {
-      parsedData = JSON.parse(inputData);
+      inputData = JSON.parse(inputContents[activeInput]);
     } catch (error) {
       setActualOutput(JSON.stringify({
         error: "Invalid Input",
         message: "Input data must be valid JSON",
-        input: inputData
+        input: inputContents[activeInput]
       }, null, 2));
       return;
     }
 
-    // Special case: handle bare $ to return full input
-    if (newScript.trim() === '$') {
-      setActualOutput(JSON.stringify(parsedData, null, 2));
-      return;
-    }
 
-    // Helper functions
-    const helpers = {
-      string: {
-        fromCharCode: (...codes) => {
-          const validCodes = codes.map(code => Number(code) || 0);
-          return String.fromCharCode(...validCodes);
-        },
-        camelCase: (str) => {
-          if (str == null) return '';
-          return _.camelCase(String(str));
-        },
-        capitalize: (str) => {
-          if (str == null) return '';
-          return _.capitalize(String(str));
-        },
-        charAt: (str, index) => {
-          if (str == null) return '';
-          return String(str).charAt(Number(index) || 0);
-        },
-        charCodeAt: (str, index) => {
-          if (str == null) return NaN;
-          return String(str).charCodeAt(Number(index) || 0);
-        },
-        concat: (...args) => {
-          return args.filter(arg => arg != null).map(String).join('');
-        },
-        contains: (str, searchString, position = 0) => {
-          if (str == null || searchString == null) return false;
-          return String(str).includes(String(searchString), Number(position));
-        },
-        endsWith: (str, searchString, length) => {
-          if (str == null || searchString == null) return false;
-          return String(str).endsWith(String(searchString), length);
-        },
-        indexOf: (str, searchValue, fromIndex = 0) => {
-          if (str == null || searchValue == null) return -1;
-          return String(str).indexOf(String(searchValue), Number(fromIndex));
-        },
-        kebabCase: (str) => {
-          if (str == null) return '';
-          return _.kebabCase(String(str));
-        },
-        lastIndexOf: (str, searchValue, fromIndex) => {
-          if (str == null || searchValue == null) return -1;
-          return String(str).lastIndexOf(String(searchValue), fromIndex);
-        },
-        length: (str) => {
-          if (str == null) return 0;
-          return String(str).length;
-        },
-        localeCompare: (str, compareString) => {
-          if (str == null || compareString == null) return 0;
-          return String(str).localeCompare(String(compareString));
-        },
-        lowerFirst: (str) => {
-          if (str == null) return '';
-          return _.lowerFirst(String(str));
-        },
-        match: (str, regexp) => {
-          if (str == null || regexp == null) return null;
-          const regex = typeof regexp === 'string' ? new RegExp(regexp) : regexp;
-          return String(str).match(regex);
-        },
-        repeat: (str, count) => {
-          if (str == null) return '';
-          return String(str).repeat(Number(count) || 0);
-        },
-        replace: (str, find, replaceWith) => {
-          if (str == null || find == null) return '';
-          return String(str).replace(find, replaceWith);
-        },
-        replaceAll: (str, find, replaceWith) => {
-          if (str == null || find == null) return '';
-          return String(str).replaceAll(find, replaceWith);
-        },
-        search: (str, regex) => {
-          if (str == null || regex == null) return -1;
-          return String(str).search(regex);
-        },
-        slice: (str, beginIndex, endIndex) => {
-          if (str == null) return '';
-          return String(str).slice(beginIndex, endIndex);
-        },
-        snakeCase: (str) => {
-          if (str == null) return '';
-          return _.snakeCase(String(str));
-        },
-        split: (str, separator, limit) => {
-          if (str == null) return [];
-          return String(str).split(separator, limit);
-        },
-        startsWith: (str, searchString, position = 0) => {
-          if (str == null || searchString == null) return false;
-          return String(str).startsWith(String(searchString), Number(position));
-        },
-        substr: (str, start, length) => {
-          if (str == null) return '';
-          return String(str).substr(start, length);
-        },
-        substring: (str, start, end) => {
-          if (str == null) return '';
-          return String(str).substring(start, end);
-        },
-        toLowerCase: (str) => {
-          if (str == null) return '';
-          return String(str).toLowerCase();
-        },
-        toUpperCase: (str) => {
-          if (str == null) return '';
-          return String(str).toUpperCase();
-        },
-        trim: (str) => {
-          if (str == null) return '';
-          return String(str).trim();
-        },
-        trimLeft: (str) => {
-          if (str == null) return '';
-          return String(str).trimStart();
-        },
-        trimRight: (str) => {
-          if (str == null) return '';
-          return String(str).trimEnd();
-        },
-        upperFirst: (str) => {
-          if (str == null) return '';
-          return _.upperFirst(String(str));
-        }
-      },
-      array: {
-        map: (arr, mapping) => {
-          if (!Array.isArray(arr)) return [];
-          return arr.map(item => {
-            if (typeof mapping === 'object') {
-              const result = {};
-              Object.entries(mapping).forEach(([key, value]) => {
-                if (typeof value === 'string') {
-                  if (value.startsWith('$string.')) {
-                    const [, method] = value.match(/\$string\.(\w+)/);
-                    result[key] = helpers.string[method](item[key]);
-                  } else if (value.includes('===')) {
-                    const [left, right] = value.split('===').map(x => x.trim());
-                    result[key] = item[left] === right.replace(/['"]/g, '');
-                  } else {
-                    result[key] = item[value];
-                  }
-                } else {
-                  result[key] = value;
-                }
-              });
-              return result;
-            }
-            return item[mapping];
-          });
-        },
-        filter: (arr, predicate) => Array.isArray(arr) ? arr.filter(predicate) : [],
-        find: (arr, predicate) => Array.isArray(arr) ? arr.find(predicate) : undefined,
-        length: (arr) => Array.isArray(arr) ? arr.length : 0,
-        join: (arr, separator) => Array.isArray(arr) ? arr.join(separator) : '',
-        slice: (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [],
-        includes: (arr, value) => Array.isArray(arr) ? arr.includes(value) : false,
-        indexOf: (arr, value) => Array.isArray(arr) ? arr.indexOf(value) : -1,
-        some: (arr, predicate) => Array.isArray(arr) ? arr.some(predicate) : false,
-        every: (arr, predicate) => Array.isArray(arr) ? arr.every(predicate) : false
-      },
-      math: {
-        abs: Math.abs,
-        ceil: Math.ceil,
-        floor: Math.floor,
-        max: Math.max,
-        min: Math.min,
-        pow: Math.pow,
-        round: Math.round,
-        sqrt: Math.sqrt
-      }
-    };
-
-    const evaluateJsonPath = (path, contextData = parsedData) => {
-      if (!path?.startsWith('$.')) {
-        throw new Error("Invalid JSONPath: Must start with '$.'");
-      }
-      try {
-        const result = JSONPath({ 
-          path, 
-          json: contextData,
-          functions: {
-            ...helpers.string,
-            concat: helpers.string.concat,
-            length: helpers.string.length,
-            toLowerCase: helpers.string.toLowerCase,
-            toUpperCase: helpers.string.toUpperCase
-          }
-        });
-        return Array.isArray(result) && result.length === 1 ? result[0] : result;
-      } catch (error) {
-        throw new Error(`JSONPath evaluation failed: ${error.message}`);
-      }
-    };
-
-    const evaluateHelper = (expr) => {
-      const match = expr.match(/\$(\w+)\.(\w+)\((.*)\)/s);
-      if (!match) return expr;
-
-      const [, helper, method, argsString] = match;
-      if (!helpers[helper]?.[method]) {
-        throw new Error(`Unknown helper method: ${helper}.${method}`);
-      }
-
-      const args = [];
-      let currentArg = '';
-      let depth = 0;
-      let inString = false;
-      let stringChar = '';
-
-      for (let i = 0; i < argsString.length; i++) {
-        const char = argsString[i];
-
-        if ((char === '"' || char === "'") && argsString[i - 1] !== '\\') {
-          if (!inString) {
-            inString = true;
-            stringChar = char;
-          } else if (char === stringChar) {
-            inString = false;
-          }
-        }
-
-        if (!inString) {
-          if (char === '{' || char === '(' || char === '[') depth++;
-          if (char === '}' || char === ')' || char === ']') depth--;
-        }
-
-        if (char === ',' && depth === 0 && !inString) {
-          args.push(currentArg.trim());
-          currentArg = '';
-          continue;
-        }
-
-        currentArg += char;
-      }
-
-      if (currentArg.trim()) {
-        args.push(currentArg.trim());
-      }
-      const processedArgs = args.map(arg => {
-        arg = arg.trim();
-        if (arg.startsWith('$.')) {
-          return evaluateJsonPath(arg);
-        }
-        if (arg.startsWith('$')) {
-          return evaluateHelper(arg);
-        }
-        if (arg.startsWith('{')) {
-          return parseScript(arg);
-        }
-        if (arg === "' '" || arg === '" "') {
-          return ' ';
-        }
-        if (arg.startsWith("'") || arg.startsWith('"')) {
-          return arg.slice(1, -1);
-        }
-        return arg;
-      });
-
-      return helpers[helper][method](...processedArgs);
-    };
-
-    const parseScript = (script) => {
-      script = script.trim();
-      
-      if (script.startsWith('$')) {
-        if (script.startsWith('$.')) {
-          return evaluateJsonPath(script);
-        }
-        return evaluateHelper(script);
-      }
-      
-      if (!script.startsWith('{')) {
-        return script;
-      }
-
-      const content = script.slice(1, -1).trim();
-      if (!content) return {};
-
-      const result = {};
-      let currentKey = '';
-      let currentValue = '';
-      let depth = 0;
-      let inString = false;
-      let stringChar = '';
-      let collectingKey = true;
-
-      for (let i = 0; i < content.length; i++) {
-        const char = content[i];
-
-        if ((char === '"' || char === "'") && content[i - 1] !== '\\') {
-          if (!inString) {
-            inString = true;
-            stringChar = char;
-          } else if (char === stringChar) {
-            inString = false;
-          }
-        }
-
-        if (!inString) {
-          if (char === '{' || char === '[' || char === '(') depth++;
-          if (char === '}' || char === ']' || char === ')') depth--;
-        }
-
-        if (char === ':' && depth === 0 && !inString && collectingKey) {
-          collectingKey = false;
-          continue;
-        }
-
-        if (char === ',' && depth === 0 && !inString) {
-          result[currentKey.trim()] = parseScript(currentValue.trim());
-          currentKey = '';
-          currentValue = '';
-          collectingKey = true;
-          continue;
-        }
-
-        if (collectingKey) {
-          currentKey += char;
-        } else {
-          currentValue += char;
-        }
-      }
-
-      if (currentKey) {
-        result[currentKey.trim()] = parseScript(currentValue.trim());
-      }
-
-      return result;
-    };
-
-    // Handle array mapping with arrow functions
-    const handleArrayMapping = (arr, mappingFn) => {
-      if (typeof mappingFn === 'string' && mappingFn.includes('=>')) {
-        const fnMatch = mappingFn.match(/\((.*?)\)\s*=>\s*({[\s\S]*})/);
-        if (fnMatch) {
-          const [, param, body] = fnMatch;
-          return arr.map(item => {
-            const context = { [param.trim()]: item };
-            return parseScript(body, context);
-          });
-        }
-      }
-      return arr.map(item => parseScript(mappingFn, { item }));
-    };
-
-    let result;
-    if (!newScript.trim()) {
-      result = { message: "Enter an expression" };
-    } else {
-      try {
-        result = parseScript(newScript);
-      } catch (error) {
-        throw new Error(`Script parsing failed: ${error.message}`);
-      }
-    }
-
+    // Execute script with handler
+    const result = handler.executeScript(newScript, inputData);
     setActualOutput(JSON.stringify(result, null, 2));
+
 
   } catch (error) {
     console.error("Transformation Error:", error);
@@ -802,33 +517,72 @@ const handleScriptContentChange = (e) => {
 };
 
 
+
+
   useEffect(() => {
     console.log("Actual output updated:", actualOutput) // Debugging log
   }, [actualOutput])
-  
+ 
   const textAreaStyles = {
     minHeight: '100px',
     lineHeight: '1.5rem',
     padding: '0',
     border: 'none'
   };
-
-  const compareOutputs = () => {
-    const normalizedActual = actualOutput.trim();
-    const normalizedExpected = expectedOutput.trim();
-    return normalizedActual === normalizedExpected;
+  const normalizeJSON = (input) => {
+    try {
+      if (!input) return '';
+      
+      // If input is already an object/array, stringify it
+      if (typeof input === 'object') {
+        return JSON.stringify(input);
+      }
+  
+      // If input is a string, try to parse and re-stringify to normalize
+      if (typeof input === 'string') {
+        const parsed = JSON.parse(input.trim());
+        return JSON.stringify(parsed);
+      }
+  
+      return String(input);
+    } catch (error) {
+      console.error('JSON normalization error:', error);
+      return String(input);
+    }
   };
-
   
   useEffect(() => {
-    setOutputMatch(compareOutputs());
-  }, [actualOutput, expectedOutput]);
-
-  // const [rightWidth, setRightWidth] = useState(() => 
-  //   parseInt(localStorage.getItem('rightWidth')) || 384
-  // );
+    const compareOutputs = () => {
+      try {
+        if (!actualOutput || !expectedOutput) {
+          setOutputMatch(false);
+          return;
+        }
   
-  // Add the new functions here
+        const normalizeJSON = (input) => {
+          try {
+            return JSON.stringify(JSON.parse(input));
+          } catch {
+            return input;
+          }
+        };
+  
+        const normalizedActual = normalizeJSON(actualOutput);
+        const normalizedExpected = normalizeJSON(expectedOutput);
+  
+        setOutputMatch(normalizedActual === normalizedExpected);
+      } catch (error) {
+        console.error('Comparison error:', error);
+        setOutputMatch(false);
+      }
+    };
+  
+    compareOutputs();
+  }, [actualOutput, expectedOutput]);
+  
+
+
+ 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file && file.name.endsWith('.zip')) {
@@ -836,7 +590,7 @@ const handleScriptContentChange = (e) => {
       setShowImportDialog(false);
     }
   };
-  
+ 
   const handleFileDrop = (event) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
@@ -845,10 +599,11 @@ const handleScriptContentChange = (e) => {
       setShowImportDialog(false);
     }
   };
-  
-  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() => 
+ 
+  const [shouldShowExportDialog, setShouldShowExportDialog] = useState(() =>
     localStorage.getItem('showExportDialog') !== 'false'
   );
+
 
   const handleExport = () => {
     const blob = new Blob(['Demo content'], { type: 'application/zip' });
@@ -861,13 +616,15 @@ const handleScriptContentChange = (e) => {
     link.parentNode.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
-  
+ 
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
     setWasChecked(true);
     localStorage.setItem('wasChecked', 'true');
     setShowExportDialog(false);
 };
+
+
 
 
   const getNavLink = (item) => {
@@ -879,6 +636,7 @@ const handleScriptContentChange = (e) => {
     };
     return links[item];
   };
+
 
   const handleNavClick = (item) => {
     if (item === 'playground') {
@@ -893,6 +651,8 @@ const handleScriptContentChange = (e) => {
   }, []);
 
 
+
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -904,6 +664,7 @@ const handleScriptContentChange = (e) => {
       ctx.stroke();
     }
   }, [scriptContent]);
+
 
   // Create active line border element
   const ActiveLineBorder = () => {
@@ -924,231 +685,24 @@ const handleScriptContentChange = (e) => {
     );
   };
 
-  const executeScript = (script, payload) => {
-    // JSONPath operations
-    if (script.startsWith('$')) {
-        return JSONPath({
-            path: script,
-            json: payload
-        });
-    }
 
-    // Match control operations
-    if (script.startsWith('match')) {
-        return evaluateMatch(script, payload);
-    }
-
-    // Array operations
-    if (script.startsWith('Array.')) {
-        return evaluateArrayOperation(script, payload);
-    }
-
-    // String operations
-    if (script.startsWith('String.')) {
-        return evaluateStringOperation(script, payload);
-    }
-
-    // Date operations
-    if (script.startsWith('Date.')) {
-        return evaluateDateOperation(script, payload);
-    }
-
-    return payload;
-};
-const evaluateJsonPath = (script, data) => {
-  try {
-      switch(true) {
-          case script === '$':
-              return data;
-          case script.includes('[*]'):
-              return data[script.split('[*]')[0].replace('$.', '')];
-          case script.includes('[?(@'):
-              const condition = script.match(/\?\((.*?)\)/)[1];
-              return evaluateFilter(condition, data);
-          default:
-              return data[script.replace('$.', '')];
-      }
-  } catch (error) {
-      console.log('JsonPath Error:', error);
-      return null;
-  }
-};
-
-const evaluateFilter = (condition, data) => {
-  if (!data || !Array.isArray(data)) return null;
-  return data.filter(item => {
-      try {
-          return eval(condition.replace('@.', 'item.'));
-      } catch {
-          return false;
-      }
-  });
-};
-
-// Add these new function implementations
-
-const evaluateStringOperation = (script, data) => {
-  const [operation, ...args] = script.split('(');
-  const cleanArgs = args.join('(').slice(0, -1); // Remove trailing ')'
-  
-  switch(operation) {
-      case 'camelCase':
-          return data.replace(/(?:^\w|[A-Z]|\b\w)/g, (letter, index) => 
-              index === 0 ? letter.toLowerCase() : letter.toUpperCase()
-          ).replace(/\s+/g, '');
-      case 'capitalize':
-          return data.charAt(0).toUpperCase() + data.slice(1);
-      case 'toLowerCase':
-          return data.toLowerCase();
-      case 'toUpperCase':
-          return data.toUpperCase();
-      case 'trim':
-          return data.trim();
-      default:
-          return data;
-  }
-};
-
-const evaluateArrayOperation = (script, data) => {
-  const [operation, ...args] = script.split('(');
-  const cleanArgs = args.join('(').slice(0, -1);
-
-  switch(operation) {
-      case 'filter':
-          return data.filter(eval(`(item) => ${cleanArgs}`));
-      case 'map':
-          return data.map(eval(`(item) => ${cleanArgs}`));
-      case 'sort':
-          return [...data].sort();
-      case 'reverse':
-          return [...data].reverse();
-      case 'join':
-          return data.join(cleanArgs || ',');
-      default:
-          return data;
-  }
-};
-
-const evaluateMatch = (script, data) => {
-  const matchPattern = script.match(/match\s*{([^}]*)}/)[1]
-  const conditions = matchPattern.split("\n").filter((line) => line.trim())
-
-  for (const condition of conditions) {
-    const [pattern, result] = condition.split("=>").map((s) => s.trim())
-    if (pattern === "_") {
-      return eval(result)
-    } else {
-      try {
-        const patternValue = JSONPath({ path: pattern, json: data })
-        if (patternValue && patternValue.length > 0) {
-          return eval(result)
-        }
-      } catch (error) {
-        console.error("Error evaluating pattern:", error)
-      }
-    }
-  }
-  return null
-}
-
-const evaluateDateOperation = (script, data) => {
-  const [operation, ...args] = script.split('(');
-  const cleanArgs = args.join('(').slice(0, -1);
-  const date = new Date(data);
-
-  switch(operation) {
-      case 'getDate':
-          return date.getDate();
-      case 'getMonth':
-          return date.getMonth() + 1;
-      case 'getFullYear':
-          return date.getFullYear();
-      case 'format':
-          return date.toLocaleDateString();
-      default:
-          return data;
-  }
-};
-
-const executeArrayFunction = (data, method, params) => {
-  switch(method) {
-      case 'filter': return data.filter(eval(`(x) => ${params}`));
-      case 'map': return data.map(eval(`(x) => ${params}`));
-      case 'find': return data.find(eval(`(x) => ${params}`));
-      case 'sort': return [...data].sort();
-      case 'reverse': return [...data].reverse();
-      case 'reduce': return data.reduce(eval(`(acc, curr) => ${params}`));
-      default: return data;
-  }
-};
+ 
 
 
-const executeStringFunction = (data, method, params) => {
-  switch(method) {
-      case 'camelCase': return data.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
-      case 'capitalize': return data.charAt(0).toUpperCase() + data.slice(1);
-      case 'toLowerCase': return data.toLowerCase();
-      case 'toUpperCase': return data.toUpperCase();
-      case 'split': return data.split(eval(params));
-      case 'replace': return data.replace(...eval(`[${params}]`));
-      default: return data;
-  }
-};
 
-const executeDateFunction = (method, params) => {
-  const date = params ? new Date(eval(params)) : new Date();
-  switch(method) {
-      case 'now': return new Date();
-      case 'plusDays': return new Date(date.setDate(date.getDate() + Number(params)));
-      case 'minusDays': return new Date(date.setDate(date.getDate() - Number(params)));
-      case 'format': return date.toLocaleString();
-      default: return date;
-  }
-};
 
-const executeMathFunction = (method, params) => {
-  switch(method) {
-      case 'abs': return Math.abs(Number(params));
-      case 'round': return Math.round(Number(params));
-      case 'ceil': return Math.ceil(Number(params));
-      case 'floor': return Math.floor(Number(params));
-      case 'random': return Math.random();
-      default: return Number(params);
-  }
-};
 
-const executeObjectFunction = (data, method, params) => {
-  switch(method) {
-      case 'keys': return Object.keys(data);
-      case 'values': return Object.values(data);
-      case 'entries': return Object.entries(data);
-      case 'get': return _.get(data, params.replace(/['"]/g, ''));
-      default: return data;
-  }
-};
-
-const executeMatchPattern = (data, pattern) => {
-  const matchPattern = pattern.match(/match\s*{([^}]*)}/)[1];
-  const conditions = matchPattern.split('\n').filter(line => line.trim());
-  
-  for (const condition of conditions) {
-      const [pattern, result] = condition.split('=>').map(s => s.trim());
-      if (eval(`(x) => ${pattern}`)(data)) {
-          return eval(result);
-      }
-  }
-  return null;
-};
 
 const getLineCount = (content) => {
   if (!content) return 1;
   return content.split('\n').length;
 };
 
+
 // Add these responsive width calculations
 const getResponsiveWidths = () => {
   const screenWidth = window.innerWidth;
-  
+ 
   if (screenWidth >= 1024) { // Laptop
     return {
       leftWidth: Math.floor(screenWidth * 0.25),
@@ -1165,6 +719,7 @@ const getResponsiveWidths = () => {
   return { leftWidth, middleWidth, rightWidth }; // Default widths
 };
 
+
 // Add resize listener
 useEffect(() => {
   const handleResize = () => {
@@ -1174,9 +729,11 @@ useEffect(() => {
     setRightWidth(newRight);
   };
 
+
   window.addEventListener('resize', handleResize);
   return () => window.removeEventListener('resize', handleResize);
 }, []);
+
 
 // Add responsive styles
 const responsiveStyles = {
@@ -1188,10 +745,11 @@ const responsiveStyles = {
   panels: {
     minWidth: '250px'
   }
-  
+ 
 };
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
+
 
   useEffect(() => {
     const media = window.matchMedia(query);
@@ -1200,11 +758,184 @@ const useMediaQuery = (query) => {
     return () => media.removeEventListener('change', listener);
   }, [query]);
 
+
   return matches;
 };
 
+
 // In your component
 const isTablet = useMediaQuery('(max-width: 1024px)');
+
+const monacoStyles = `
+  .monaco-editor {
+    padding-top: 8px;
+  }
+  
+  .monaco-editor .margin {
+    background-color: #f8f9fa;
+  }
+  
+  .monaco-editor .line-numbers {
+    color: #3498db !important;
+    font-size: 12px;
+  }
+  
+  .monaco-editor .current-line {
+    border: none !important;
+  }
+
+  /* Disable editor widgets that might interfere with typing */
+  .monaco-editor .suggest-widget,
+  .monaco-editor .parameter-hints-widget,
+  .monaco-editor .monaco-hover {
+    display: none !important;
+  }
+`;
+// const [jsonContent, setJsonContent] = useState('{\n  \n}');
+
+//   const handleEditorChange = (value) => {
+//     if (value !== undefined) {
+//       setJsonContent(value);
+//     }
+//   };
+
+
+  // const HighlightedJSON = ({ content, onChange, style }) => {
+  //   const editorRef = useRef(null);
+  //   const initialSetupDone = useRef(false);
+  //   const lastCursorPosition = useRef(null);
+  
+  //   const handleEditorDidMount = (editor, monaco) => {
+  //     editorRef.current = editor;
+  
+  //     monaco.editor.defineTheme('dataweaveTheme', {
+  //       base: 'vs',
+  //       inherit: true,
+  //       rules: [
+  //         { token: 'string.key.json', foreground: '000000' },
+  //         { token: 'string.value.json', foreground: '0000FF' },
+  //         { token: 'number.json', foreground: '098658' },
+  //         { token: 'delimiter.bracket.json', foreground: '000000' },
+  //         { token: 'delimiter.array.json', foreground: '000000' },
+  //         { token: 'delimiter.comma.json', foreground: '000000' }
+  //       ],
+  //       colors: {
+  //         'editor.background': '#FFFFFF',
+  //         'editor.lineHighlightBackground': '#F0F0F0',
+  //         'editorCursor.foreground': '#000000',
+  //         'editor.selectionBackground': '#ADD6FF',
+  //         'editor.inactiveSelectionBackground': '#E5EBF1'
+  //       }
+  //     });
+  
+  //     editor.updateOptions({
+  //       renderLineHighlight: 'all',
+  //       highlightActiveIndentGuide: true,
+  //       fontSize: 13,
+  //       lineHeight: 20,
+  //       padding: { top: 4, bottom: 4 },
+  //       lineNumbers: 'on',
+  //       roundedSelection: false,
+  //       scrollBeyondLastLine: false,
+  //       readOnly: false,
+  //       cursorStyle: 'line',
+  //       automaticLayout: true,
+  //       wordWrap: 'on',
+  //       autoIndent: 'full',
+  //       formatOnPaste: true,
+  //       formatOnType: false,
+  //       suggestOnTriggerCharacters: false,
+  //       quickSuggestions: false,
+  //       autoClosingBrackets: 'never',
+  //       autoClosingQuotes: 'never',
+  //       autoSurround: 'never'
+  //     });
+  
+  //     // Track cursor position changes
+  //     editor.onDidChangeCursorPosition((e) => {
+  //       lastCursorPosition.current = e.position;
+  //     });
+  
+  //     // Handle content changes with proper cursor positioning
+  //     editor.onDidChangeModelContent((event) => {
+  //       const newContent = editor.getValue();
+  //       const currentPosition = editor.getPosition();
+        
+  //       // Only update if content actually changed
+  //       if (newContent !== content) {
+  //         onChange(newContent);
+          
+  //         // Calculate the new cursor position
+  //         if (currentPosition) {
+  //           const newPosition = {
+  //             lineNumber: currentPosition.lineNumber,
+  //             column: currentPosition.column
+  //           };
+  
+  //           // Ensure cursor moves forward after typing
+  //           if (event.changes.length === 1 && event.changes[0].text) {
+  //             newPosition.column = currentPosition.column + 1;
+  //           }
+  
+  //           // Use setTimeout to ensure the position is set after the content update
+  //           setTimeout(() => {
+  //             editor.setPosition(newPosition);
+  //             editor.focus();
+  //           }, 0);
+  //         }
+  //       }
+  //     });
+  
+  //     if (!initialSetupDone.current) {
+  //       setTimeout(() => {
+  //         const model = editor.getModel();
+  //         if (model) {
+  //           const lastLine = model.getLineCount();
+  //           const lastColumn = model.getLineMaxColumn(lastLine - 1);
+  //           editor.setPosition({ lineNumber: lastLine - 1, column: lastColumn - 1 });
+  //           editor.focus();
+  //           initialSetupDone.current = true;
+  //         }
+  //       }, 100);
+  //     }
+  //   };
+  
+  //   return (
+  //     <div className="flex-1 border rounded-sm" style={{ ...style, overflow: 'hidden' }}>
+  //       <Editor
+  //         height="100%"
+  //         defaultLanguage="json"
+  //         value={content}
+  //         onMount={handleEditorDidMount}
+  //         theme="dataweaveTheme"
+  //         options={{
+  //           minimap: { enabled: false },
+  //           overviewRulerLanes: 0,
+  //           hideCursorInOverviewRuler: true,
+  //           overviewRulerBorder: false,
+  //           scrollbar: {
+  //             vertical: 'visible',
+  //             horizontal: 'visible',
+  //             verticalScrollbarSize: 10,
+  //             horizontalScrollbarSize: 10,
+  //             verticalSliderSize: 10,
+  //             horizontalSliderSize: 10,
+  //             useShadows: false
+  //           }
+  //         }}
+  //       />
+  //     </div>
+  //   );
+  // };
+
+  const handlePayloadChange = (newContent) => {
+    setPayloadContent(newContent);
+    // Also update any other necessary state or trigger side effects
+  };
+  const handleFormatChange = (newFormat) => {
+    setFormat(newFormat);
+  };
+  
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -1223,6 +954,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         </div>
       )}
 
+
       <div className="flex items-center justify-between px-6 py-2 border-b">
         <div className="flex items-center space-x-3">
           {/* <svg
@@ -1240,10 +972,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             <path d="M35 35 L50 65" stroke="white" strokeWidth="3"/>
           </svg>
           <div className="text-[21px] font-bold text-[#444444] font-['OpenSans']">
-            SnapLogic 
+            SnapLogic
           </div> */}
            <img
-  src="/sl-logo.svg"
+  src="/SnapLogicPlayground1/sl-logo.svg"
   alt="SnapLogic Logo"
   className=" object-contain"
   style={{
@@ -1252,7 +984,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   }}
 />
 <img
-  src="/LogoN.svg"
+  src="/SnapLogicPlayground1/LogoN.svg"
   alt="SnapLogic"
   className=" object-contain"
   style={{
@@ -1261,7 +993,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 />
         </div>
         <div className="flex items-center">
-        <button 
+        <button
   onClick={() => {
     // Always download the file
     const blob = new Blob(['Demo content'], { type: 'application/zip' });
@@ -1274,6 +1006,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     link.parentNode.removeChild(link);
     window.URL.revokeObjectURL(url);
 
+
     // Show dialog if not checked in current session
     if (!wasChecked) {
       setShowExportDialog(true);
@@ -1282,13 +1015,17 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
 >
 <img
-  src="/cloud-upload-Hover.svg"
+  src="/SnapLogicPlayground1/cloud-upload-Hover.svg"
   alt="SnapLogic Logo"
  className="mr-2 text-gray-700 group-hover:text-blue-500 text-gray-500 h-4 w-4"
 />
   {/* <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
   <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope'] font-normal">Export</span>
 </button>
+
+
+
+
 
 
 
@@ -1306,8 +1043,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                     Don't forget to install the <span className="text-blue-500">DataWeave Playground</span> extension
                   </p>
                   <div className="flex justify-between items-center">
-                  <label 
-  className="flex items-center text-sm cursor-pointer select-none" 
+                  <label
+  className="flex items-center text-sm cursor-pointer select-none"
   onClick={() => {
     setIsChecked(!isChecked);
     setWasChecked(true);
@@ -1324,7 +1061,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   Don't show popup again
 </label>
 
-                    <button 
+
+                    <button
                       onClick={() => setShowExportDialog(false)}
                       className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
                       style={{ borderRadius: 0 }}
@@ -1336,20 +1074,21 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               </div>
             </div>
           )}
-                    <button 
+                    <button
             onClick={() => {setShowImportDialog(true);
-              setSelectedFile(null); 
+              setSelectedFile(null);
                 } }
             className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-4"
           >
             <img
-  src="/cloud-download-Hover.svg"
+  src="/SnapLogicPlayground1/cloud-download-Hover.svg"
   alt="SnapLogic Logo"
  className="mr-2 group-hover:text-blue-500 text-gray-500 h-4 w-4"
 />
             {/* <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
             <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
+
 
           {showImportDialog && (
   <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
@@ -1358,7 +1097,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
         <h2 className="text-[1.9rem] font-bold text-gray-700">Import project</h2>
         <div className="h-[1px] bg-gray-200 w-[calc(100%+48px)] -mx-6 mt-4 mb-[0.4rem]"></div>
         <div className="mt-6 flex-1 font-['Manrope']">
-          <div 
+          <div
             className="border-2 border-dashed border-gray-600 h-[11rem] w-[27.2rem] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-gray-400"
             onClick={() => document.getElementById('fileInput').click()}
             onDragOver={(e) => e.preventDefault()}
@@ -1384,7 +1123,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           </div>
         </div>
         <div className="flex justify-end">
-          <button 
+          <button
             onClick={() => setShowImportDialog(false)}
             className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
             style={{ borderRadius: 0 }}
@@ -1398,18 +1137,21 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 )}
 
 
+
+
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
+
 
           <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
       {['blogs', 'docs', 'tutorial', 'playground'].map(item => (
-        <a 
+        <a
           key={item}
           href={getNavLink(item)}
           target="_blank"
           rel="noopener noreferrer"
           className={`text-black hover:text-blue-500 px-2 py-2 relative ${
-            activeNavItem === item 
-              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10' 
+            activeNavItem === item
+              ? 'after:content-[""] after:absolute  after:left-0 after:right-0 after:h-0.5 after:bg-[#1B4E8D] after:-bottom-[0.5rem] z-10'
               : ''
           }`}
           onClick={() => handleNavClick(item)}
@@ -1422,6 +1164,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       </div>
 {/* main content */}
 
+
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]" style={responsiveStyles.mainContainer}>
         <div style={{...resizableStyles(leftWidth,'left'),...responsiveStyles.panels}} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
           {isPayloadView ? (
@@ -1433,36 +1176,37 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       <button onClick={handleBackClick} className="text-gray-600 bg-white  border-none outline-none h-[30px] flex items-center focus:outline-none focus:border-none flex-shrink-0">
         {/* <ChevronLeft className="h-4 w-4" /> */}
         <img
-  src="/toolbarExpand-Active.svg"
+  src="/SnapLogicPlayground1/toolbarExpand-Active.svg"
   alt="SnapLogic Logo"
   className="w-3 h-3 flex-shrink-0 "
 />
       </button>
-      
+     
       <span className="font-bold font-['Manrope'] text-gray-600 text-xs mr-4">PAYLOAD</span>
     </div>
-    <FormatDropdown />
+    <FormatDropdown onFormatChange={handleFormatChange} />
   </div>
 </div>
-<div className="flex flex-1  ">
-  <div className="w-12 bg-gray-50 flex flex-col text-right pr-2 py-2 select-none">
-  {Array.from({ length: payloadContent.split('\n').length }, (_, i) => (
-      <div key={i} className="text-blue-500 hover:text-blue-700 leading-6">
-        {i + 1}
-      </div>
-    ))}
-  </div>
-  
-  <textarea
-    value={payloadContent}
-    onChange={(e) => setPayloadContent(e.target.value)}
-    className="flex-1 p-2 font-mono text-sm resize-none outline-none bg-white leading-6"
-    spellCheck="false"
-    style={{ lineHeight: '1.5rem' ,
-      ...scrollbarStyle
-    }}
-  />
-</div>
+
+          {/* <HighlightedJSON
+            content={jsonContent}
+            onChange={handleEditorChange}
+            style={{ height: '100%' }}
+          /> */}
+          <HighLightedJSON
+      content={payloadContent}
+      onChange={handlePayloadChange}
+      format={format} 
+      style={{
+        lineHeight: '1.5rem',
+        ...scrollbarStyle,
+        height: '100%',
+        backgroundColor: 'white'
+      }}
+    />
+
+
+
             </div>
           ) : (
             <>
@@ -1470,21 +1214,26 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             <div className="border-b">
   <div className="flex justify-between items-center h-[30px]  px-4">
     <span className="font-bold text-gray-600  font-['Manrope'] text-xs">INPUT EXPLORER</span>
-    <button 
-      onClick={() => setShowInputContainer(true)} 
+    <button
+      onClick={() => setShowInputContainer(true)}
       className="text-l bg-white  text-gray-500 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
       {/* + */}
       <img
-  src="/add-Hover.svg"
+  src="/SnapLogicPlayground1/add-Hover.svg"
   alt="SnapLogic Logo"
  className="text-gray-500 h-3 w-3"
 />
 
+
     </button>
   </div>
 </div>
+
+
+
+
 
 
 
@@ -1526,7 +1275,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           className="h-10 px-4 text-sm  font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-200  rounded-none"
           style={{ borderColor: "rgb(209 213 219)",outline: "none" }}
         >
-        
+       
           Cancel
         </button>
          <button
@@ -1540,7 +1289,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               ? "text-black bg-gray-300 cursor-not-allowed"
               : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
           }`}
-          style={{ 
+          style={{
             border: "none",
             outline: "none"
           }}
@@ -1569,14 +1318,14 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               <div className="border-b">
   <div className="flex justify-between items-center h-[30px] px-4">
     <span className="font-bold text-gray-600 font-['Manrope'] text-xs">SCRIPT EXPLORER</span>
-    <button 
-      onClick={() => setShowScriptContainer(true)} 
+    <button
+      onClick={() => setShowScriptContainer(true)}
       className="text-l text-gray-500 bg-white text-gray-300 border-none focus:outline-none h-[30px] flex items-center border-r-2"
       style={{ borderRight: "0px" }}
     >
       {/* + */}
       <img
-  src="/add-Hover.svg"
+  src="/SnapLogicPlayground1/add-Hover.svg"
   alt="SnapLogic Logo"
  className="text-gray-500 h-3 w-3"
 />
@@ -1633,7 +1382,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               ? "text-black bg-gray-300 cursor-not-allowed"
               : "text-white bg-blue-500 hover:bg-blue-600 cursor-pointer"
           }`}
-          style={{ 
+          style={{
             border: "none",
             outline: "none"
           }}
@@ -1660,7 +1409,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 </div>
 
 
+
+
 ))}
+
 
 </div>
               </div>
@@ -1668,14 +1420,15 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           )}
         </div>
 
+
         {/* Left Resize Handle */}
         <div
           className="w-[2px] bg-gray-200 relative"
           onMouseDown={(e) => handleMouseDown(e, true)}
         >
-          <div 
+          <div
             className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
-            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
+            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }}
           >
             <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
           </div>
@@ -1700,8 +1453,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
               </div>
             </div>
           </div>
-          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative overflow-auto">
-  <div className="w-12 text-right pr-4 select-none flex-shrink-0">
+          <div className="p-2 pl-2 pr-0 flex flex-1 font-mono text-sm h-full font-['Manrope'] relative "
+          style={{ overflow: 'hidden' }}>
+            <div className="flex flex-1 " style={scrollbarStyle}>
+  {/* <div className="w-12 text-right pr-4 select-none flex-shrink-0">
   {Array.from({ length: getLineCount(scriptContent) }, (_, i) => (
     <div key={i} className="text-blue-400 h-6 leading-6">
       {i + 1}
@@ -1723,10 +1478,20 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     className={`flex-1 outline-none bg-white resize-none overflow-auto leading-6 relative w-full pr-0`}
     style={{
       lineHeight: '1.5rem',
-      ...scrollbarStyle
+      // ...scrollbarStyle
       // backgroundImage: `linear-gradient(transparent ${activeLineIndex * 24}px, #f3f4f6 ${activeLineIndex * 24}px, #f3f4f6 ${(activeLineIndex + 1) * 24}px, transparent ${(activeLineIndex + 1) * 24}px)`
     }}
-  />
+  /> */}
+  <HighlightedScript
+      content={scriptContent}
+      onChange={(newContent) => {
+        handleScriptContentChange({ target: { value: newContent } });
+        const lines = newContent.split('\n');
+        setActiveLineIndex(lines.length - 1);
+      }}
+      activeLineIndex={activeLineIndex}
+    />
+  </div>
  <canvas
           ref={canvasRef}
           className="decorationsOverviewRuler"
@@ -1744,6 +1509,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           }}
         />
 
+
         {/* Active Line Indicator */}
         <div
           style={{
@@ -1757,19 +1523,23 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
           }}
         />
 
+
 </div>
 
 
+
+
         </div>
+
 
         {/* Right Resize Handle */}
         <div
           className="w-[2px] bg-gray-200 relative"
           onMouseDown={(e) => handleMouseDown(e, false)}
         >
-          <div 
+          <div
             className="absolute -left-2 -right-2 top-0 bottom-0 hover:cursor-ew-resize"
-            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }} 
+            style={{ cursor: isDragging ? 'ew-resize' : 'ew-resize' }}
           >
             <div className="w-[1px] h-full mx-auto hover:bg-blue-500" />
           </div>
@@ -1784,23 +1554,27 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center space-x-2 font-['Manrope']">
                     <FormatDropdown />
-                    
+                   
                   </div>
                 </div>
               </div>
             </div>
-            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
-            style={scrollbarStyle}>
-    <div className="flex">
+            <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)]  "
+            >
+               <HighlightedActualOutput
+  actualOutput={actualOutput}
+  onActualOutputChange={handleActualOutputChange}
+/>
+    {/* <div className="flex">
         {renderLineNumbers(actualLines)}
-        
+       
         <textarea
             value={actualOutput}
             readOnly={true}
             spellCheck="false"
             className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm cursor-text "
             style={{
-            
+           
                 ...textAreaStyles,
                 WebkitUserModify: 'read-only',
                 userModify: 'read-only',
@@ -1808,8 +1582,15 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                 minHeight: '100%'
             }}
         />
-    </div>
+        <HighlightedActualOutput
+        actualOutput={actualOutput}
+        actualLines={actualLines}
+        scrollbarStyle={scrollbarStyle}
+        textAreaStyles={textAreaStyles}
+      />
+    </div> */}
 </div>
+
 
           </div>
           {/* Expected Output Section */}
@@ -1826,7 +1607,11 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
             </div>
             <div className="p-4 font-mono text-sm font-['Manrope'] h-[calc(100%-30px)] overflow-auto "
             style={scrollbarStyle}>
-              <div className="flex">
+              <HighlightedExpectedOutput
+  expectedOutput={expectedOutput}
+  onExpectedOutputChange={handleExpectedOutputChange}
+/>
+              {/* <div className="flex">
                 {renderLineNumbers(expectedLines)}
                 <textarea
                   value={expectedOutput}
@@ -1834,14 +1619,15 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                   className="flex-1 bg-transparent outline-none resize-none  text-red-500 font-mono text-sm"
                   style={{textAreaStyles}}
                 />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
         </div>
 
+
 {/* Bottom Bar */}
-<div 
+<div
   className="border-t relative flex flex-col   "
   style={{
     height: `${bottomHeight}px`,
@@ -1849,6 +1635,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     ...responsiveStyles.panels
   }}
 >
+
 
 <div
   className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
@@ -1858,6 +1645,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
     const startY = e.clientY;
     const startHeight = bottomHeight;
 
+
     const handleMouseMove = (e) => {
       const deltaY = startY - e.clientY;
       const newHeight = startHeight + deltaY;
@@ -1865,11 +1653,13 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       setBottomHeight(Math.max(32, Math.min(250, newHeight)));
     };
 
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -1877,6 +1667,8 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 >
   <div className="w-full h-[1.5px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
 </div>
+
+
 
 
   <div className="flex items-center justify-between h-8 bg-[#E6EEF4] font-['Manrope'] bg-white relative">
@@ -1903,6 +1695,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={15} className="h-2 w-5 rounded-full bg-gray-800 p-0 border-0" />
     </Tooltip>
+
 
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1933,12 +1726,18 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
 
 
 
+
+
+
+
+
+
     <span className=" font-['Manrope'] text-sm text-gray-400 absolute left-[calc(45%+0px)] tracking-[0.03em] flex items-center h-full z-10">
       {/* ©2023 Snaplogic LLC, a Salesforce company */}
       SnapLogic Playground – Redefining Integration.
     </span>
     {/* Resize Handle */}
-    
+   
   </div>
           {/* Content */}
           {isBottomExpanded && (
@@ -1977,6 +1776,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                       </nav>
                     </div>
 
+
                     {/* Right Content */}
                     <div className="flex-1 overflow-y-auto"
                     style={scrollbarStyle}>
@@ -1990,6 +1790,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                             </p>
                           </section>
 
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Expression Types</h2>
                             <ul className="list-disc pl-6 space-y-2">
@@ -2000,6 +1801,7 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                             </ul>
                           </section>
 
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Examples</h2>
                             <div className="bg-gray-50 p-4 rounded-md">
@@ -2007,8 +1809,10 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
                                 {`// Data Navigation
                                 $.phoneNumbers[0].type
 
+
                                 // String Operations
                                 $uppercase($.firstName)
+
 
                                 // Array Operations
                                 $.items[*].price`}
@@ -2030,7 +1834,26 @@ const isTablet = useMediaQuery('(max-width: 1024px)');
   );
 };
 
+
 export default UpdatedCode;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
