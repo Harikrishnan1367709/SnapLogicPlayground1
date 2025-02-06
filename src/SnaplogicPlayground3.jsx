@@ -43,7 +43,7 @@ import HighlightedExpectedOutput from './utils/HighlightedExpectedOutput';
 
 
 
-const UpdatedCode = () => {
+const SnaplogicPlayground3 = () => {
 
 
 
@@ -1835,7 +1835,7 @@ const monacoStyles = `
 };
 
 
-export default UpdatedCode;
+export default SnaplogicPlayground3;
 
 
 
