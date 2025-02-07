@@ -247,18 +247,42 @@ class SnapLogicFunctionsHandler {
 
 
     this.mathFunctions = {
+      // Basic Math Functions
       abs: Math.abs,
       ceil: Math.ceil,
       floor: Math.floor,
-      min: Math.min,
       max: Math.max,
+      min: Math.min,
       pow: Math.pow,
       random: Math.random,
+      randomUUID: () => {
+        const timestamp = new Date().getTime();
+        const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (timestamp + Math.random() * 16) % 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+        return uuid;
+      },
       round: Math.round,
-      sign: Math.sign,
+      sign: (number) => {
+        // Custom implementation to handle zero cases as specified
+        if (number === 0 || number === -0) return 0;
+        return Math.sign(number);
+      },
       trunc: Math.trunc,
-      sqrt: Math.sqrt
+  
+      // Mathematical Constants
+      E: Math.E,
+      LN2: Math.LN2,
+      LN10: Math.LN10,
+      LOG2E: Math.LOG2E,
+      LOG10E: Math.LOG10E,
+      PI: Math.PI,
+      SQRT1_2: Math.SQRT1_2,
+      SQRT2: Math.SQRT2
     };
+  
+  
 
 
     this.objectFunctions = {
@@ -735,6 +759,51 @@ class SnapLogicFunctionsHandler {
     if (!script) return null;
   
     try {
+
+       // Add Math functions handling at the start (after the null check)
+    if (script.startsWith('Math.')) {
+      const mathMatch = script.match(/Math\.(\w+)(?:\((.*)\))?/);
+      if (mathMatch) {
+        const [, mathFunction, args] = mathMatch;
+         // Special handling for random() and randomUUID()
+         if (mathFunction === 'random' && !args) {
+          return this.mathFunctions.random();
+        }
+        
+        if (mathFunction === 'randomUUID' && !args) {
+          return this.mathFunctions.randomUUID();
+        }
+        // Handle constants (no parentheses)
+        if (!args && this.mathFunctions[mathFunction] !== undefined) {
+          return this.mathFunctions[mathFunction];
+        }
+        
+        // Handle functions
+        if (this.mathFunctions[mathFunction]) {
+          const parsedArgs = args ? args.split(',').map(arg => {
+            arg = arg.trim();
+            // Handle string numbers
+            if (arg.startsWith('"') || arg.startsWith("'")) {
+              return arg.slice(1, -1);
+            }
+            // Handle numeric values
+            if (!isNaN(arg)) {
+              return Number(arg);
+            }
+            // Handle variables
+            if (arg.startsWith('$')) {
+              return data[arg.slice(1)];
+            }
+            return arg;
+          }) : [];
+          
+          return this.mathFunctions[mathFunction](...parsedArgs);
+        }
+        
+        throw new Error(`Unsupported Math function: ${mathFunction}`);
+      }
+    }
+
       // Handle JSONPath expressions first
       if (script.startsWith('$.')) {
         const jsonData = data;
