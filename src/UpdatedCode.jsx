@@ -53,7 +53,7 @@ const UpdatedCode = () => {
   const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
-
+  const [activeInput, setActiveInput] = useState('Payload');
 
   const [cursorPosition, setCursorPosition] = useState(0);
   const [focusedLine, setFocusedLine] = useState(null);
@@ -91,7 +91,7 @@ const [inputContents, setInputContents] = useState({
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [activeInput, setActiveInput] = useState('Payload');
+  // const [activeInput, setActiveInput] = useState('Payload');
  
   const [leftWidth, setLeftWidth] = useState(() =>
     parseInt(localStorage.getItem('leftWidth')) || 288
@@ -272,6 +272,7 @@ const [inputContents, setInputContents] = useState({
   const handleInputClick = (input, index) => {
     setIsPayloadView(true);
     setSelectedInputIndex(index);
+    setActiveInput(input);
     setPayloadContent(inputContents[input] || '{\n  \n}');
   };
 
@@ -279,21 +280,23 @@ const [inputContents, setInputContents] = useState({
   const handleBackClick = () => {
     if (selectedInputIndex !== null) {
       const currentInput = inputs[selectedInputIndex];
-      setInputContents({
-        ...inputContents,
+      // Save content only for the current input
+      setInputContents(prev => ({
+        ...prev,
         [currentInput]: payloadContent
-      });
+      }));
     }
     setIsPayloadView(false);
   };
  
   const handleCreateInput = () => {
     if (newInput.trim() !== "") {
-      setInputs([...inputs, newInput]);
-      setInputContents({
-        ...inputContents,
-        [newInput]: '{\n  \n}'
-      });
+      const newInputName = newInput;
+      setInputs(prev => [...prev, newInputName]);
+      setInputContents(prev => ({
+        ...prev,
+        [newInputName]: '{\n  \n}'  // Initialize with empty object
+      }));
       setNewInput("");
       setIsInputDialogOpen(false);
     }
@@ -910,7 +913,11 @@ const monacoStyles = `
 
   const handlePayloadChange = (newContent) => {
     setPayloadContent(newContent);
-    // Also update any other necessary state or trigger side effects
+    // Update the content for the current active input only
+    setInputContents(prev => ({
+      ...prev,
+      [activeInput]: newContent
+    }));
   };
   const handleFormatChange = (newFormat) => {
     setFormat(newFormat);
@@ -1285,7 +1292,10 @@ const monacoStyles = `
   {inputs.map((input, index) => (
     <div
       key={index}
-      className="flex items-center  text-sm text-gray-600 cursor-pointer p-1 w-full  hover:bg-gray-100 p-1 hover:rounded-r-full"
+      className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer w-full group 
+        ${activeInput === input 
+          ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 after:rounded-r-full group-hover:rounded-r-full after:group-hover:rounded-r-full hover:bg-gray-200'
+          : 'hover:bg-gray-200 hover:rounded-r-full'}`}
       onClick={() => handleInputClick(input, index)}
     >
       <span className="text-blue-500 px-4">json</span>

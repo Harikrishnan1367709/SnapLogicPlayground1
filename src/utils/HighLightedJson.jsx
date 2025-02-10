@@ -7,7 +7,12 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
-
+    
+     // Add this to track content changes
+  editor.onDidChangeModelContent(() => {
+    const newContent = editor.getValue();
+    onChange(newContent);
+  });
     // JSON theme with syntax highlighting
     monaco.editor.defineTheme('dataweaveTheme', {
       base: 'vs',
