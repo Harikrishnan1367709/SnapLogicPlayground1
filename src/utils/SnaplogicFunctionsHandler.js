@@ -187,7 +187,176 @@ class SnapLogicFunctionsHandler {
         return uint8Arr.lastIndexOf(element);
       }
     };
-    
+
+      this.globalFunctions = {
+      // URI Component functions
+      decodeURIComponent: (encodedURI) => {
+        try {
+          return decodeURIComponent(encodedURI);
+        } catch (e) {
+          console.error('decodeURIComponent error:', e);
+          return null;
+        }
+      },
+      
+      encodeURIComponent: (str) => {
+        try {
+          return encodeURIComponent(str);
+        } catch (e) {
+          console.error('encodeURIComponent error:', e);
+          return null;
+        }
+      },
+
+      // Evaluation function
+      eval: (expression, context) => {
+        try {
+          // Replace $ with context reference
+          const processedExpr = expression.replace(/\$\./g, 'context.');
+          const fn = new Function('context', `return ${processedExpr};`);
+          return fn(context);
+        } catch (e) {
+          console.error('Eval error:', e);
+          return null;
+        }
+      },
+
+      // Type checking functions
+      instanceof: (obj, type) => {
+        const types = {
+          'Null': obj === null,
+          'Boolean': typeof obj === 'boolean',
+          'String': typeof obj === 'string',
+          'Number': typeof obj === 'number',
+          'Object': typeof obj === 'object' && !Array.isArray(obj),
+          'Array': Array.isArray(obj),
+          'Date': obj instanceof Date,
+          'LocalDate': obj instanceof Date,
+          'DateTime': obj instanceof Date,
+          'LocalDateTime': obj instanceof Date
+        };
+        return types[type] || false;
+      },
+
+      isNaN: (value) => {
+        return isNaN(value);
+      },
+
+      // JSON Path function
+      jsonPath: (obj, path) => {
+        try {
+          return JSONPath({ path: path, json: obj });
+        } catch (e) {
+          console.error('jsonPath error:', e);
+          throw new Error(`Invalid JSONPath: ${path}`);
+        }
+      },
+
+      // Parsing functions
+      parseFloat: (str) => {
+        return parseFloat(str);
+      },
+
+      parseInt: (str, radix = 10) => {
+        return parseInt(str, radix);
+      },
+
+      // Type checking
+      typeof: (value) => {
+        if (value === null) return 'object';
+        if (Array.isArray(value)) return 'array';
+        if (value instanceof Date) return 'date';
+        return typeof value;
+      },
+
+      // Constants
+      true: true,
+      false: false,
+      null: null,
+
+      // Library support
+      lib: {} // This would be populated with imported expression libraries
+    };
+
+    this.matchFunctions = {
+      // Basic match operations
+      equals: (value, pattern) => value === pattern,
+      range: (value, start, end, inclusive = false) => {
+        const numValue = Number(value);
+        const numStart = Number(start);
+        const numEnd = Number(end);
+        return inclusive 
+          ? numValue >= numStart && numValue <= numEnd
+          : numValue >= numStart && numValue < numEnd;
+      },
+      
+      // String pattern matching
+      regex: (value, pattern) => {
+        try {
+          const regex = new RegExp(pattern.slice(1, -1));
+          return regex.test(value);
+        } catch (e) {
+          return false;
+        }
+      },
+      startsWith: (value, prefix) => 
+        typeof value === 'string' && value.startsWith(prefix),
+      endsWith: (value, suffix) => 
+        typeof value === 'string' && value.endsWith(suffix),
+      
+      // Object pattern matching
+      object: (input, pattern) => {
+        if (typeof input !== 'object' || !input) return false;
+        
+        return Object.entries(pattern).every(([key, value]) => {
+          // Handle optional properties
+          if (key.endsWith('?')) {
+            const actualKey = key.slice(0, -1);
+            return input[actualKey] === undefined || input[actualKey] === value;
+          }
+          
+          // Handle required properties
+          if (key.endsWith('!')) {
+            const actualKey = key.slice(0, -1);
+            return input[actualKey] && input[actualKey] === value;
+          }
+          
+          // Handle ranges
+          if (typeof value === 'string' && value.includes('..')) {
+            const [min, max] = value.split('..').map(Number);
+            const inputValue = input[key];
+            return inputValue >= min && (value.endsWith('=') ? inputValue <= max : inputValue < max);
+          }
+          
+          return input[key] === value;
+        });
+      },
+      // Array pattern matching
+      array: (input, pattern) => {
+        if (!Array.isArray(input)) return false;
+        
+        // Empty array pattern
+        if (pattern.length === 0) return input.length === 0;
+        
+        // Handle spread patterns
+        const hasSpread = pattern.includes('...');
+        if (hasSpread) {
+          if (pattern[0] === '...') {
+            return this.matchFunctions.object(input[input.length - 1], pattern[pattern.length - 1]);
+          }
+          if (pattern[pattern.length - 1] === '...') {
+            return this.matchFunctions.object(input[0], pattern[0]);
+          }
+          // Handle middle spread
+          return this.matchFunctions.object(input[0], pattern[0]) && 
+                 this.matchFunctions.object(input[input.length - 1], pattern[pattern.length - 1]);
+        }
+        
+        return input.length === pattern.length && 
+               input.every((item, i) => this.matchFunctions.object(item, pattern[i]));
+      }
+    };
+
     this.jsonFunctions = {
       parse: (text) => {
           try {
@@ -506,13 +675,70 @@ class SnapLogicFunctionsHandler {
 
 
 
-  evaluateValue(expression, data) {
-    if (expression.startsWith('$')) {
-      const variable = expression.slice(1);
-      return data[variable];
+  // evaluateValue(expression, data) {
+  //   if (expression.startsWith('$')) {
+  //     const variable = expression.slice(1);
+  //     return data[variable];
+  //   }
+  //   return expression;
+  // }
+
+   // Add these helper methods
+
+   parsePattern(pattern) {
+    try {
+      // Handle special patterns like [..., {...}, ...]
+      if (pattern.includes('...')) {
+        return pattern
+          .replace(/\.\.\./g, '"..."')
+          .replace(/(\w+)!/g, '"$1!"')
+          .replace(/(\w+)\?/g, '"$1?"');
+      }
+      return JSON.parse(pattern);
+    } catch (e) {
+      return pattern;
     }
-    return expression;
   }
+  evaluateGuard(guard, context) {
+    try {
+      const fn = new Function(...Object.keys(context), `return ${guard};`);
+      return fn(...Object.values(context));
+    } catch (error) {
+      return false;
+    }
+  }
+  
+
+  evaluateExpression(expression, context) {
+    try {
+      // Handle string literals
+      if (expression.startsWith("'") || expression.startsWith('"')) {
+        return expression.slice(1, -1);
+      }
+      
+      // Handle expressions with concatenation
+      if (expression.includes('+')) {
+        const fn = new Function(...Object.keys(context), `return ${expression};`);
+        return fn(...Object.values(context));
+      }
+      
+      return expression;
+    } catch (error) {
+      return expression;
+    }
+  }
+
+  evaluateGuard(guard, context) {
+    try {
+      const fn = new Function(...Object.keys(context), `return ${guard};`);
+      return fn(...Object.values(context));
+    } catch (error) {
+      console.error('Guard evaluation error:', error);
+      return false;
+    }
+  }
+
+  
 
 
   handleDateExpression(script) {
@@ -809,6 +1035,122 @@ class SnapLogicFunctionsHandler {
     if (!script) return null;
   
     try {
+       // Handle typeof directly
+      if (script.startsWith('typeof ')) {
+        const valueExpr = script.slice(7); // Remove 'typeof '
+        let value;
+        
+        if (valueExpr.startsWith('$.')) {
+          value = this.handleJSONPath(valueExpr, data);
+        } else if (valueExpr.startsWith('$')) {
+          value = data[valueExpr.slice(1)];
+        } else {
+          value = this.evaluateValue(valueExpr);
+        }
+        
+        return this.globalFunctions.typeof(value);
+      }
+
+      // Handle eval
+      if (script.startsWith('eval(')) {
+        const match = script.match(/eval\((.*)\)/);
+        if (match) {
+          const expression = match[1].trim().replace(/^["']|["']$/g, '');
+          return this.globalFunctions.eval(expression, data);
+        }
+      }
+       // Handle global functions
+       if (script.includes('(')) {
+        const functionMatch = script.match(/^(\w+)\((.*)\)$/);
+        if (functionMatch) {
+          const [, funcName, args] = functionMatch;
+          if (this.globalFunctions[funcName]) {
+            const evaluatedArgs = args.split(',').map(arg => {
+              arg = arg.trim();
+              if (arg.startsWith('$')) {
+                return this.handleJSONPath(arg, data);
+              }
+              if (arg.startsWith('"') || arg.startsWith("'")) {
+                return arg.slice(1, -1);
+              }
+              return arg;
+            });
+            return this.globalFunctions[funcName](...evaluatedArgs);
+          }
+        }
+      }
+
+       // Handle match expressions
+    
+       // In executeScript method, update the match handling:
+if (script.trim().startsWith('match')) {
+  const matchRegex = /match\s+(.+?)\s*{([\s\S]+)}/;
+  const matches = script.match(matchRegex);
+  
+  if (matches) {
+    const [, inputExpr, patternsBlock] = matches;
+    let inputValue;
+    
+    // Get input value
+    if (inputExpr.startsWith('$.')) {
+      inputValue = this.handleJSONPath(inputExpr, data);
+    } else if (inputExpr.startsWith('$')) {
+      const varName = inputExpr.slice(1);
+      inputValue = data[varName];
+    }
+
+    // Parse patterns from the block
+    const patterns = patternsBlock
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('//'))
+      .map(line => {
+        const [pattern, result] = line.split('=>').map(s => s.trim());
+        if (!result) return null;
+        
+        const [mainPattern, guard] = pattern.split(' if ').map(s => s.trim());
+        return { pattern: mainPattern, guard, result };
+      })
+      .filter(Boolean);
+
+    // Try each pattern
+    for (const { pattern, guard, result } of patterns) {
+      let matches = false;
+
+      // Handle different pattern types
+      if (pattern === '_') {
+        matches = true;
+      } else if (pattern.includes('..')) {
+        const [start, end] = pattern.split('..');
+        matches = this.matchFunctions.range(inputValue, Number(start), Number(end));
+      } else if (pattern.startsWith('{')) {
+        matches = this.matchFunctions.object(inputValue, JSON.parse(pattern));
+      } else if (pattern.startsWith('[')) {
+        matches = this.matchFunctions.array(inputValue, JSON.parse(pattern));
+      } else if (pattern.startsWith('/')) {
+        matches = this.matchFunctions.regex(inputValue, pattern);
+      } else {
+        matches = inputValue === pattern;
+      }
+
+      // Check guard condition
+      if (matches && guard) {
+        matches = this.evaluateGuard(guard, { value: inputValue, data });
+      }
+
+      if (matches) {
+        return this.evaluateExpression(result, { value: inputValue, data });
+      }
+    }
+    return null;
+  }
+}
+
+
+
+
+
+
  // Add JSON functions handling at the start
  if (script.startsWith('JSON.')) {
   const jsonMatch = script.match(/JSON\.(parse|stringify)\((.*)\)/);
