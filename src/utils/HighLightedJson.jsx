@@ -4,7 +4,7 @@ import Editor from '@monaco-editor/react';
 const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
   const editorRef = useRef(null);
   const initialSetupDone = useRef(false);
-
+ 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     

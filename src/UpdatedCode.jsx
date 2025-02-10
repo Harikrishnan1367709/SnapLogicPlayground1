@@ -4,9 +4,12 @@ import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "luci
 import { v4 as uuidv4 } from "uuid"
 
 
+
+
 // import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Editor from '@monaco-editor/react';
+
 
 import {
   Tooltip,
@@ -43,7 +46,17 @@ import HighlightedExpectedOutput from './utils/HighlightedExpectedOutput';
 
 
 
+
+
+
+
+
+
+
 const UpdatedCode = () => {
+
+
+
 
 
 
@@ -53,7 +66,10 @@ const UpdatedCode = () => {
   const [activeLineIndex, setActiveLineIndex] = useState(null);
 
 
+
+
   const [activeInput, setActiveInput] = useState('Payload');
+
 
   const [cursorPosition, setCursorPosition] = useState(0);
   const [focusedLine, setFocusedLine] = useState(null);
@@ -62,7 +78,13 @@ const UpdatedCode = () => {
 );
 
 
+
+
   const [selectedFile, setSelectedFile] = useState(null);
+
+
+
+
 
 
 
@@ -71,15 +93,21 @@ const UpdatedCode = () => {
 const [highlightedLine, setHighlightedLine] = useState(null);
 
 
+
+
     const [showInputContainer, setShowInputContainer] = useState(false);
     const [showScriptContainer, setShowScriptContainer] = useState(false);
    
 const [inputs, setInputs] = useState(['Payload']);
 
 
+
+
 const [inputContents, setInputContents] = useState({
   [inputs[0]]: '{}'  // Now we can safely use inputs[0]
 });
+
+
 
 
   const [isPayloadView, setIsPayloadView] = useState(false);
@@ -137,7 +165,9 @@ const [inputContents, setInputContents] = useState({
       lastModified: new Date()
     }
   ]);
-  
+ 
+
+
 
 
   const [activeScript, setActiveScript] = useState(scripts[0]);
@@ -165,6 +195,8 @@ const [inputContents, setInputContents] = useState({
   );
 
 
+
+
   useEffect(() => {
     if (isDragging) {
       document.body.style.userSelect = 'none';
@@ -172,6 +204,8 @@ const [inputContents, setInputContents] = useState({
       document.body.style.userSelect = 'text';
     }
   }, [isDragging]);
+
+
 
 
   const handleMouseDown = (e, isLeft, isBottom) => {
@@ -182,11 +216,15 @@ const [inputContents, setInputContents] = useState({
       const startHeight = bottomHeight;
 
 
+
+
       const handleMouseMove = (e) => {
         const deltaY = startY - e.clientY;
         const newHeight = startHeight + deltaY;
         setBottomHeight(Math.max(32, Math.min(800, newHeight)));
       };
+
+
 
 
       const handleMouseUp = () => {
@@ -196,6 +234,8 @@ const [inputContents, setInputContents] = useState({
       };
 
 
+
+
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return;
@@ -203,6 +243,8 @@ const [inputContents, setInputContents] = useState({
     const startX = e.clientX;
     const startLeftWidth = leftWidth;
     const startRightWidth = rightWidth;
+
+
 
 
     const handleMouseMove = (e) => {
@@ -216,6 +258,8 @@ const [inputContents, setInputContents] = useState({
     };
 
 
+
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
@@ -223,30 +267,38 @@ const [inputContents, setInputContents] = useState({
     };
 
 
+
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
   const [editorLines, setEditorLines] = useState(['']);
-  
+ 
   // Convert these direct declarations to useMemo to prevent unnecessary recalculations
-  const scriptLines = useMemo(() => 
-    scriptContent?.split('\n') || [''], 
+  const scriptLines = useMemo(() =>
+    scriptContent?.split('\n') || [''],
     [scriptContent]
   );
 
-  const expectedLines = useMemo(() => 
-    expectedOutput?.split('\n') || [''], 
+
+  const expectedLines = useMemo(() =>
+    expectedOutput?.split('\n') || [''],
     [expectedOutput]
   );
 
-  const actualLines = useMemo(() => 
-    actualOutput?.split('\n') || [''], 
+
+  const actualLines = useMemo(() =>
+    actualOutput?.split('\n') || [''],
     [actualOutput]
   );
+
 
   // Button disable conditions
   const isCreateInputDisabled = newInput.trim() === "";
   const isCreateScriptDisabled = newScript.trim() === "";
+
+
+
 
 
 
@@ -263,10 +315,14 @@ const [inputContents, setInputContents] = useState({
   };
 
 
+
+
   const handleInputChange = (e) => {
     setNewInput(e.target.value);
     setPayloadContent(e.target.value);
   };
+
+
 
 
   const handleInputClick = (input, index) => {
@@ -275,6 +331,8 @@ const [inputContents, setInputContents] = useState({
     setActiveInput(input);
     setPayloadContent(inputContents[input] || '{\n  \n}');
   };
+
+
 
 
   const handleBackClick = () => {
@@ -303,9 +361,13 @@ const [inputContents, setInputContents] = useState({
   };
 
 
+
+
   const handleScriptChange = (e) => {
     setNewScript(e.target.value);
   };
+
+
 
 
   const handleCreateScript = () => {
@@ -324,6 +386,8 @@ const [inputContents, setInputContents] = useState({
   };
 
 
+
+
   const handleScriptSelect = (script) => {
     if (activeScript) {
       // Auto-save current script
@@ -338,6 +402,8 @@ const [inputContents, setInputContents] = useState({
     setActiveScript(script);
     setScriptContent(script.content);
   };
+
+
 
 
   const handleActualOutputChange = (newValue) => {
@@ -377,7 +443,7 @@ const [inputContents, setInputContents] = useState({
     },
     msOverflowStyle: '-ms-autohiding-scrollbar'
   };
-  
+ 
   const handleExpectedOutputChange = (newValue) => {
     setExpectedOutput(newValue);
   };
@@ -386,6 +452,8 @@ const [inputContents, setInputContents] = useState({
     if (script.includes('match')) return 'match';
     return 'general';
   };
+
+
 
 
   useEffect(() => {
@@ -406,12 +474,16 @@ const [inputContents, setInputContents] = useState({
   }, [payloadContent, scriptContent]);
 
 
+
+
  
 const handleScriptContentChange = (e) => {
   if (!e?.target) {
     setActualOutput(JSON.stringify({ error: "Invalid event" }, null, 2));
     return;
   }
+
+
 
 
   const newScript = e.target.value || '';
@@ -428,6 +500,8 @@ const handleScriptContentChange = (e) => {
   );
 
 
+
+
   try {
     const handler = new SnapLogicFunctionsHandler();
    
@@ -438,11 +512,15 @@ const handleScriptContentChange = (e) => {
     }
 
 
+
+
     // Handle single input case
     if (inputs.length === 1 && newScript.trim() === '$') {
       setActualOutput(inputContents[inputs[0]]);
       return;
     }
+
+
 
 
     // For multiple inputs case
@@ -457,6 +535,8 @@ const handleScriptContentChange = (e) => {
         }
 
 
+
+
         // Execute script with specific input
         const path = newScript.replace(`$${requestedInput}`, '$');
         const inputData = JSON.parse(inputContents[requestedInput]);
@@ -465,6 +545,8 @@ const handleScriptContentChange = (e) => {
         return;
       }
     }
+
+
 
 
     // Default to active input
@@ -483,9 +565,13 @@ const handleScriptContentChange = (e) => {
     }
 
 
+
+
     // Execute script with handler
     const result = handler.executeScript(newScript, inputData);
     setActualOutput(JSON.stringify(result, null, 2));
+
+
 
 
   } catch (error) {
@@ -498,6 +584,10 @@ const handleScriptContentChange = (e) => {
     }, null, 2));
   }
 };
+
+
+
+
 
 
 
@@ -515,25 +605,25 @@ const handleScriptContentChange = (e) => {
   const normalizeJSON = (input) => {
     try {
       if (!input) return '';
-      
+     
       // If input is already an object/array, stringify it
       if (typeof input === 'object') {
         return JSON.stringify(input);
       }
-  
+ 
       // If input is a string, try to parse and re-stringify to normalize
       if (typeof input === 'string') {
         const parsed = JSON.parse(input.trim());
         return JSON.stringify(parsed);
       }
-  
+ 
       return String(input);
     } catch (error) {
       console.error('JSON normalization error:', error);
       return String(input);
     }
   };
-  
+ 
   useEffect(() => {
     const compareOutputs = () => {
       try {
@@ -541,7 +631,7 @@ const handleScriptContentChange = (e) => {
           setOutputMatch(false);
           return;
         }
-  
+ 
         const normalizeJSON = (input) => {
           try {
             return JSON.stringify(JSON.parse(input));
@@ -549,20 +639,22 @@ const handleScriptContentChange = (e) => {
             return input;
           }
         };
-  
+ 
         const normalizedActual = normalizeJSON(actualOutput);
         const normalizedExpected = normalizeJSON(expectedOutput);
-  
+ 
         setOutputMatch(normalizedActual === normalizedExpected);
       } catch (error) {
         console.error('Comparison error:', error);
         setOutputMatch(false);
       }
     };
-  
+ 
     compareOutputs();
   }, [actualOutput, expectedOutput]);
-  
+ 
+
+
 
 
  
@@ -588,6 +680,8 @@ const handleScriptContentChange = (e) => {
   );
 
 
+
+
   const handleExport = () => {
     const blob = new Blob(['Demo content'], { type: 'application/zip' });
     const url = window.URL.createObjectURL(blob);
@@ -610,6 +704,10 @@ const handleScriptContentChange = (e) => {
 
 
 
+
+
+
+
   const getNavLink = (item) => {
     const links = {
       blogs: 'https://www.snaplogic.com/blog',
@@ -619,6 +717,8 @@ const handleScriptContentChange = (e) => {
     };
     return links[item];
   };
+
+
 
 
   const handleNavClick = (item) => {
@@ -636,6 +736,10 @@ const handleScriptContentChange = (e) => {
 
 
 
+
+
+
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -647,6 +751,8 @@ const handleScriptContentChange = (e) => {
       ctx.stroke();
     }
   }, [scriptContent]);
+
+
 
 
   // Create active line border element
@@ -669,7 +775,15 @@ const handleScriptContentChange = (e) => {
   };
 
 
+
+
  
+
+
+
+
+
+
 
 
 
@@ -680,6 +794,8 @@ const getLineCount = (content) => {
   if (!content) return 1;
   return content.split('\n').length;
 };
+
+
 
 
 // Add these responsive width calculations
@@ -703,6 +819,8 @@ const getResponsiveWidths = () => {
 };
 
 
+
+
 // Add resize listener
 useEffect(() => {
   const handleResize = () => {
@@ -713,9 +831,13 @@ useEffect(() => {
   };
 
 
+
+
   window.addEventListener('resize', handleResize);
   return () => window.removeEventListener('resize', handleResize);
 }, []);
+
+
 
 
 // Add responsive styles
@@ -734,6 +856,8 @@ const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
 
 
+
+
   useEffect(() => {
     const media = window.matchMedia(query);
     const listener = () => setMatches(media.matches);
@@ -742,30 +866,36 @@ const useMediaQuery = (query) => {
   }, [query]);
 
 
+
+
   return matches;
 };
+
+
 
 
 // In your component
 const isTablet = useMediaQuery('(max-width: 1024px)');
 
+
 const monacoStyles = `
   .monaco-editor {
     padding-top: 8px;
   }
-  
+ 
   .monaco-editor .margin {
     background-color: #f8f9fa;
   }
-  
+ 
   .monaco-editor .line-numbers {
     color: #3498db !important;
     font-size: 12px;
   }
-  
+ 
   .monaco-editor .current-line {
     border: none !important;
   }
+
 
   /* Disable editor widgets that might interfere with typing */
   .monaco-editor .suggest-widget,
@@ -776,6 +906,7 @@ const monacoStyles = `
 `;
 // const [jsonContent, setJsonContent] = useState('{\n  \n}');
 
+
 //   const handleEditorChange = (value) => {
 //     if (value !== undefined) {
 //       setJsonContent(value);
@@ -783,14 +914,16 @@ const monacoStyles = `
 //   };
 
 
+
+
   // const HighlightedJSON = ({ content, onChange, style }) => {
   //   const editorRef = useRef(null);
   //   const initialSetupDone = useRef(false);
   //   const lastCursorPosition = useRef(null);
-  
+ 
   //   const handleEditorDidMount = (editor, monaco) => {
   //     editorRef.current = editor;
-  
+ 
   //     monaco.editor.defineTheme('dataweaveTheme', {
   //       base: 'vs',
   //       inherit: true,
@@ -810,7 +943,7 @@ const monacoStyles = `
   //         'editor.inactiveSelectionBackground': '#E5EBF1'
   //       }
   //     });
-  
+ 
   //     editor.updateOptions({
   //       renderLineHighlight: 'all',
   //       highlightActiveIndentGuide: true,
@@ -833,33 +966,33 @@ const monacoStyles = `
   //       autoClosingQuotes: 'never',
   //       autoSurround: 'never'
   //     });
-  
+ 
   //     // Track cursor position changes
   //     editor.onDidChangeCursorPosition((e) => {
   //       lastCursorPosition.current = e.position;
   //     });
-  
+ 
   //     // Handle content changes with proper cursor positioning
   //     editor.onDidChangeModelContent((event) => {
   //       const newContent = editor.getValue();
   //       const currentPosition = editor.getPosition();
-        
+       
   //       // Only update if content actually changed
   //       if (newContent !== content) {
   //         onChange(newContent);
-          
+         
   //         // Calculate the new cursor position
   //         if (currentPosition) {
   //           const newPosition = {
   //             lineNumber: currentPosition.lineNumber,
   //             column: currentPosition.column
   //           };
-  
+ 
   //           // Ensure cursor moves forward after typing
   //           if (event.changes.length === 1 && event.changes[0].text) {
   //             newPosition.column = currentPosition.column + 1;
   //           }
-  
+ 
   //           // Use setTimeout to ensure the position is set after the content update
   //           setTimeout(() => {
   //             editor.setPosition(newPosition);
@@ -868,7 +1001,7 @@ const monacoStyles = `
   //         }
   //       }
   //     });
-  
+ 
   //     if (!initialSetupDone.current) {
   //       setTimeout(() => {
   //         const model = editor.getModel();
@@ -882,7 +1015,7 @@ const monacoStyles = `
   //       }, 100);
   //     }
   //   };
-  
+ 
   //   return (
   //     <div className="flex-1 border rounded-sm" style={{ ...style, overflow: 'hidden' }}>
   //       <Editor
@@ -911,6 +1044,7 @@ const monacoStyles = `
   //   );
   // };
 
+
   const handlePayloadChange = (newContent) => {
     setPayloadContent(newContent);
     // Update the content for the current active input only
@@ -922,7 +1056,8 @@ const monacoStyles = `
   const handleFormatChange = (newFormat) => {
     setFormat(newFormat);
   };
-  
+ 
+
 
   return (
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
@@ -940,6 +1075,8 @@ const monacoStyles = `
           </button>
         </div>
       )}
+
+
 
 
       <div className="flex items-center justify-between px-6 py-2 border-b">
@@ -994,6 +1131,8 @@ const monacoStyles = `
     window.URL.revokeObjectURL(url);
 
 
+
+
     // Show dialog if not checked in current session
     if (!wasChecked) {
       setShowExportDialog(true);
@@ -1009,6 +1148,14 @@ const monacoStyles = `
   {/* <Upload className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
   <span className="text-gray-700 font-['Manrope'] group-hover:text-blue-500 text-[0.9rem] tracking-[0.09em] font-['Manrope'] font-normal">Export</span>
 </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -1049,6 +1196,8 @@ const monacoStyles = `
 </label>
 
 
+
+
                     <button
                       onClick={() => setShowExportDialog(false)}
                       className="px-3 py-2.5 text-sm bg-white border border-gray-400 hover:border-gray-400 hover:bg-gray-200 focus:border-none focus:outline-none"
@@ -1075,6 +1224,8 @@ const monacoStyles = `
             {/* <Download className="mr-2 group-hover:text-blue-500 text-gray-500 h-3 w-3" /> */}
             <span className="text-gray-700 group-hover:text-blue-500 text-[0.9rem] font-['Manrope'] tracking-[0.09em] font-normal">Import</span>
           </button>
+
+
 
 
           {showImportDialog && (
@@ -1126,7 +1277,13 @@ const monacoStyles = `
 
 
 
+
+
+
+
           <div className="h-6 w-[1px] bg-gray-500 mx-4"></div>
+
+
 
 
           <div className="space-x-8 text-[0.82rem] font-bold text-[#333333] relative font-['Manrope'] flex items-center">
@@ -1152,6 +1309,8 @@ const monacoStyles = `
 {/* main content */}
 
 
+
+
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-100px)]" style={responsiveStyles.mainContainer}>
         <div style={{...resizableStyles(leftWidth,'left'),...responsiveStyles.panels}} className="flex-shrink-0 border-r flex flex-col relative h-full overflow-hidden ">
           {isPayloadView ? (
@@ -1175,6 +1334,7 @@ const monacoStyles = `
   </div>
 </div>
 
+
           {/* <HighlightedJSON
             content={jsonContent}
             onChange={handleEditorChange}
@@ -1183,7 +1343,7 @@ const monacoStyles = `
           <HighLightedJSON
       content={payloadContent}
       onChange={handlePayloadChange}
-      format={format} 
+      format={format}
       style={{
         lineHeight: '1.5rem',
         ...scrollbarStyle,
@@ -1191,6 +1351,9 @@ const monacoStyles = `
         backgroundColor: 'white'
       }}
     />
+
+
+
 
 
 
@@ -1214,9 +1377,19 @@ const monacoStyles = `
 />
 
 
+
+
     </button>
   </div>
 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -1292,8 +1465,8 @@ const monacoStyles = `
   {inputs.map((input, index) => (
     <div
       key={index}
-      className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer w-full group 
-        ${activeInput === input 
+      className={`flex items-center text-sm text-gray-600 p-1.5 cursor-pointer w-full group
+        ${activeInput === input
           ? 'bg-gray-100 relative before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[2px] before:bg-blue-500 after:absolute after:top-0 after:bottom-0 after:right-0 after:w-[2px] after:bg-blue-500 after:rounded-r-full group-hover:rounded-r-full after:group-hover:rounded-r-full hover:bg-gray-200'
           : 'hover:bg-gray-200 hover:rounded-r-full'}`}
       onClick={() => handleInputClick(input, index)}
@@ -1401,7 +1574,13 @@ const monacoStyles = `
 
 
 
+
+
+
+
 ))}
+
+
 
 
 </div>
@@ -1409,6 +1588,8 @@ const monacoStyles = `
             </>
           )}
         </div>
+
+
 
 
         {/* Left Resize Handle */}
@@ -1500,6 +1681,8 @@ const monacoStyles = `
         />
 
 
+
+
         {/* Active Line Indicator */}
         <div
           style={{
@@ -1514,12 +1697,20 @@ const monacoStyles = `
         />
 
 
+
+
 </div>
 
 
 
 
+
+
+
+
         </div>
+
+
 
 
         {/* Right Resize Handle */}
@@ -1582,6 +1773,8 @@ const monacoStyles = `
 </div>
 
 
+
+
           </div>
           {/* Expected Output Section */}
           <div className="h-1/2">
@@ -1616,6 +1809,8 @@ const monacoStyles = `
         </div>
 
 
+
+
 {/* Bottom Bar */}
 <div
   className="border-t relative flex flex-col   "
@@ -1627,6 +1822,8 @@ const monacoStyles = `
 >
 
 
+
+
 <div
   className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize z-20 group"
   onMouseDown={(e) => {
@@ -1634,6 +1831,8 @@ const monacoStyles = `
     setIsDragging(true);
     const startY = e.clientY;
     const startHeight = bottomHeight;
+
+
 
 
     const handleMouseMove = (e) => {
@@ -1644,11 +1843,15 @@ const monacoStyles = `
     };
 
 
+
+
     const handleMouseUp = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+
+
 
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -1657,6 +1860,10 @@ const monacoStyles = `
 >
   <div className="w-full h-[1.5px] bg-gray-200 group-hover:bg-blue-500 transition-colors" />
 </div>
+
+
+
+
 
 
 
@@ -1687,6 +1894,8 @@ const monacoStyles = `
     </Tooltip>
 
 
+
+
     <Tooltip>
       <TooltipTrigger asChild>
         <button
@@ -1710,6 +1919,18 @@ const monacoStyles = `
     </Tooltip>
   </TooltipProvider>
 </div>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1767,6 +1988,8 @@ const monacoStyles = `
                     </div>
 
 
+
+
                     {/* Right Content */}
                     <div className="flex-1 overflow-y-auto"
                     style={scrollbarStyle}>
@@ -1781,6 +2004,8 @@ const monacoStyles = `
                           </section>
 
 
+
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Expression Types</h2>
                             <ul className="list-disc pl-6 space-y-2">
@@ -1792,6 +2017,8 @@ const monacoStyles = `
                           </section>
 
 
+
+
                           <section>
                             <h2 className="text-lg font-semibold mb-3">Examples</h2>
                             <div className="bg-gray-50 p-4 rounded-md">
@@ -1800,8 +2027,12 @@ const monacoStyles = `
                                 $.phoneNumbers[0].type
 
 
+
+
                                 // String Operations
                                 $uppercase($.firstName)
+
+
 
 
                                 // Array Operations
@@ -1825,7 +2056,45 @@ const monacoStyles = `
 };
 
 
+
+
 export default UpdatedCode;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
