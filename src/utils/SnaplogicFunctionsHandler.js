@@ -47,6 +47,28 @@ class SnapLogicFunctionsHandler {
       upperFirst: (str) => str.charAt(0).toUpperCase() + str.slice(1)
     };
     
+    this.numberFunctions = {
+      toExponential: (num, digits) => {
+        if (typeof num !== 'number') {
+          throw new Error('toExponential: Input must be a number');
+        }
+        return digits !== undefined ? num.toExponential(digits) : num.toExponential();
+      },
+      
+      toFixed: (num, digits) => {
+        if (typeof num !== 'number') {
+          throw new Error('toFixed: Input must be a number');
+        }
+        return digits !== undefined ? num.toFixed(digits) : num.toFixed();
+      },
+      
+      toPrecision: (num, precision) => {
+        if (typeof num !== 'number') {
+          throw new Error('toPrecision: Input must be a number');
+        }
+        return precision !== undefined ? num.toPrecision(precision) : num.toString();
+      }
+    };
 
 
     this.arrayFunctions = {
@@ -166,7 +188,35 @@ class SnapLogicFunctionsHandler {
       }
     };
     
+    this.jsonFunctions = {
+      parse: (text) => {
+          try {
+              if (typeof text !== 'string') {
+                  throw new Error('JSON.parse: Input must be a string');
+              }
+              return JSON.parse(text);
+          } catch (error) {
+              console.error('JSON parse error:', error);
+              throw new Error(`JSON parse failed: ${error.message}`);
+          }
+      },
 
+      stringify: (value) => {
+        try {
+            // Handle Date objects specially
+            if (value instanceof Date) {
+                return value.toISOString();
+            }
+            
+            // Simply stringify once with no formatting
+            return JSON.stringify(value);
+            
+        } catch (error) {
+            console.error('JSON stringify error:', error);
+            throw new Error(`JSON stringify failed: ${error.message}`);
+        }
+    }
+  };
 
     this.dateFunctions = {
       // Core Date Methods
@@ -759,6 +809,30 @@ class SnapLogicFunctionsHandler {
     if (!script) return null;
   
     try {
+ // Add JSON functions handling at the start
+ if (script.startsWith('JSON.')) {
+  const jsonMatch = script.match(/JSON\.(parse|stringify)\((.*)\)/);
+  if (jsonMatch) {
+      const [, method, args] = jsonMatch;
+      
+      // Handle the argument
+      let processedArg;
+      if (args.startsWith('$')) {
+          // Handle variable reference
+          const varName = args.slice(1);
+          processedArg = data[varName];
+      } else if (args.startsWith('"') || args.startsWith("'")) {
+          // Handle string literal
+          processedArg = args.slice(1, -1);
+      } else {
+          // Handle other literals
+          processedArg = args;
+      }
+
+      return this.jsonFunctions[method](processedArg);
+  }
+  throw new Error(`Invalid JSON function call: ${script}`);
+}
 
        // Add Math functions handling at the start (after the null check)
     if (script.startsWith('Math.')) {
@@ -803,7 +877,17 @@ class SnapLogicFunctionsHandler {
         throw new Error(`Unsupported Math function: ${mathFunction}`);
       }
     }
-
+    const numberMatch = script.match(/\$(\w+)\.(toExponential|toFixed|toPrecision)(?:\((\d*)\))?/);
+    if (numberMatch) {
+        const [, variable, method, digits] = numberMatch;
+        const value = data[variable];
+        
+        if (this.numberFunctions[method]) {
+            return this.numberFunctions[method](value, digits ? parseInt(digits) : undefined);
+        }
+        
+        throw new Error(`Unsupported number method: ${method}`);
+    }
       // Handle JSONPath expressions first
       if (script.startsWith('$.')) {
         const jsonData = data;
