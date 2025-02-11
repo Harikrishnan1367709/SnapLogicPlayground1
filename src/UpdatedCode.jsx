@@ -170,9 +170,19 @@ const [inputContents, setInputContents] = useState({
 
 
 
-  const [activeScript, setActiveScript] = useState(scripts[0]);
+  // const [activeScript, setActiveScript] = useState(scripts[0]);
+  const [activeScript, setActiveScript] = useState(null);
+const [scriptContent, setScriptContent] = useState('');
   const [newScript, setNewScript] = useState("");
-  const [scriptContent, setScriptContent] = useState(scripts[0].content);
+  // const [scriptContent, setScriptContent] = useState(scripts[0].content);
+
+  useEffect(() => {
+    if (scripts.length > 0 && !activeScript) {
+      const mainScript = scripts.find(s => s.name === 'main.dwl') || scripts[0];
+      setActiveScript(mainScript);
+      setScriptContent(mainScript.content);
+    }
+  }, []);
   const resizableStyles = (width, panelType) => ({
     width: `${width}px`,
     minWidth: '250px', // Increased minimum width
@@ -372,14 +382,28 @@ const [inputContents, setInputContents] = useState({
 
   const handleCreateScript = () => {
     if (newScript.trim() !== "") {
+      // Save current script content before creating new one
+      if (activeScript) {
+        setScripts(prevScripts =>
+          prevScripts.map(s =>
+            s.id === activeScript.id
+              ? { ...s, content: scriptContent, lastModified: new Date() }
+              : s
+          )
+        );
+      }
+  
       const scriptName = newScript.endsWith('.dwl') ? newScript : `${newScript}.dwl`;
       const newScriptObj = {
-        id: Date.now() + Math.random(),
+        id: Date.now(),
         name: scriptName,
-        content: '',
+        content: '',  // Initialize with empty content
         lastModified: new Date()
       };
-      setScripts([...scripts, newScriptObj]);
+      
+      setScripts(prev => [...prev, newScriptObj]);
+      setActiveScript(newScriptObj);
+      setScriptContent('');  // Clear content for new script
       setNewScript("");
       setIsScriptDialogOpen(false);
     }
@@ -389,16 +413,18 @@ const [inputContents, setInputContents] = useState({
 
 
   const handleScriptSelect = (script) => {
+    // Save current script content before switching
     if (activeScript) {
-      // Auto-save current script
-      const updatedScripts = scripts.map(s =>
-        s.id === activeScript.id
-          ? { ...s, content: scriptContent }
-          : s
+      setScripts(prevScripts =>
+        prevScripts.map(s =>
+          s.id === activeScript.id
+            ? { ...s, content: scriptContent, lastModified: new Date() }
+            : s
+        )
       );
-      setScripts(updatedScripts);
     }
-   
+    
+    // Switch to selected script
     setActiveScript(script);
     setScriptContent(script.content);
   };
@@ -486,15 +512,14 @@ const handleScriptContentChange = (e) => {
 
 
 
-  const newScript = e.target.value || '';
-  setScriptContent(newScript);
-  setScriptContent(e.target.value);
- 
-  // Update script content in scripts array
+  const newContent = e.target.value || '';
+  setScriptContent(newContent);
+  
+  // Update script content in scripts array immediately
   setScripts(prevScripts =>
     prevScripts.map(script =>
-      script.id === activeScript.id
-        ? { ...script, content: newScript, lastModified: new Date() }
+      script.id === activeScript?.id
+        ? { ...script, content: newContent, lastModified: new Date() }
         : script
     )
   );
@@ -1654,6 +1679,7 @@ const monacoStyles = `
     }}
   /> */}
   <HighlightedScript
+  
       content={scriptContent}
       onChange={(newContent) => {
         handleScriptContentChange({ target: { value: newContent } });
