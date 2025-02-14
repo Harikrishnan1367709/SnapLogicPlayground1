@@ -1270,7 +1270,6 @@ class SnapLogicFunctionsHandler {
       // Normalize the expression
       let normalizedExpression = script;
       let finalArrayAccess = false;
-      
       // Handle jsonPath function syntax with explicit [0] at the end
       if (normalizedExpression.match(/jsonPath\(\$,\s*["'].+?\["']\)\[0\]/)) {
         finalArrayAccess = true;
