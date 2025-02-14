@@ -955,86 +955,339 @@ class SnapLogicFunctionsHandler {
       return null;
     }
   }
- 
+
+  evaluateOperatorExpression(expression, data) {
+    try {
+      // First normalize the expression
+      let normalizedExpression = expression.trim();
+      
+      // Handle JSONPath expressions first
+      const jsonPathRegex = /\$[.\w\[\]]+/g;
+      normalizedExpression = normalizedExpression.replace(jsonPathRegex, (match) => {
+        const value = this.handleJSONPath(match, data);
+        if (typeof value === 'string') {
+          return `"${value}"`;  // Wrap strings in quotes
+        }
+        return JSON.stringify(value); // Handle other types
+      });
+  
+      // Handle Date expressions
+      const dateRegex = /Date\.(parse|now)\([^)]*\)/g;
+      normalizedExpression = normalizedExpression.replace(dateRegex, (match) => {
+        if (match === 'Date.now()') {
+          return new Date().getTime();
+        }
+        const parseMatch = match.match(/Date\.parse\(['"]([^'"]+)['"]\)/);
+        if (parseMatch) {
+          return new Date(parseMatch[1]).getTime();
+        }
+        return match;
+      });
+  
+      // Handle ternary operators
+      if (normalizedExpression.includes('?')) {
+        const [condition, rest] = normalizedExpression.split('?').map(p => p.trim());
+        const [truePart, falsePart] = rest.split(':').map(p => p.trim());
+        
+        // Evaluate condition
+        const conditionResult = this.evaluateOperatorExpression(condition, data);
+        
+        // Return appropriate part based on condition
+        return conditionResult ? 
+          this.evaluateOperatorExpression(truePart, data) : 
+          this.evaluateOperatorExpression(falsePart, data);
+      }
+  
+      // Handle comparison operators
+      const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
+      if (comparisonRegex.test(normalizedExpression)) {
+        const [left, operator, right] = normalizedExpression.split(comparisonRegex);
+        const leftValue = this.evaluateOperatorExpression(left.trim(), data);
+        const rightValue = this.evaluateOperatorExpression(right.trim(), data);
+        
+        switch(operator.trim()) {
+          case '>=': return leftValue >= rightValue;
+          case '<=': return leftValue <= rightValue;
+          case '==': return leftValue == rightValue;
+          case '===': return leftValue === rightValue;
+          case '!=': return leftValue != rightValue;
+          case '!==': return leftValue !== rightValue;
+          case '>': return leftValue > rightValue;
+          case '<': return leftValue < rightValue;
+        }
+      }
+  
+      // Handle logical operators
+      if (normalizedExpression.includes('&&') || normalizedExpression.includes('||')) {
+        const parts = normalizedExpression.split(/(\|\||\&\&)/);
+        let result = this.evaluateOperatorExpression(parts[0].trim(), data);
+        
+        for (let i = 1; i < parts.length; i += 2) {
+          const operator = parts[i];
+          const nextValue = this.evaluateOperatorExpression(parts[i + 1].trim(), data);
+          
+          if (operator === '&&') {
+            result = result && nextValue;
+          } else if (operator === '||') {
+            result = result || nextValue;
+          }
+        }
+        
+        return result;
+      }
+  
+      // Handle arithmetic operators
+      const arithmeticRegex = /[\+\-\*\/]/;
+      if (arithmeticRegex.test(normalizedExpression)) {
+        // Safe evaluation of arithmetic expression
+        const fn = new Function('return ' + normalizedExpression);
+        return fn();
+      }
+  
+      // Handle literals and simple values
+      if (normalizedExpression === 'true') return true;
+      if (normalizedExpression === 'false') return false;
+      if (normalizedExpression === 'null') return null;
+      if (!isNaN(normalizedExpression)) return Number(normalizedExpression);
+      if (/^["'].*["']$/.test(normalizedExpression)) {
+        return normalizedExpression.slice(1, -1);
+      }
+  
+      return normalizedExpression;
+    } catch (error) {
+      console.error('Error evaluating operator expression:', error);
+      throw new Error(`Failed to evaluate expression: ${expression}`);
+    }
+  }
+
+  buildNestedObject(path, value) {
+    // Handle special characters and spaces in path
+    const parts = path.split('.').map(part => part.trim());
+    const result = {};
+    let current = result;
+  
+    // Build nested structure
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (i === parts.length - 1) {
+        // Set the final value
+        current[part] = value;
+      } else {
+        // Create nested object if it doesn't exist
+        current[part] = current[part] || {};
+        current = current[part];
+      }
+    }
+  
+    console.log('Built nested object:', result);
+    return result;
+  }
+  
+
+  evaluateExpression(expression, sourceData) {
+    if (!expression || !sourceData) return null;
+  
+    try {
+      // Handle jsonPath function syntax with single or double quotes
+      if (expression.startsWith('jsonPath(')) {
+        const pathMatch = expression.match(/jsonPath\(\$,\s*['"]([^'"]+)['"]\)/);
+        if (pathMatch) {
+          const path = pathMatch[1];
+          console.log('Evaluating JSONPath:', path);
+          const result = JSONPath({
+            path: path,
+            json: sourceData,
+            wrap: false
+          });
+          console.log('JSONPath result:', result);
+          return result !== undefined ? result : null;
+        }
+      }
+  
+      // Handle direct JSONPath access
+      if (expression.startsWith('$')) {
+        const result = JSONPath({
+          path: expression,
+          json: sourceData,
+          wrap: false
+        });
+        return result !== undefined ? result : null;
+      }
+  
+      return expression;
+    } catch (error) {
+      console.error('Error evaluating expression:', error);
+      return null;
+    }
+  }
+  
+  processMapping(mapping, sourceData) {
+    if (!mapping || typeof mapping !== 'object') return {};
+  
+    let result = {};
+  
+    for (const [targetPath, expression] of Object.entries(mapping)) {
+      if (!targetPath || !expression) continue;
+  
+      const value = this.evaluateExpression(expression.trim(), sourceData);
+  
+      if (value !== null) {
+        if (targetPath.startsWith('jsonPath(')) {
+          // Enhanced regex to handle both formats
+          const pathMatch = targetPath.match(/jsonPath\(\$,\s*['"](.+?)['"]?\)/);
+          if (pathMatch) {
+            const path = pathMatch[1];
+            const evaluatedKey = this.handleJSONPath(path, sourceData);
+            if (evaluatedKey !== undefined) {
+              result[evaluatedKey] = value;
+            }
+          }
+        } else if (targetPath.startsWith('$')) {
+          const evaluatedKey = this.handleJSONPath(targetPath, sourceData);
+          if (evaluatedKey !== undefined) {
+            result[evaluatedKey] = value;
+          }
+        } else {
+          const nestedResult = this.buildNestedObject(targetPath, value);
+          result = _.merge(result, nestedResult);
+        }
+      }
+    }
+  
+    return result;
+  }
+  
+  
+  
+  
+
   // Add to SnapLogicFunctionsHandler class
 
   handleJSONPath(script, data) {
     try {
-      // Handle root reference
-      if (script === '$') {
-        return data;
+      // console.log('Original expression:', script);
+      // console.log('Original data:', data);
+  
+      // Parse JSON data if it's a string
+      const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
+      // console.log('Parsed JSON data:', jsonData);
+  
+      // Handle root access cases
+      if (script === '$' || script === 'jsonPath($,"$")') {
+        return jsonData;
       }
   
-      // Handle jsonPath function calls
-      if (script.startsWith('jsonPath(')) {
-        const pathMatch = script.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
+      // Normalize the expression
+      let normalizedExpression = script;
+      let finalArrayAccess = false;
+      
+      // Handle jsonPath function syntax with explicit [0] at the end
+      if (normalizedExpression.match(/jsonPath\(\$,\s*["'].+?\["']\)\[0\]/)) {
+        finalArrayAccess = true;
+        normalizedExpression = normalizedExpression.replace(/\[0\]$/, '');
+      }
+  
+      // Handle jsonPath function syntax
+      if (normalizedExpression.startsWith('jsonPath(')) {
+        const pathMatch = normalizedExpression.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
         if (pathMatch) {
-          const [, path] = pathMatch;
-          // Configure options for jsonPath function calls
-          const options = {
-            path,
-            json: data,
-            wrap: false,
-            resultType: 'value',
-            flatten: true
-          };
-          return JSONPath(options);
+          normalizedExpression = pathMatch[1];
+        } else {
+          throw new Error('Invalid jsonPath function syntax');
         }
       }
   
-      // Handle direct property access (e.g., $user.screenName)
-      if (script.match(/^\$[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/)) {
-        const [, object, property] = script.match(/^\$([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)$/);
-        return data[object]?.[property];
+      // Remove quotes around the path if present
+      normalizedExpression = normalizedExpression.replace(/^["'](.+)["']$/, '$1');
+  
+      // Handle direct property access after $ (e.g., $ACTION -> $.ACTION)
+      normalizedExpression = normalizedExpression.replace(/\$([A-Za-z])/g, '$.$1');
+  
+      // Handle special case where [0] is missing after MAST_UPL
+      if (normalizedExpression.includes('MAST_UPL.')) {
+        normalizedExpression = normalizedExpression.replace('MAST_UPL.', 'MAST_UPL[0].');
       }
   
-      // Handle bracket notation (e.g., $user.['full name'])
-      if (script.match(/^\$[a-zA-Z0-9_]+\.\['[^']+'\]$/)) {
-        const [, object, property] = script.match(/^\$([a-zA-Z0-9_]+)\.\['([^']+)'\]$/);
-        return data[object]?.[property];
+      // If the path doesn't start with $[0] and data is an array, add [0]
+      if (!normalizedExpression.startsWith('$[0]') && Array.isArray(jsonData)) {
+        normalizedExpression = normalizedExpression.replace('$', '$[0]');
       }
   
-      // For all other JSONPath expressions
-      const options = {
-        path: script.startsWith('$.') ? script : `$.${script.slice(1)}`,
-        json: data,
-        wrap: false,
-        resultType: 'value',
-        flatten: true,
-        sandbox: {
-          allowInfinite: true,
-          maxLength: Number.MAX_SAFE_INTEGER
-        },
-        callback: function(payload, type) {
-          if (type === 'filter' || type === 'script') {
-            return Function(`"use strict";return(${payload})`)();
-          }
-          return payload;
-        }
-      };
+      console.log('Normalized expression:', normalizedExpression);
   
       // Execute JSONPath query
-      const result = JSONPath(options);
+      let result = JSONPath({ path: normalizedExpression, json: jsonData });
+      console.log('JSONPath query result:', result);
   
-      // Handle different result types
-      if (Array.isArray(result)) {
-        return result.length === 1 ? result[0] : result;
+      // Handle empty results
+      if (!result || result.length === 0) {
+        console.log('No results found');
+        return null;
       }
   
+      // Handle the case where we need to return first element
+      if (finalArrayAccess || script.includes('[0]')) {
+        console.log('Returning first element:', result[0]);
+        return result[0];
+      }
+  
+      // Return single value for specific cases
+      if (result.length === 1 && !normalizedExpression.includes('*') && !normalizedExpression.includes('..')) {
+        console.log('Returning single value:', result[0]);
+        return result[0];
+      }
+  
+      console.log('Returning full result:', result);
       return result;
     } catch (error) {
       console.error('JSONPath evaluation error:', error);
-      console.error('Script:', script);
-      console.error('Data:', data);
-      return null; // Return null instead of throwing error for better error handling
+      throw new Error('JSONPath evaluation failed: ' + error.message);
     }
   }
   
  
   executeScript(script, data) {
-    if (!script) return null;
-  
+    if (!script){
+      console.log('EMPTY SCRIPT RECEIVED')
+      return null;
+    }
     try {
+      console.log('SCRIPT RECEIVED:', script);
+    console.log('DATA RECEIVED:', data);
+    // Handle mapper scripts
+    if (typeof script === 'string' && script.trim().startsWith('{')) {
+        // Normalize quotes in JSONPath expressions before parsing
+        const normalizedScript = script.replace(/jsonPath\(\$,\s*["']([^"']+)["']\)/g, 
+          (match, path) => `jsonPath($,'${path}')`);
+          const mappingObj = JSON.parse(normalizedScript);
+      console.log('Processing mapping:', mappingObj);
+      return this.processMapping(mappingObj, data);
+    }
+
+    // Handle object mappings
+    if (typeof script === 'object' && script !== null) {
+      console.log('Processing object mapping:', script);
+      return this.processMapping(script, data);
+    }
+    // Handle operator expressions in all script types
+    if (typeof script === 'string') {
+      const hasOperators = /[\+\-\*\/>=<==!=&\|?:]/.test(script);
+      if (hasOperators) {
+        return this.evaluateOperatorExpression(script, data);
+      }
+    }
+
+    // Handle direct JSONPath queries
+    if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
+      const result = this.handleJSONPath(script, data);
+      console.log('JSONPath result:', result);
+      return result;
+    }
+
+    // Handle variable references that need JSONPath processing
+    if (script.startsWith('$') && !script.includes('(')) {
+      return this.handleJSONPath(`$.${script.slice(1)}`, data);
+    }
        // Handle typeof directly
       if (script.startsWith('typeof ')) {
         const valueExpr = script.slice(7); // Remove 'typeof '
