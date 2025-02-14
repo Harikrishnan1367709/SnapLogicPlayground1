@@ -961,9 +961,30 @@ class SnapLogicFunctionsHandler {
       // First normalize the expression
       let normalizedExpression = expression.trim();
       
-      // Handle JSONPath expressions first
-      const jsonPathRegex = /\$[.\w\[\]]+/g;
-      normalizedExpression = normalizedExpression.replace(jsonPathRegex, (match) => {
+      // Handle jsonPath function calls first
+      const jsonPathFuncRegex = /jsonPath\(\$,\s*["']([^"']+)["']\)/g;
+      normalizedExpression = normalizedExpression.replace(jsonPathFuncRegex, (match, path) => {
+        // Special handling for root access
+        if (path === '$') {
+          const value = data;
+          return JSON.stringify(value);
+        }
+        
+        const value = JSONPath({ 
+          path: path, 
+          json: data,
+          wrap: false 
+        });
+        
+        if (typeof value === 'string') {
+          return `"${value}"`;  // Wrap strings in quotes
+        }
+        return JSON.stringify(value); // Handle other types
+      });
+  
+      // Handle direct JSONPath expressions
+      const directJsonPathRegex = /\$[.\w\[\]]+/g;
+      normalizedExpression = normalizedExpression.replace(directJsonPathRegex, (match) => {
         const value = this.handleJSONPath(match, data);
         if (typeof value === 'string') {
           return `"${value}"`;  // Wrap strings in quotes
@@ -989,10 +1010,7 @@ class SnapLogicFunctionsHandler {
         const [condition, rest] = normalizedExpression.split('?').map(p => p.trim());
         const [truePart, falsePart] = rest.split(':').map(p => p.trim());
         
-        // Evaluate condition
         const conditionResult = this.evaluateOperatorExpression(condition, data);
-        
-        // Return appropriate part based on condition
         return conditionResult ? 
           this.evaluateOperatorExpression(truePart, data) : 
           this.evaluateOperatorExpression(falsePart, data);
@@ -1049,17 +1067,89 @@ class SnapLogicFunctionsHandler {
       if (normalizedExpression === 'false') return false;
       if (normalizedExpression === 'null') return null;
       if (!isNaN(normalizedExpression)) return Number(normalizedExpression);
+      
+      // Handle string literals
       if (/^["'].*["']$/.test(normalizedExpression)) {
         return normalizedExpression.slice(1, -1);
       }
   
-      return normalizedExpression;
+      // Try parsing JSON if it's a stringified object/array
+      try {
+        return JSON.parse(normalizedExpression);
+      } catch (e) {
+        // If not valid JSON, return as is
+        return normalizedExpression;
+      }
+  
     } catch (error) {
       console.error('Error evaluating operator expression:', error);
       throw new Error(`Failed to evaluate expression: ${expression}`);
     }
   }
-
+  
+  // Helper method to evaluate single comparisons
+  evaluateComparison(expression, data) {
+    // Handle comparison operators
+    const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
+    if (comparisonRegex.test(expression)) {
+      const [left, operator, right] = expression.split(comparisonRegex).map(part => part.trim());
+      
+      // Evaluate left and right sides
+      let leftValue = this.evaluateValue(left, data);
+      let rightValue = this.evaluateValue(right, data);
+  
+      // Convert to numbers if both sides are numeric
+      if (!isNaN(leftValue) && !isNaN(rightValue)) {
+        leftValue = Number(leftValue);
+        rightValue = Number(rightValue);
+      }
+  
+      // Perform comparison
+      switch(operator) {
+        case '>=': return leftValue >= rightValue;
+        case '<=': return leftValue <= rightValue;
+        case '==': return leftValue == rightValue;
+        case '===': return leftValue === rightValue;
+        case '!=': return leftValue != rightValue;
+        case '!==': return leftValue !== rightValue;
+        case '>': return leftValue > rightValue;
+        case '<': return leftValue < rightValue;
+        default: return false;
+      }
+    }
+  
+    // Handle single values
+    return this.evaluateValue(expression, data);
+  }
+  
+  // Helper method to evaluate single values
+  evaluateValue(value, data) {
+    value = value.trim();
+  
+    // Handle SnapLogic functions
+    if (value.startsWith('$') && value.includes('.')) {
+      return this.executeScript(value, data);
+    }
+  
+    // Handle jsonPath
+    if (value.startsWith('jsonPath(')) {
+      return this.executeScript(value, data);
+    }
+  
+    // Handle literals
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value === 'null') return null;
+    if (!isNaN(value)) return Number(value);
+    if (/^["'].*["']$/.test(value)) return value.slice(1, -1);
+  
+    // Try parsing JSON
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return value;
+    }
+  }
   buildNestedObject(path, value) {
     // Handle special characters and spaces in path
     const parts = path.split('.').map(part => part.trim());
