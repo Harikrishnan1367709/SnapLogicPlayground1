@@ -1335,457 +1335,476 @@ class SnapLogicFunctionsHandler {
   }
   
  
-  executeScript(script, data) {
-    if (!script){
-      console.log('EMPTY SCRIPT RECEIVED')
-      return null;
-    }
-    try {
-      console.log('SCRIPT RECEIVED:', script);
-    console.log('DATA RECEIVED:', data);
-    // Handle mapper scripts
-    if (typeof script === 'string' && script.trim().startsWith('{')) {
-        // Normalize quotes in JSONPath expressions before parsing
-        const normalizedScript = script.replace(/jsonPath\(\$,\s*["']([^"']+)["']\)/g, 
-          (match, path) => `jsonPath($,'${path}')`);
-          const mappingObj = JSON.parse(normalizedScript);
-      console.log('Processing mapping:', mappingObj);
-      return this.processMapping(mappingObj, data);
-    }
-
-    // Handle object mappings
-    if (typeof script === 'object' && script !== null) {
-      console.log('Processing object mapping:', script);
-      return this.processMapping(script, data);
-    }
-    // Handle operator expressions in all script types
-    if (typeof script === 'string') {
-      const hasOperators = /[\+\-\*\/>=<==!=&\|?:]/.test(script);
-      if (hasOperators) {
-        return this.evaluateOperatorExpression(script, data);
-      }
-    }
-
-    // Handle direct JSONPath queries
-    if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
-      const result = this.handleJSONPath(script, data);
-      console.log('JSONPath result:', result);
-      return result;
-    }
-
-    // Handle variable references that need JSONPath processing
-    if (script.startsWith('$') && !script.includes('(')) {
-      return this.handleJSONPath(`$.${script.slice(1)}`, data);
-    }
-       // Handle typeof directly
-      if (script.startsWith('typeof ')) {
-        const valueExpr = script.slice(7); // Remove 'typeof '
-        let value;
-        
-        if (valueExpr.startsWith('$.')) {
-          value = this.handleJSONPath(valueExpr, data);
-        } else if (valueExpr.startsWith('$')) {
-          value = data[valueExpr.slice(1)];
-        } else {
-          value = this.evaluateValue(valueExpr);
-        }
-        
-        return this.globalFunctions.typeof(value);
-      }
-
-      // Handle eval
-      if (script.startsWith('eval(')) {
-        const match = script.match(/eval\((.*)\)/);
-        if (match) {
-          const expression = match[1].trim().replace(/^["']|["']$/g, '');
-          return this.globalFunctions.eval(expression, data);
-        }
-      }
-       // Handle global functions
-       if (script.includes('(')) {
-        const functionMatch = script.match(/^(\w+)\((.*)\)$/);
-        if (functionMatch) {
-          const [, funcName, args] = functionMatch;
-          if (this.globalFunctions[funcName]) {
-            const evaluatedArgs = args.split(',').map(arg => {
-              arg = arg.trim();
-              if (arg.startsWith('$')) {
-                return this.handleJSONPath(arg, data);
-              }
-              if (arg.startsWith('"') || arg.startsWith("'")) {
-                return arg.slice(1, -1);
-              }
-              return arg;
-            });
-            return this.globalFunctions[funcName](...evaluatedArgs);
-          }
-        }
-      }
-
-       // Handle match expressions
-    
-       // In executeScript method, update the match handling:
-if (script.trim().startsWith('match')) {
-  const matchRegex = /match\s+(.+?)\s*{([\s\S]+)}/;
-  const matches = script.match(matchRegex);
+  executeScript(script, data) { 
+    if (!script) return null; 
   
-  if (matches) {
-    const [, inputExpr, patternsBlock] = matches;
-    let inputValue;
-    
-    // Get input value
-    if (inputExpr.startsWith('$.')) {
-      inputValue = this.handleJSONPath(inputExpr, data);
-    } else if (inputExpr.startsWith('$')) {
-      const varName = inputExpr.slice(1);
-      inputValue = data[varName];
-    }
-
-    // Parse patterns from the block
-    const patterns = patternsBlock
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('//'))
-      .map(line => {
-        const [pattern, result] = line.split('=>').map(s => s.trim());
-        if (!result) return null;
+    try { 
+       // Handle typeof directly 
+      if (script.startsWith('typeof ')) { 
+        const valueExpr = script.slice(7); // Remove 'typeof ' 
+        let value; 
         
-        const [mainPattern, guard] = pattern.split(' if ').map(s => s.trim());
-        return { pattern: mainPattern, guard, result };
-      })
-      .filter(Boolean);
-
-    // Try each pattern
-    for (const { pattern, guard, result } of patterns) {
-      let matches = false;
-
-      // Handle different pattern types
-      if (pattern === '_') {
-        matches = true;
-      } else if (pattern.includes('..')) {
-        const [start, end] = pattern.split('..');
-        matches = this.matchFunctions.range(inputValue, Number(start), Number(end));
-      } else if (pattern.startsWith('{')) {
-        matches = this.matchFunctions.object(inputValue, JSON.parse(pattern));
-      } else if (pattern.startsWith('[')) {
-        matches = this.matchFunctions.array(inputValue, JSON.parse(pattern));
-      } else if (pattern.startsWith('/')) {
-        matches = this.matchFunctions.regex(inputValue, pattern);
-      } else {
-        matches = inputValue === pattern;
-      }
-
-      // Check guard condition
-      if (matches && guard) {
-        matches = this.evaluateGuard(guard, { value: inputValue, data });
-      }
-
-      if (matches) {
-        return this.evaluateExpression(result, { value: inputValue, data });
-      }
-    }
-    return null;
-  }
-}
-
-
-
-
-
-
- // Add JSON functions handling at the start
- if (script.startsWith('JSON.')) {
-  const jsonMatch = script.match(/JSON\.(parse|stringify)\((.*)\)/);
-  if (jsonMatch) {
-      const [, method, args] = jsonMatch;
+        if (valueExpr.startsWith('$.')) { 
+          value = this.handleJSONPath(valueExpr, data); 
+        } else if (valueExpr.startsWith('$')) { 
+          value = data[valueExpr.slice(1)]; 
+        } else { 
+          value = this.evaluateValue(valueExpr); 
+        } 
+        
+        return this.globalFunctions.typeof(value); 
+      } 
+ 
+      // Handle eval 
+      if (script.startsWith('eval(')) { 
+        const match = script.match(/eval\((.*)\)/); 
+        if (match) { 
+          const expression = match[1].trim().replace(/^["']|["']$/g, ''); 
+          return this.globalFunctions.eval(expression, data); 
+        } 
+      } 
+       // Handle global functions 
+       if (script.includes('(')) { 
+        const functionMatch = script.match(/^(\w+)\((.*)\)$/); 
+        if (functionMatch) { 
+          const [, funcName, args] = functionMatch; 
+          if (this.globalFunctions[funcName]) { 
+            const evaluatedArgs = args.split(',').map(arg => { 
+              arg = arg.trim(); 
+              if (arg.startsWith('$')) { 
+                return this.handleJSONPath(arg, data); 
+              } 
+              if (arg.startsWith('"') || arg.startsWith("'")) { 
+                return arg.slice(1, -1); 
+              } 
+              return arg; 
+            }); 
+            return this.globalFunctions[funcName](...evaluatedArgs); 
+          } 
+        } 
+      } 
+ 
+       // Handle match expressions 
+    
+       // In executeScript method, update the match handling: 
+if (script.trim().startsWith('match')) { 
+  const matchRegex = /match\s+(.+?)\s*{([\s\S]+)}/; 
+  const matches = script.match(matchRegex); 
+  
+  if (matches) { 
+    const [, inputExpr, patternsBlock] = matches; 
+    let inputValue; 
+    
+    // Get input value 
+    if (inputExpr.startsWith('$.')) { 
+      inputValue = this.handleJSONPath(inputExpr, data); 
+    } else if (inputExpr.startsWith('$')) { 
+      const varName = inputExpr.slice(1); 
+      inputValue = data[varName]; 
+    } 
+ 
+    // Parse patterns from the block 
+    const patterns = patternsBlock 
+      .split('\n') 
+      .map(line => line.trim()) 
+      .filter(line => line && !line.startsWith('//')) 
+      .map(line => { 
+        const [pattern, result] = line.split('=>').map(s => s.trim()); 
+        if (!result) return null; 
+        
+        const [mainPattern, guard] = pattern.split(' if ').map(s => 
+s.trim()); 
+        return { pattern: mainPattern, guard, result }; 
+      }) 
+      .filter(Boolean); 
+ 
+    // Try each pattern 
+    for (const { pattern, guard, result } of patterns) { 
+      let matches = false; 
+ 
+      // Handle different pattern types 
+      if (pattern === '_') { 
+        matches = true; 
+      } else if (pattern.includes('..')) { 
+        const [start, end] = pattern.split('..'); 
+        matches = this.matchFunctions.range(inputValue, Number(start), 
+Number(end)); 
+      } else if (pattern.startsWith('{')) { 
+        matches = this.matchFunctions.object(inputValue, 
+JSON.parse(pattern)); 
+      } else if (pattern.startsWith('[')) { 
+        matches = this.matchFunctions.array(inputValue, 
+JSON.parse(pattern)); 
+      } else if (pattern.startsWith('/')) { 
+        matches = this.matchFunctions.regex(inputValue, pattern); 
+      } else { 
+        matches = inputValue === pattern; 
+      } 
+ 
+      // Check guard condition 
+      if (matches && guard) { 
+        matches = this.evaluateGuard(guard, { value: inputValue, data }); 
+      } 
+ 
+      if (matches) { 
+        return this.evaluateExpression(result, { value: inputValue, data 
+}); 
+      } 
+    } 
+    return null; 
+  } 
+} 
+ 
+ 
+ 
+ 
+ 
+ 
+ // Add JSON functions handling at the start 
+ if (script.startsWith('JSON.')) { 
+  const jsonMatch = script.match(/JSON\.(parse|stringify)\((.*)\)/); 
+  if (jsonMatch) { 
+      const [, method, args] = jsonMatch; 
       
-      // Handle the argument
-      let processedArg;
-      if (args.startsWith('$')) {
-          // Handle variable reference
-          const varName = args.slice(1);
-          processedArg = data[varName];
-      } else if (args.startsWith('"') || args.startsWith("'")) {
-          // Handle string literal
-          processedArg = args.slice(1, -1);
-      } else {
-          // Handle other literals
-          processedArg = args;
-      }
-
-      return this.jsonFunctions[method](processedArg);
-  }
-  throw new Error(`Invalid JSON function call: ${script}`);
-}
-
-       // Add Math functions handling at the start (after the null check)
-    if (script.startsWith('Math.')) {
-      const mathMatch = script.match(/Math\.(\w+)(?:\((.*)\))?/);
-      if (mathMatch) {
-        const [, mathFunction, args] = mathMatch;
-         // Special handling for random() and randomUUID()
-         if (mathFunction === 'random' && !args) {
-          return this.mathFunctions.random();
-        }
+      // Handle the argument 
+      let processedArg; 
+      if (args.startsWith('$')) { 
+          // Handle variable reference 
+          const varName = args.slice(1); 
+          processedArg = data[varName]; 
+      } else if (args.startsWith('"') || args.startsWith("'")) { 
+          // Handle string literal 
+          processedArg = args.slice(1, -1); 
+      } else { 
+          // Handle other literals 
+          processedArg = args; 
+      } 
+ 
+      return this.jsonFunctions[method](processedArg); 
+  } 
+  throw new Error(`Invalid JSON function call: ${script}`); 
+} 
+ 
+       // Add Math functions handling at the start (after the null check) 
+    if (script.startsWith('Math.')) { 
+      const mathMatch = script.match(/Math\.(\w+)(?:\((.*)\))?/); 
+      if (mathMatch) { 
+        const [, mathFunction, args] = mathMatch; 
+         // Special handling for random() and randomUUID() 
+         if (mathFunction === 'random' && !args) { 
+          return this.mathFunctions.random(); 
+        } 
         
-        if (mathFunction === 'randomUUID' && !args) {
-          return this.mathFunctions.randomUUID();
-        }
-        // Handle constants (no parentheses)
-        if (!args && this.mathFunctions[mathFunction] !== undefined) {
-          return this.mathFunctions[mathFunction];
-        }
+        if (mathFunction === 'randomUUID' && !args) { 
+          return this.mathFunctions.randomUUID(); 
+        } 
+        // Handle constants (no parentheses) 
+        if (!args && this.mathFunctions[mathFunction] !== undefined) { 
+          return this.mathFunctions[mathFunction]; 
+        } 
         
-        // Handle functions
-        if (this.mathFunctions[mathFunction]) {
-          const parsedArgs = args ? args.split(',').map(arg => {
-            arg = arg.trim();
-            // Handle string numbers
-            if (arg.startsWith('"') || arg.startsWith("'")) {
-              return arg.slice(1, -1);
-            }
-            // Handle numeric values
-            if (!isNaN(arg)) {
-              return Number(arg);
-            }
-            // Handle variables
-            if (arg.startsWith('$')) {
-              return data[arg.slice(1)];
-            }
-            return arg;
-          }) : [];
+        // Handle functions 
+        if (this.mathFunctions[mathFunction]) { 
+          const parsedArgs = args ? args.split(',').map(arg => { 
+            arg = arg.trim(); 
+            // Handle string numbers 
+            if (arg.startsWith('"') || arg.startsWith("'")) { 
+              return arg.slice(1, -1); 
+            } 
+            // Handle numeric values 
+            if (!isNaN(arg)) { 
+              return Number(arg); 
+            } 
+            // Handle variables 
+            if (arg.startsWith('$')) { 
+              return data[arg.slice(1)]; 
+            } 
+            return arg; 
+          }) : []; 
           
-          return this.mathFunctions[mathFunction](...parsedArgs);
-        }
+          return this.mathFunctions[mathFunction](...parsedArgs); 
+        } 
         
-        throw new Error(`Unsupported Math function: ${mathFunction}`);
-      }
-    }
-    const numberMatch = script.match(/\$(\w+)\.(toExponential|toFixed|toPrecision)(?:\((\d*)\))?/);
-    if (numberMatch) {
-        const [, variable, method, digits] = numberMatch;
-        const value = data[variable];
+        throw new Error(`Unsupported Math function: ${mathFunction}`); 
+      } 
+    } 
+    const numberMatch = 
+script.match(/\$(\w+)\.(toExponential|toFixed|toPrecision)(?:\((\d*)\))?/)
+ ; 
+    if (numberMatch) { 
+        const [, variable, method, digits] = numberMatch; 
+        const value = data[variable]; 
         
-        if (this.numberFunctions[method]) {
-            return this.numberFunctions[method](value, digits ? parseInt(digits) : undefined);
-        }
+        if (this.numberFunctions[method]) { 
+            return this.numberFunctions[method](value, digits ? 
+parseInt(digits) : undefined); 
+        } 
         
-        throw new Error(`Unsupported number method: ${method}`);
-    }
-      // Handle JSONPath expressions first
-      if (script.startsWith('$.')) {
-        const jsonData = data;
-        const result = JSONPath({
-          path: script,
-          json: jsonData,
-          wrap: true,
-          flatten: true
-        });
+        throw new Error(`Unsupported number method: ${method}`); 
+    } 
+      // Handle JSONPath expressions first 
+      if (script.startsWith('$.')) { 
+        const jsonData = data; 
+        const result = JSONPath({ 
+          path: script, 
+          json: jsonData, 
+          wrap: true, 
+          flatten: true 
+        }); 
   
-        if (Array.isArray(result) && result.length > 0) {
-          return result.length === 1 ? result[0] : result;
-        }
-        return result;
-      }
+        if (Array.isArray(result) && result.length > 0) { 
+          return result.length === 1 ? result[0] : result; 
+        } 
+        return result; 
+      } 
   
-
-      // First convert string dates to Date objects in the data
-// Inside executeScript method
-if (data) {
-  // Handle both single objects and arrays of objects
-  const processData = (input) => {
-    if (Array.isArray(input)) {
-      return input.map(item => processData(item));
-    }
-   
-    if (typeof input === 'object' && input !== null) {
-      Object.keys(input).forEach(key => {
-        const value = input[key];
-       
-        // Convert dates
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-          input[key] = new Date(value);
-        }
-        // Process nested objects/arrays
-        else if (typeof value === 'object') {
-          input[key] = processData(value);
-        }
-      });
-    }
-    return input;
-  };
-
-
-  data = processData(data);
-}
-
-
-
-      // Handle Local parsing methods
-      if (script.includes('Local')) {
-        // Handle LocalDateTime.parse
-        const dateTimeMatch = script.match(/LocalDateTime\.parse\("([^"]+)"\)/);
-        if (dateTimeMatch) {
-          const [, dateStr] = dateTimeMatch;
-          const date = moment(dateStr).toDate();
-          return date;
-        }
+ 
+      // First convert string dates to Date objects in the data 
+// Inside executeScript method 
+if (data) { 
+  // Handle both single objects and arrays of objects 
+  const processData = (input) => { 
+    if (Array.isArray(input)) { 
+      return input.map(item => processData(item)); 
+    } 
+    
+    if (typeof input === 'object' && input !== null) { 
+      Object.keys(input).forEach(key => { 
+        const value = input[key]; 
+        
+        // Convert dates 
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) 
+{ 
+          input[key] = new Date(value); 
+        } 
+        // Process nested objects/arrays 
+        else if (typeof value === 'object') { 
+          input[key] = processData(value); 
+        } 
+      }); 
+    } 
+    return input; 
+  }; 
+ 
+ 
+  data = processData(data); 
+} 
+ 
+ 
+ 
+      // Handle Local parsing methods 
+      if (script.includes('Local')) { 
+        // Handle LocalDateTime.parse 
+        const dateTimeMatch = 
+script.match(/LocalDateTime\.parse\("([^"]+)"\)/); 
+        if (dateTimeMatch) { 
+          const [, dateStr] = dateTimeMatch; 
+          const date = moment(dateStr).toDate(); 
+          return date; 
+        } 
   
-        // Handle LocalDate.parse
-        const dateMatch = script.match(/LocalDate\.parse\("([^"]+)"\)/);
-        if (dateMatch) {
-          const [, dateStr] = dateMatch;
-          const date = moment(dateStr).startOf('day').toDate();
-          return date;
-        }
+        // Handle LocalDate.parse 
+        const dateMatch = script.match(/LocalDate\.parse\("([^"]+)"\)/); 
+        if (dateMatch) { 
+          const [, dateStr] = dateMatch; 
+          const date = moment(dateStr).startOf('day').toDate(); 
+          return date; 
+        } 
   
-        // Handle LocalTime.parse
-        const timeMatch = script.match(/LocalTime\.parse\("([^"]+)"\)/);
-        if (timeMatch) {
-          const [, timeStr] = timeMatch;
-          const date = moment(`1970-01-01 ${timeStr}`).toDate();
-          return date;
-        }
-      }
+        // Handle LocalTime.parse 
+        const timeMatch = script.match(/LocalTime\.parse\("([^"]+)"\)/); 
+        if (timeMatch) { 
+          const [, timeStr] = timeMatch; 
+          const date = moment(`1970-01-01 ${timeStr}`).toDate(); 
+          return date; 
+        } 
+      } 
   
-      // Static Date methods
-      if (script.startsWith('Date.')) {
-        const staticMatch = script.match(/Date\.(\w+)\((.*)\)/);
-        if (staticMatch) {
-          const [, staticMethod, staticArgs] = staticMatch;
+      // Static Date methods 
+      if (script.startsWith('Date.')) { 
+        const staticMatch = script.match(/Date\.(\w+)\((.*)\)/); 
+        if (staticMatch) { 
+          const [, staticMethod, staticArgs] = staticMatch; 
           const parsedArgs = staticArgs ? staticArgs.split(',').map(arg => 
-            !isNaN(arg.trim()) ? Number(arg.trim()) : arg.trim().replace(/['"]/g, '')
-          ) : [];
+            !isNaN(arg.trim()) ? Number(arg.trim()) : 
+arg.trim().replace(/['"]/g, '') 
+          ) : []; 
           
-          if (this.dateFunctions[staticMethod]) {
-            return this.dateFunctions[staticMethod](...parsedArgs);
-          }
-        }
-      }
+          if (this.dateFunctions[staticMethod]) { 
+            return this.dateFunctions[staticMethod](...parsedArgs); 
+          } 
+        } 
+      } 
   
-      // Handle method calls (including arrow functions)
-      const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/);
-      if (methodMatch) {
-        const [, propertyName, methodName, argsString] = methodMatch;
-        const value = data[propertyName];
+      // Handle method calls (including arrow functions) 
+      const methodMatch = script.match(/\$(\w+)\.(\w+)\((.*)\)/); 
+      if (methodMatch) { 
+        const [, propertyName, methodName, argsString] = methodMatch; 
+        const value = data[propertyName]; 
   
-        // If data is an array, treat it as a collection of objects
-        if (Array.isArray(data)) {
-          return data.map(item => {
-            const value = item[propertyName];
-            if (value === undefined) {
-              return item;
-            }
+        // If data is an array, treat it as a collection of objects 
+        if (Array.isArray(data)) { 
+          return data.map(item => { 
+            const value = item[propertyName]; 
+            if (value === undefined) { 
+              return item; 
+            } 
   
-            // Handle arrow functions
-            if (argsString.includes('=>')) {
-              const fn = eval(`(${argsString.trim()})`);
-              if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
-                return this.objectFunctions[methodName](value, fn);
-              }
-            }
+            // Handle arrow functions 
+            if (argsString.includes('=>')) { 
+              const fn = eval(`(${argsString.trim()})`); 
+              if (typeof value === 'object' && value !== null && 
+this.objectFunctions[methodName]) { 
+                return this.objectFunctions[methodName](value, fn); 
+              } 
+            } 
   
-            const args = this.parseArguments(argsString, data);
+            const args = this.parseArguments(argsString, data); 
   
-            if (typeof value === 'string' && this.stringFunctions[methodName]) {
-              return this.stringFunctions[methodName](value, ...args);
-            }
-            if (Array.isArray(value) && this.arrayFunctions[methodName]) {
-              return this.arrayFunctions[methodName](value, ...args);
-            }
-            if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
-              return this.dateFunctions[methodName](value, ...args);
-            }
-            if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
-              return this.objectFunctions[methodName](value, ...args);
-            }
+            if (typeof value === 'string' && 
+this.stringFunctions[methodName]) { 
+              return this.stringFunctions[methodName](value, ...args); 
+            } 
+            if (Array.isArray(value) && this.arrayFunctions[methodName]) { 
+              return this.arrayFunctions[methodName](value, ...args); 
+            } 
+            if ((value instanceof Date || moment.isDate(value)) && 
+this.dateFunctions[methodName]) { 
+              return this.dateFunctions[methodName](value, ...args); 
+            } 
+            if (typeof value === 'object' && value !== null && 
+this.objectFunctions[methodName]) { 
+              return this.objectFunctions[methodName](value, ...args); 
+            } 
+            
   
-            return value;
-          });
-        }
+            return value; 
+          }); 
+        } 
   
-        // Handle single object with arrow function
-        if (argsString.includes('=>')) {
-          const fn = eval(`(${argsString.trim()})`);
-          if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
-            return this.objectFunctions[methodName](value, fn);
-          }
-        }
+        // Handle single object with arrow function 
+        if (argsString.includes('=>')) { 
+          const fn = eval(`(${argsString.trim()})`); 
+          if (typeof value === 'object' && value !== null && 
+this.objectFunctions[methodName]) { 
+            return this.objectFunctions[methodName](value, fn); 
+          } 
+        } 
   
-        // Handle regular arguments
-        const args = this.parseArguments(argsString, data);
+        // Handle regular arguments 
+        const args = this.parseArguments(argsString, data); 
   
-        if (typeof value === 'string' && this.stringFunctions[methodName]) {
-          return this.stringFunctions[methodName](value, ...args);
-        }
-        if (Array.isArray(value) && this.arrayFunctions[methodName]) {
-          return this.arrayFunctions[methodName](value, ...args);
-        }
-        if ((value instanceof Date || moment.isDate(value)) && this.dateFunctions[methodName]) {
-          return this.dateFunctions[methodName](value, ...args);
-        }
-        if (typeof value === 'object' && value !== null && this.objectFunctions[methodName]) {
-          let args;
-          if (argsString.includes('=>')) {
-            args = [eval(`(${argsString})`)];
-          } else if (argsString.includes('{')) {
-            try {
-              args = [JSON.parse(argsString)];
-            } catch (e) {
-              args = [eval(`(${argsString})`)];
-            }
-          } else {
-            args = argsString.split(',').map(arg => {
-              arg = arg.trim();
-              if (arg.startsWith('"') || arg.startsWith("'")) return arg.slice(1, -1);
-              if (!isNaN(arg)) return Number(arg);
-              if (arg === 'true') return true;
-              if (arg === 'false') return false;
-              if (arg === 'null') return null;
-              return arg;
-            }).filter(arg => arg !== '');
-          }
-          return this.objectFunctions[methodName](value, ...args);
-        }
+        if (typeof value === 'string' && this.stringFunctions[methodName]) 
+{ 
+          return this.stringFunctions[methodName](value, ...args); 
+        } 
+        if (Array.isArray(value) && this.arrayFunctions[methodName]) { 
+          return this.arrayFunctions[methodName](value, ...args); 
+        } 
+        if ((value instanceof Date || moment.isDate(value)) && 
+this.dateFunctions[methodName]) { 
+          return this.dateFunctions[methodName](value, ...args); 
+        } 
+        if (typeof value === 'object' && value !== null && 
+this.objectFunctions[methodName]) { 
+          let args; 
+          if (argsString.includes('=>')) { 
+            args = [eval(`(${argsString})`)]; 
+          } else if (argsString.includes('{')) { 
+            try { 
+              args = [JSON.parse(argsString)]; 
+            } catch (e) { 
+              args = [eval(`(${argsString})`)]; 
+            } 
+          } else { 
+            args = argsString.split(',').map(arg => { 
+              arg = arg.trim(); 
+              if (arg.startsWith('"') || arg.startsWith("'")) return 
+arg.slice(1, -1); 
+              if (!isNaN(arg)) return Number(arg); 
+              if (arg === 'true') return true; 
+              if (arg === 'false') return false; 
+              if (arg === 'null') return null; 
+              return arg; 
+            }).filter(arg => arg !== ''); 
+          } 
+          return this.objectFunctions[methodName](value, ...args); 
+        } 
   
-        throw new Error(`Unsupported operation '${methodName}' for type: ${typeof value}`);
-      }
-  
-      // Handle array length without parentheses
-      const lengthMatch = script.match(/\$(\w+)\.length$/);
-      if (lengthMatch) {
-        const [, variableName] = lengthMatch;
-        const value = data[variableName];
-        if (Array.isArray(value) || value instanceof Uint8Array) {
-          return value.length;
-        }
-        throw new Error(`Variable '${variableName}' is not an array`);
-      }
-  
-      // Handle other expressions
-      if (script.includes('Date.parse') || script.includes('&&') || script.includes('||')) {
-        return this.handleLogicalExpression(script, data);
-      }
-  
-      if (script.includes('Date.now()') || (script.includes('?') && script.includes('T'))) {
-        return this.handleComplexDateExpression(script);
-      }
-  
-      if (script.trim().startsWith('{') && script.includes('$.')) {
-        return this.handleObjectMapping(script, data);
-      }
-  
-      if (script.includes('$')) {
-        return this.handleJSONPath(script, data);
-      }
-  
-      throw new Error(`Unsupported script: ${script}`);
-    } catch (error) {
-      console.error('Script execution error:', error);
-      throw new Error(`Script execution failed: ${error.message}`);
-    }
+        throw new Error(`Unsupported operation '${methodName}' for type: 
+${typeof value}`); 
+      } 
+   // Handle mapper scripts
+   if (typeof script === 'string' && script.trim().startsWith('{')) {
+    // Normalize quotes in JSONPath expressions before parsing
+    const normalizedScript = script.replace(/jsonPath\(\$,\s*["']([^"']+)["']\)/g, 
+      (match, path) => `jsonPath($,'${path}')`);
+      const mappingObj = JSON.parse(normalizedScript);
+  console.log('Processing mapping:', mappingObj);
+  return this.processMapping(mappingObj, data);
+}
+
+// Handle object mappings
+if (typeof script === 'object' && script !== null) {
+  console.log('Processing object mapping:', script);
+  return this.processMapping(script, data);
+}
+// Handle operator expressions in all script types
+if (typeof script === 'string') {
+  const hasOperators = /[\+\-\*\/>=<==!=&\|?:]/.test(script);
+  if (hasOperators) {
+    return this.evaluateOperatorExpression(script, data);
   }
+}
+
+// Handle direct JSONPath queries
+if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
+  const result = this.handleJSONPath(script, data);
+  console.log('JSONPath result:', result);
+  return result;
+}
+
+// Handle variable references that need JSONPath processing
+if (script.startsWith('$') && !script.includes('(')) {
+  return this.handleJSONPath(`$.${script.slice(1)}`, data);
+}
+
+      // Handle array length without parentheses 
+      const lengthMatch = script.match(/\$(\w+)\.length$/); 
+      if (lengthMatch) { 
+        const [, variableName] = lengthMatch; 
+        const value = data[variableName]; 
+        if (Array.isArray(value) || value instanceof Uint8Array) { 
+          return value.length; 
+        } 
+        throw new Error(`Variable '${variableName}' is not an array`); 
+      } 
   
+      // Handle other expressions 
+      if (script.includes('Date.parse') || script.includes('&&') || 
+script.includes('||')) { 
+        return this.handleLogicalExpression(script, data); 
+      } 
+  
+      if (script.includes('Date.now()') || (script.includes('?') && 
+script.includes('T'))) { 
+        return this.handleComplexDateExpression(script); 
+      } 
+  
+      if (script.trim().startsWith('{') && script.includes('$.')) { 
+        return this.handleObjectMapping(script, data); 
+      } 
+  
+      if (script.includes('$')) { 
+        return this.handleJSONPath(script, data); 
+      } 
+  
+      throw new Error(`Unsupported script: ${script}`); 
+    } catch (error) { 
+      console.error('Script execution error:', error); 
+      throw new Error(`Script execution failed: ${error.message}`); 
+    } 
+  } 
   parseArguments(argsString, data) {
     if (!argsString) return [];
      // Handle arrow functions for reduce/reduceRight
