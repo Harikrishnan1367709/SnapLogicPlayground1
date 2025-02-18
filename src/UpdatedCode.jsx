@@ -3,7 +3,7 @@ import { JSONPath } from 'jsonpath-plus';
 import { ChevronDown, Upload, Download, Terminal, Book, ChevronLeft } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"
 
-
+import JSZip from 'jszip';
 
 
 // import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -707,17 +707,64 @@ const handleScriptContentChange = (e) => {
 
 
 
-  const handleExport = () => {
-    const blob = new Blob(['Demo content'], { type: 'application/zip' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'snaplogic-playground-export.zip');
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
-    window.URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    try {
+      // Create a new JSZip instance
+      const zip = new JSZip();
+  
+      // Add files to the zip
+      // Add scripts
+      const scriptsFolder = zip.folder("scripts");
+      scripts.forEach(script => {
+        scriptsFolder.file(script.name, script.content);
+      });
+  
+      // Add inputs
+      const inputsFolder = zip.folder("inputs");
+      Object.entries(inputContents).forEach(([name, content]) => {
+        inputsFolder.file(`${name}.json`, content);
+      });
+  
+      // Add metadata
+      const metadata = {
+        version: "1.0",
+        exportDate: new Date().toISOString(),
+        scripts: scripts.map(s => ({
+          name: s.name,
+          lastModified: s.lastModified
+        })),
+        inputs: inputs,
+        expectedOutput: expectedOutput
+      };
+      zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+  
+      // Generate the zip file
+      const content = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: {
+          level: 9
+        }
+      });
+  
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `snaplogic-playground-export-${moment().format('YYYY-MM-DD-HH-mm')}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Optionally show error to user
+      alert('Export failed. Please try again.');
+    }
   };
+  
  
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
@@ -1144,25 +1191,13 @@ const monacoStyles = `
         <div className="flex items-center">
         <button
   onClick={() => {
-    // Always download the file
-    const blob = new Blob(['Demo content'], { type: 'application/zip' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'snaplogic-playground-export.zip');
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-
-
-
+    handleExport();
     // Show dialog if not checked in current session
     if (!wasChecked) {
       setShowExportDialog(true);
     }
   }}
+
   className="flex items-center px-4 py-1.5 bg-white rounded border-none focus:outline-none group hover:text-blue-500 -ml-3"
 >
 <img
