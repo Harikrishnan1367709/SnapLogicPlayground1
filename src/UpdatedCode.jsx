@@ -35,12 +35,10 @@ import _ from 'lodash';
 import moment from 'moment';
 import * as R from 'ramda';
 import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler';
-
 import HighLightedJSON from './utils/HighLightedJson';
 import HighlightedScript from './utils/HighlightedScript';
 import HighlightedActualOutput from './utils/HighlightedActualOutput';
 import HighlightedExpectedOutput from './utils/HighlightedExpectedOutput';
-// import SnapLogicFunctionsHandler from './utils/SnaplogicFunctionsHandler1';
 
 
 

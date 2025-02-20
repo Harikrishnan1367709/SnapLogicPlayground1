@@ -1248,10 +1248,7 @@ class SnapLogicFunctionsHandler {
   }
   
   
-  
-  
-
-  // Add to SnapLogicFunctionsHandler class
+ 
 
   handleJSONPath(script, data) {
     try {
@@ -1339,6 +1336,18 @@ class SnapLogicFunctionsHandler {
     if (!script) return null; 
   
     try { 
+
+      // Handle direct JSONPath queries
+if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
+  const result = this.handleJSONPath(script, data);
+  console.log('JSONPath result:', result);
+  return result;
+}
+
+// Handle variable references that need JSONPath processing
+if (script.startsWith('$') && !script.includes('(')) {
+  return this.handleJSONPath(`$.${script.slice(1)}`, data);
+}
        // Handle typeof directly 
       if (script.startsWith('typeof ')) { 
         const valueExpr = script.slice(7); // Remove 'typeof ' 
@@ -1543,20 +1552,20 @@ parseInt(digits) : undefined);
         throw new Error(`Unsupported number method: ${method}`); 
     } 
       // Handle JSONPath expressions first 
-      if (script.startsWith('$.')) { 
-        const jsonData = data; 
-        const result = JSONPath({ 
-          path: script, 
-          json: jsonData, 
-          wrap: true, 
-          flatten: true 
-        }); 
+      // if (script.startsWith('$.')) { 
+      //   const jsonData = data; 
+      //   const result = JSONPath({ 
+      //     path: script, 
+      //     json: jsonData, 
+      //     wrap: true, 
+      //     flatten: true 
+      //   }); 
   
-        if (Array.isArray(result) && result.length > 0) { 
-          return result.length === 1 ? result[0] : result; 
-        } 
-        return result; 
-      } 
+      //   if (Array.isArray(result) && result.length > 0) { 
+      //     return result.length === 1 ? result[0] : result; 
+      //   } 
+      //   return result; 
+      // } 
   
  
       // First convert string dates to Date objects in the data 
@@ -1757,17 +1766,7 @@ if (typeof script === 'string') {
   }
 }
 
-// Handle direct JSONPath queries
-if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
-  const result = this.handleJSONPath(script, data);
-  console.log('JSONPath result:', result);
-  return result;
-}
 
-// Handle variable references that need JSONPath processing
-if (script.startsWith('$') && !script.includes('(')) {
-  return this.handleJSONPath(`$.${script.slice(1)}`, data);
-}
 
       // Handle array length without parentheses 
       const lengthMatch = script.match(/\$(\w+)\.length$/); 
