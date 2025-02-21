@@ -2065,19 +2065,19 @@ if (typeof script === 'string') {
       } 
   
       // Handle other expressions 
-      if (script.includes('Date.parse') || script.includes('&&') || 
-script.includes('||')) { 
-        return this.handleLogicalExpression(script, data); 
-      } 
+//       if (script.includes('Date.parse') || script.includes('&&') || 
+// script.includes('||')) { 
+//         return this.handleLogicalExpression(script, data); 
+//       } 
   
-      if (script.includes('Date.now()') || (script.includes('?') && 
-script.includes('T'))) { 
-        return this.handleComplexDateExpression(script); 
-      } 
+//       if (script.includes('Date.now()') || (script.includes('?') && 
+// script.includes('T'))) { 
+//         return this.handleComplexDateExpression(script); 
+//       } 
   
-      if (script.trim().startsWith('{') && script.includes('$.')) { 
-        return this.handleObjectMapping(script, data); 
-      } 
+//       if (script.trim().startsWith('{') && script.includes('$.')) { 
+//         return this.handleObjectMapping(script, data); 
+//       } 
   
       if (script.includes('$')) { 
         return this.handleJSONPath(script, data); 
