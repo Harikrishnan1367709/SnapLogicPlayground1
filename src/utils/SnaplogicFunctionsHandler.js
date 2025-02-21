@@ -1255,276 +1255,85 @@ class SnapLogicFunctionsHandler {
   
   //   return result;
   // }
+ 
   evaluateOperatorExpression(expression, data) {
     try {
-        // 1. First normalize and tokenize the expression
-        let normalizedExpression = expression.trim();
-
-        // 2. Handle JSONPath with functions
-        normalizedExpression = this.handleJSONPathExpressions(normalizedExpression, data);
-
-        // 3. Handle Date functions
-        normalizedExpression = this.handleDateExpressions(normalizedExpression);
-
-        // 4. Handle ternary operator separately
-        if (normalizedExpression.includes('?')) {
-            return this.evaluateTernary(normalizedExpression, data);
+      // Handle ternary operations first
+      if (expression.includes('?')) {
+        const [condition, rest] = expression.split('?').map(p => p.trim());
+        const [truePart, falsePart] = rest.split(':').map(p => p.trim());
+        
+        const conditionResult = this.evaluateOperatorExpression(condition, data);
+        return conditionResult ? 
+          this.evaluateOperatorExpression(truePart, data) : 
+          this.evaluateOperatorExpression(falsePart, data);
+      }
+  
+      // Handle date comparisons and operations
+      if (expression.includes('Date.')) {
+        const dateRegex = /Date\.(parse|now)\([^)]*\)/g;
+        expression = expression.replace(dateRegex, (match) => {
+          if (match === 'Date.now()') {
+            return new Date().getTime();
+          }
+          const parseMatch = match.match(/Date\.parse\(['"]([^'"]+)['"]\)/);
+          if (parseMatch) {
+            return new Date(parseMatch[1]).getTime();
+          }
+          return match;
+        });
+      }
+  
+      // Handle string concatenation with +
+      if (expression.includes('+')) {
+        const parts = expression.split('+').map(p => p.trim());
+        return parts.map(part => this.evaluateOperatorExpression(part, data)).join('');
+      }
+  
+      // Handle logical operators
+      if (expression.includes('&&') || expression.includes('||')) {
+        const parts = expression.split(/(\|\||\&\&)/).map(p => p.trim());
+        let result = this.evaluateOperatorExpression(parts[0], data);
+        
+        for (let i = 1; i < parts.length; i += 2) {
+          const operator = parts[i];
+          const nextValue = this.evaluateOperatorExpression(parts[i + 1], data);
+          
+          if (operator === '&&') {
+            result = result && nextValue;
+          } else if (operator === '||') {
+            result = result || nextValue;
+          }
         }
-
-        // 5. Convert to postfix and evaluate
-        const tokens = this.tokenize(normalizedExpression);
-        const postfix = this.infixToPostfix(tokens);
-        return this.evaluatePostfix(postfix, data);
-
+        return result;
+      }
+  
+      // Handle comparison operators
+      const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
+      if (comparisonRegex.test(expression)) {
+        const [left, operator, right] = expression.split(comparisonRegex);
+        const leftValue = this.evaluateValue(left.trim(), data);
+        const rightValue = this.evaluateValue(right.trim(), data);
+        
+        switch(operator.trim()) {
+          case '>=': return leftValue >= rightValue;
+          case '<=': return leftValue <= rightValue;
+          case '==': return String(leftValue) === String(rightValue);
+          case '===': return leftValue === rightValue;
+          case '!=': return String(leftValue) !== String(rightValue);
+          case '!==': return leftValue !== rightValue;
+          case '>': return leftValue > rightValue;
+          case '<': return leftValue < rightValue;
+        }
+      }
+  
+      // Handle direct values
+      return this.evaluateValue(expression, data);
     } catch (error) {
-        console.error('Expression evaluation error:', error);
-        throw new Error(`Failed to evaluate: ${expression}`);
+      console.error('Operator expression error:', error);
+      return null;
     }
-}
-
-handleJSONPathExpressions(expression, data) {
-  // Handle complex JSONPath expressions with string functions and concatenation
-  const jsonPathRegex = /(\$[\w.[\]]+(?:\.(?:toUpperCase|toLowerCase)\(\))?)/g;
-  return expression.replace(jsonPathRegex, (match) => {
-      try {
-          // Extract the base path and function
-          const hasUpperCase = match.endsWith('.toUpperCase()');
-          const hasLowerCase = match.endsWith('.toLowerCase()');
-          const basePath = match.split('.to')[0];
-
-          // Get the value using JSONPath
-          let value = this.handleJSONPath(basePath, data);
-
-          // Apply string functions if present
-          if (typeof value === 'string') {
-              if (hasUpperCase) value = value.toUpperCase();
-              if (hasLowerCase) value = value.toLowerCase();
-          }
-
-          return typeof value === 'string' ? `"${value}"` : JSON.stringify(value);
-      } catch (e) {
-          console.error("JSONPath evaluation error:", e);
-          return 'null';
-      }
-  });
-}
-
-handleDateExpressions(expression) {
-    const dateRegex = /Date\.(now|parse)\(([^)]*)\)(?:\.(\w+)\([^)]*\))?/g;
-    return expression.replace(dateRegex, (match, method, args, chainedMethod) => {
-        try {
-            let date = method === 'now' ? new Date() : new Date(this.evaluateValue(args));
-            
-            if (chainedMethod) {
-                const methodMatch = match.match(/\.(\w+)\(([^)]*)\)/);
-                if (methodMatch) {
-                    const [, methodName, methodArgs] = methodMatch;
-                    switch(methodName) {
-                        case 'minusHours':
-                            const hours = parseInt(methodArgs);
-                            date.setHours(date.getHours() - hours);
-                            break;
-                        case 'toLocaleDateTimeString':
-                            const format = JSON.parse(methodArgs).format;
-                            return `"${this.formatDate(date, format)}"`;
-                    }
-                }
-            }
-            
-            return date.getTime();
-        } catch (e) {
-            console.error("Date operation error:", e);
-            return match;
-        }
-    });
-}
-
-tokenize(expression) {
-  const operators = Object.keys(this.operatorPrecedence);
-  let tokens = [];
-  let current = '';
-  
-  for (let i = 0; i < expression.length; i++) {
-      const char = expression[i];
-      
-      // Handle string literals with spaces
-      if (char === '"' || char === "'") {
-          if (current) {
-              tokens.push(current);
-              current = '';
-          }
-          let j = i + 1;
-          let stringLiteral = char;
-          while (j < expression.length) {
-              stringLiteral += expression[j];
-              if (expression[j] === char && expression[j-1] !== '\\') break;
-              j++;
-          }
-          tokens.push(stringLiteral);
-          i = j;
-          continue;
-      }
-
-      // Handle operators
-      const op = operators.find(op => expression.substring(i).startsWith(op));
-      if (op) {
-          if (current) {
-              tokens.push(current);
-              current = '';
-          }
-          tokens.push(op);
-          i += op.length - 1;
-          continue;
-      }
-
-      // Handle spaces
-      if (char === ' ') {
-          if (current) {
-              tokens.push(current);
-              current = '';
-          }
-          continue;
-      }
-
-      current += char;
   }
-
-  if (current) tokens.push(current);
-  return tokens;
-}
-
-
-infixToPostfix(tokens) {
-    const output = [];
-    const operatorStack = [];
-
-    tokens.forEach(token => {
-        if (this.isOperator(token)) {
-            while (operatorStack.length > 0 && 
-                   this.operatorPrecedence[operatorStack[operatorStack.length - 1]] >= 
-                   this.operatorPrecedence[token]) {
-                output.push(operatorStack.pop());
-            }
-            operatorStack.push(token);
-        } else {
-            output.push(token);
-        }
-    });
-
-    while (operatorStack.length > 0) {
-        output.push(operatorStack.pop());
-    }
-
-    return output;
-}
-
-evaluatePostfix(tokens, data) {
-    const stack = [];
-
-    tokens.forEach(token => {
-        if (this.isOperator(token)) {
-            const right = stack.pop();
-            const left = stack.pop();
-            stack.push(this.applyOperator(left, token, right));
-        } else {
-            stack.push(this.evaluateValue(token));
-        }
-    });
-
-    return stack[0];
-}
-
-evaluateTernary(expression, data) {
-    const [condition, rest] = expression.split('?').map(p => p.trim());
-    const [truePart, falsePart] = rest.split(':').map(p => p.trim());
-    
-    const conditionResult = this.evaluateOperatorExpression(condition, data);
-    return conditionResult ? 
-        this.evaluateOperatorExpression(truePart, data) : 
-        this.evaluateOperatorExpression(falsePart, data);
-}
-
-isOperator(token) {
-    return this.operatorPrecedence.hasOwnProperty(token);
-}
-
-applyOperator(left, operator, right) {
-    switch(operator) {
-        case '+': return this.add(left, right);
-        case '-': return Number(left) - Number(right);
-        case '*': return Number(left) * Number(right);
-        case '/': 
-            if (Number(right) === 0) throw new Error('Division by zero');
-            return Number(left) / Number(right);
-        case '==': return left == right;
-        case '===': return left === right;
-        case '!=': return left != right;
-        case '!==': return left !== right;
-        case '>': return left > right;
-        case '<': return left < right;
-        case '>=': return left >= right;
-        case '<=': return left <= right;
-        case '&&': return left && right;
-        case '||': return left || right;
-        default:
-            throw new Error(`Unsupported operator: ${operator}`);
-    }
-}
-
-add(a, b) {
-  // Remove quotes from string literals
-  const unquote = (val) => {
-      if (typeof val === 'string' && (val.startsWith('"') || val.startsWith("'"))) {
-          return val.slice(1, -1);
-      }
-      return val;
-  };
-
-  a = unquote(a);
-  b = unquote(b);
-
-  // Handle string concatenation
-  if (typeof a === 'string' || typeof b === 'string') {
-      return String(a) + String(b);
-  }
-  
-  return Number(a) + Number(b);
-}
-
-evaluateValue(value) {
-  if (!value) return value;
-  value = value.trim();
-  
-  // Handle string literals
-  if ((value.startsWith('"') && value.endsWith('"')) || 
-      (value.startsWith("'") && value.endsWith("'"))) {
-      return value; // Keep quotes for string literals
-  }
-  
-  // Handle other types
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  if (value === 'null') return null;
-  if (!isNaN(value)) return Number(value);
-  
-  return value;
-}
-
-formatDate(date, format) {
-    const formatters = {
-        'yyyy': d => d.getFullYear(),
-        'MM': d => String(d.getMonth() + 1).padStart(2, '0'),
-        'dd': d => String(d.getDate()).padStart(2, '0'),
-        'HH': d => String(d.getHours()).padStart(2, '0'),
-        'mm': d => String(d.getMinutes()).padStart(2, '0'),
-        'ss': d => String(d.getSeconds()).padStart(2, '0')
-    };
-
-    return Object.entries(formatters).reduce((result, [pattern, formatter]) => {
-        return result.replace(pattern, formatter(date));
-    }, format);
-}
-
   
   
   buildNestedObject(path, value) {
@@ -1565,23 +1374,78 @@ formatDate(date, format) {
   processMapping(mapping, sourceData) {
     if (!mapping || typeof mapping !== 'object') return {};
   
-    let result = {};
-  
+    const result = {};
+    
     for (const [targetPath, expression] of Object.entries(mapping)) {
       if (!targetPath || !expression) continue;
   
+      // Get the value from the source data
       const value = this.evaluateExpression(expression.trim(), sourceData);
-  
+      
       if (value !== null) {
-        if (targetPath.startsWith('jsonPath(') || targetPath.startsWith('$')) {
-          // Use handleJSONPath for both formats
-          const evaluatedKey = this.handleJSONPath(targetPath, sourceData);
-          if (evaluatedKey !== undefined) {
-            result[evaluatedKey] = value;
+        // Check if targetPath is a JSONPath expression
+        const jsonPathMatch = targetPath.match(/jsonPath\(\$,\s*['"]([^'"]+)['"]\)/);
+        
+        if (jsonPathMatch) {
+          const path = jsonPathMatch[1];
+          
+          // Check if the path contains array notation
+          if (path.includes('[*]')) {
+            // Split path to get the structure
+            const pathParts = path.replace(/^\$\.?/, '').split('.');
+            let current = result;
+            
+            pathParts.forEach((part, index) => {
+              if (part.includes('[*]')) {
+                const arrayName = part.split('[')[0];
+                if (!current[arrayName]) {
+                  current[arrayName] = [];
+                }
+                
+                if (index === pathParts.length - 1) {
+                  // If it's the last part and we have a value
+                  if (!current[arrayName][0]) {
+                    current[arrayName][0] = {};
+                  }
+                  const propertyName = pathParts[index + 1];
+                  current[arrayName][0][propertyName] = value;
+                } else {
+                  if (!current[arrayName][0]) {
+                    current[arrayName][0] = {};
+                  }
+                  current = current[arrayName][0];
+                }
+              } else if (!part.includes('[')) {
+                // Handle regular property names
+                if (index === pathParts.length - 1) {
+                  current[part] = value;
+                } else {
+                  current[part] = current[part] || {};
+                  current = current[part];
+                }
+              }
+            });
+          } else {
+            // For non-array JSONPath, extract the field name
+            const fieldName = path.split('.').pop().replace(/\[\d+\]/, '');
+            result[fieldName] = value;
           }
+        } else if (targetPath.includes('.')) {
+          // Handle nested object paths
+          const pathParts = targetPath.split('.');
+          let current = result;
+          
+          pathParts.forEach((part, index) => {
+            if (index === pathParts.length - 1) {
+              current[part] = value;
+            } else {
+              current[part] = current[part] || {};
+              current = current[part];
+            }
+          });
         } else {
-          const nestedResult = this.buildNestedObject(targetPath, value);
-          result = _.merge(result, nestedResult);
+          // Handle simple key-value pairs
+          result[targetPath] = value;
         }
       }
     }
