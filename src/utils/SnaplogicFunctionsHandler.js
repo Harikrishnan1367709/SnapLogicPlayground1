@@ -620,6 +620,15 @@ class SnapLogicFunctionsHandler {
       }
     };
 
+    this.operatorPrecedence = {
+      '||': 1,
+      '&&': 2,
+      '==': 3, '!=': 3, '===': 3, '!==': 3,
+      '<': 4, '<=': 4, '>': 4, '>=': 4,
+      '+': 5, '-': 5,
+      '*': 6, '/': 6,
+      '?': 0, ':': 0  // Ternary operators have special handling
+  };
 
    
   }
@@ -956,251 +965,593 @@ class SnapLogicFunctionsHandler {
     }
   }
 
+  // evaluateOperatorExpression(expression, data) {
+  //   try {
+  //     // First normalize the expression
+  //     let normalizedExpression = expression.trim();
+      
+  //     // Handle jsonPath function calls first
+  //     const jsonPathFuncRegex = /jsonPath\(\$,\s*["']([^"']+)["']\)/g;
+  //     normalizedExpression = normalizedExpression.replace(jsonPathFuncRegex, (match, path) => {
+  //       // Special handling for root access
+  //       if (path === '$') {
+  //         const value = data;
+  //         return JSON.stringify(value);
+  //       }
+        
+  //       const value = JSONPath({ 
+  //         path: path, 
+  //         json: data,
+  //         wrap: false 
+  //       });
+        
+  //       if (typeof value === 'string') {
+  //         return `"${value}"`;  // Wrap strings in quotes
+  //       }
+  //       return JSON.stringify(value); // Handle other types
+  //     });
+  
+  //     // Handle direct JSONPath expressions
+  //     const directJsonPathRegex = /\$[.\w\[\]]+/g;
+  //     normalizedExpression = normalizedExpression.replace(directJsonPathRegex, (match) => {
+  //       const value = this.handleJSONPath(match, data);
+  //       if (typeof value === 'string') {
+  //         return `"${value}"`;  // Wrap strings in quotes
+  //       }
+  //       return JSON.stringify(value); // Handle other types
+  //     });
+  
+  //     // Handle Date expressions
+  //     const dateRegex = /Date\.(parse|now)\([^)]*\)/g;
+  //     normalizedExpression = normalizedExpression.replace(dateRegex, (match) => {
+  //       if (match === 'Date.now()') {
+  //         return new Date().getTime();
+  //       }
+  //       const parseMatch = match.match(/Date\.parse\(['"]([^'"]+)['"]\)/);
+  //       if (parseMatch) {
+  //         return new Date(parseMatch[1]).getTime();
+  //       }
+  //       return match;
+  //     });
+  
+  //     // Handle ternary operators
+  //     if (normalizedExpression.includes('?')) {
+  //       const [condition, rest] = normalizedExpression.split('?').map(p => p.trim());
+  //       const [truePart, falsePart] = rest.split(':').map(p => p.trim());
+        
+  //       const conditionResult = this.evaluateOperatorExpression(condition, data);
+  //       return conditionResult ? 
+  //         this.evaluateOperatorExpression(truePart, data) : 
+  //         this.evaluateOperatorExpression(falsePart, data);
+  //     }
+  
+  //     // Handle comparison operators
+  //     const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
+  //     if (comparisonRegex.test(normalizedExpression)) {
+  //       const [left, operator, right] = normalizedExpression.split(comparisonRegex);
+  //       const leftValue = this.evaluateOperatorExpression(left.trim(), data);
+  //       const rightValue = this.evaluateOperatorExpression(right.trim(), data);
+        
+  //       switch(operator.trim()) {
+  //         case '>=': return leftValue >= rightValue;
+  //         case '<=': return leftValue <= rightValue;
+  //         case '==': return leftValue == rightValue;
+  //         case '===': return leftValue === rightValue;
+  //         case '!=': return leftValue != rightValue;
+  //         case '!==': return leftValue !== rightValue;
+  //         case '>': return leftValue > rightValue;
+  //         case '<': return leftValue < rightValue;
+  //       }
+  //     }
+  
+  //     // Handle logical operators
+  //     if (normalizedExpression.includes('&&') || normalizedExpression.includes('||')) {
+  //       const parts = normalizedExpression.split(/(\|\||\&\&)/);
+  //       let result = this.evaluateOperatorExpression(parts[0].trim(), data);
+        
+  //       for (let i = 1; i < parts.length; i += 2) {
+  //         const operator = parts[i];
+  //         const nextValue = this.evaluateOperatorExpression(parts[i + 1].trim(), data);
+          
+  //         if (operator === '&&') {
+  //           result = result && nextValue;
+  //         } else if (operator === '||') {
+  //           result = result || nextValue;
+  //         }
+  //       }
+        
+  //       return result;
+  //     }
+  
+  //     // Handle arithmetic operators
+  //     const arithmeticRegex = /[\+\-\*\/]/;
+  //     if (arithmeticRegex.test(normalizedExpression)) {
+  //       // Safe evaluation of arithmetic expression
+  //       const fn = new Function('return ' + normalizedExpression);
+  //       return fn();
+  //     }
+  
+  //     // Handle literals and simple values
+  //     if (normalizedExpression === 'true') return true;
+  //     if (normalizedExpression === 'false') return false;
+  //     if (normalizedExpression === 'null') return null;
+  //     if (!isNaN(normalizedExpression)) return Number(normalizedExpression);
+      
+  //     // Handle string literals
+  //     if (/^["'].*["']$/.test(normalizedExpression)) {
+  //       return normalizedExpression.slice(1, -1);
+  //     }
+  
+  //     // Try parsing JSON if it's a stringified object/array
+  //     try {
+  //       return JSON.parse(normalizedExpression);
+  //     } catch (e) {
+  //       // If not valid JSON, return as is
+  //       return normalizedExpression;
+  //     }
+  
+  //   } catch (error) {
+  //     console.error('Error evaluating operator expression:', error);
+  //     throw new Error(`Failed to evaluate expression: ${expression}`);
+  //   }
+  // }
+  
+  // // Helper method to evaluate single comparisons
+  // evaluateComparison(expression, data) {
+  //   // Handle comparison operators
+  //   const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
+  //   if (comparisonRegex.test(expression)) {
+  //     const [left, operator, right] = expression.split(comparisonRegex).map(part => part.trim());
+      
+  //     // Evaluate left and right sides
+  //     let leftValue = this.evaluateValue(left, data);
+  //     let rightValue = this.evaluateValue(right, data);
+  
+  //     // Convert to numbers if both sides are numeric
+  //     if (!isNaN(leftValue) && !isNaN(rightValue)) {
+  //       leftValue = Number(leftValue);
+  //       rightValue = Number(rightValue);
+  //     }
+  
+  //     // Perform comparison
+  //     switch(operator) {
+  //       case '>=': return leftValue >= rightValue;
+  //       case '<=': return leftValue <= rightValue;
+  //       case '==': return leftValue == rightValue;
+  //       case '===': return leftValue === rightValue;
+  //       case '!=': return leftValue != rightValue;
+  //       case '!==': return leftValue !== rightValue;
+  //       case '>': return leftValue > rightValue;
+  //       case '<': return leftValue < rightValue;
+  //       default: return false;
+  //     }
+  //   }
+  
+  //   // Handle single values
+  //   return this.evaluateValue(expression, data);
+  // }
+  
+  // // Helper method to evaluate single values
+  // evaluateValue(value, data) {
+  //   value = value.trim();
+  
+  //   // Handle SnapLogic functions
+  //   if (value.startsWith('$') && value.includes('.')) {
+  //     return this.executeScript(value, data);
+  //   }
+  
+  //   // Handle jsonPath
+  //   if (value.startsWith('jsonPath(')) {
+  //     return this.executeScript(value, data);
+  //   }
+  
+  //   // Handle literals
+  //   if (value === 'true') return true;
+  //   if (value === 'false') return false;
+  //   if (value === 'null') return null;
+  //   if (!isNaN(value)) return Number(value);
+  //   if (/^["'].*["']$/.test(value)) return value.slice(1, -1);
+  
+  //   // Try parsing JSON
+  //   try {
+  //     return JSON.parse(value);
+  //   } catch (e) {
+  //     return value;
+  //   }
+  // }
+  // buildNestedObject(path, value) {
+  //   // Handle special characters and spaces in path
+  //   const parts = path.split('.').map(part => part.trim());
+  //   const result = {};
+  //   let current = result;
+  
+  //   // Build nested structure
+  //   for (let i = 0; i < parts.length; i++) {
+  //     const part = parts[i];
+  //     if (i === parts.length - 1) {
+  //       // Set the final value
+  //       current[part] = value;
+  //     } else {
+  //       // Create nested object if it doesn't exist
+  //       current[part] = current[part] || {};
+  //       current = current[part];
+  //     }
+  //   }
+  
+  //   console.log('Built nested object:', result);
+  //   return result;
+  // }
+  
+
+  // evaluateExpression(expression, sourceData) {
+  //   if (!expression || !sourceData) return null;
+  
+  //   try {
+  //     // Handle jsonPath function syntax with single or double quotes
+  //     if (expression.startsWith('jsonPath(')) {
+  //       const pathMatch = expression.match(/jsonPath\(\$,\s*['"]([^'"]+)['"]\)/);
+  //       if (pathMatch) {
+  //         const path = pathMatch[1];
+  //         console.log('Evaluating JSONPath:', path);
+  //         const result = JSONPath({
+  //           path: path,
+  //           json: sourceData,
+  //           wrap: false
+  //         });
+  //         console.log('JSONPath result:', result);
+  //         return result !== undefined ? result : null;
+  //       }
+  //     }
+  
+  //     // Handle direct JSONPath access
+  //     if (expression.startsWith('$')) {
+  //       const result = JSONPath({
+  //         path: expression,
+  //         json: sourceData,
+  //         wrap: false
+  //       });
+  //       return result !== undefined ? result : null;
+  //     }
+  
+  //     return expression;
+  //   } catch (error) {
+  //     console.error('Error evaluating expression:', error);
+  //     return null;
+  //   }
+  // }
+  
+  // processMapping(mapping, sourceData) {
+  //   if (!mapping || typeof mapping !== 'object') return {};
+  
+  //   let result = {};
+  
+  //   for (const [targetPath, expression] of Object.entries(mapping)) {
+  //     if (!targetPath || !expression) continue;
+  
+  //     const value = this.evaluateExpression(expression.trim(), sourceData);
+  
+  //     if (value !== null) {
+  //       if (targetPath.startsWith('jsonPath(')) {
+  //         // Enhanced regex to handle both formats
+  //         const pathMatch = targetPath.match(/jsonPath\(\$,\s*['"](.+?)['"]?\)/);
+  //         if (pathMatch) {
+  //           const path = pathMatch[1];
+  //           const evaluatedKey = this.handleJSONPath(path, sourceData);
+  //           if (evaluatedKey !== undefined) {
+  //             result[evaluatedKey] = value;
+  //           }
+  //         }
+  //       } else if (targetPath.startsWith('$')) {
+  //         const evaluatedKey = this.handleJSONPath(targetPath, sourceData);
+  //         if (evaluatedKey !== undefined) {
+  //           result[evaluatedKey] = value;
+  //         }
+  //       } else {
+  //         const nestedResult = this.buildNestedObject(targetPath, value);
+  //         result = _.merge(result, nestedResult);
+  //       }
+  //     }
+  //   }
+  
+  //   return result;
+  // }
   evaluateOperatorExpression(expression, data) {
     try {
-      // First normalize the expression
-      let normalizedExpression = expression.trim();
-      
-      // Handle jsonPath function calls first
-      const jsonPathFuncRegex = /jsonPath\(\$,\s*["']([^"']+)["']\)/g;
-      normalizedExpression = normalizedExpression.replace(jsonPathFuncRegex, (match, path) => {
-        // Special handling for root access
-        if (path === '$') {
-          const value = data;
-          return JSON.stringify(value);
+        // 1. First normalize and tokenize the expression
+        let normalizedExpression = expression.trim();
+
+        // 2. Handle JSONPath with functions
+        normalizedExpression = this.handleJSONPathExpressions(normalizedExpression, data);
+
+        // 3. Handle Date functions
+        normalizedExpression = this.handleDateExpressions(normalizedExpression);
+
+        // 4. Handle ternary operator separately
+        if (normalizedExpression.includes('?')) {
+            return this.evaluateTernary(normalizedExpression, data);
         }
-        
-        const value = JSONPath({ 
-          path: path, 
-          json: data,
-          wrap: false 
-        });
-        
-        if (typeof value === 'string') {
-          return `"${value}"`;  // Wrap strings in quotes
-        }
-        return JSON.stringify(value); // Handle other types
-      });
-  
-      // Handle direct JSONPath expressions
-      const directJsonPathRegex = /\$[.\w\[\]]+/g;
-      normalizedExpression = normalizedExpression.replace(directJsonPathRegex, (match) => {
-        const value = this.handleJSONPath(match, data);
-        if (typeof value === 'string') {
-          return `"${value}"`;  // Wrap strings in quotes
-        }
-        return JSON.stringify(value); // Handle other types
-      });
-  
-      // Handle Date expressions
-      const dateRegex = /Date\.(parse|now)\([^)]*\)/g;
-      normalizedExpression = normalizedExpression.replace(dateRegex, (match) => {
-        if (match === 'Date.now()') {
-          return new Date().getTime();
-        }
-        const parseMatch = match.match(/Date\.parse\(['"]([^'"]+)['"]\)/);
-        if (parseMatch) {
-          return new Date(parseMatch[1]).getTime();
-        }
-        return match;
-      });
-  
-      // Handle ternary operators
-      if (normalizedExpression.includes('?')) {
-        const [condition, rest] = normalizedExpression.split('?').map(p => p.trim());
-        const [truePart, falsePart] = rest.split(':').map(p => p.trim());
-        
-        const conditionResult = this.evaluateOperatorExpression(condition, data);
-        return conditionResult ? 
-          this.evaluateOperatorExpression(truePart, data) : 
-          this.evaluateOperatorExpression(falsePart, data);
-      }
-  
-      // Handle comparison operators
-      const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
-      if (comparisonRegex.test(normalizedExpression)) {
-        const [left, operator, right] = normalizedExpression.split(comparisonRegex);
-        const leftValue = this.evaluateOperatorExpression(left.trim(), data);
-        const rightValue = this.evaluateOperatorExpression(right.trim(), data);
-        
-        switch(operator.trim()) {
-          case '>=': return leftValue >= rightValue;
-          case '<=': return leftValue <= rightValue;
-          case '==': return leftValue == rightValue;
-          case '===': return leftValue === rightValue;
-          case '!=': return leftValue != rightValue;
-          case '!==': return leftValue !== rightValue;
-          case '>': return leftValue > rightValue;
-          case '<': return leftValue < rightValue;
-        }
-      }
-  
-      // Handle logical operators
-      if (normalizedExpression.includes('&&') || normalizedExpression.includes('||')) {
-        const parts = normalizedExpression.split(/(\|\||\&\&)/);
-        let result = this.evaluateOperatorExpression(parts[0].trim(), data);
-        
-        for (let i = 1; i < parts.length; i += 2) {
-          const operator = parts[i];
-          const nextValue = this.evaluateOperatorExpression(parts[i + 1].trim(), data);
-          
-          if (operator === '&&') {
-            result = result && nextValue;
-          } else if (operator === '||') {
-            result = result || nextValue;
-          }
-        }
-        
-        return result;
-      }
-  
-      // Handle arithmetic operators
-      const arithmeticRegex = /[\+\-\*\/]/;
-      if (arithmeticRegex.test(normalizedExpression)) {
-        // Safe evaluation of arithmetic expression
-        const fn = new Function('return ' + normalizedExpression);
-        return fn();
-      }
-  
-      // Handle literals and simple values
-      if (normalizedExpression === 'true') return true;
-      if (normalizedExpression === 'false') return false;
-      if (normalizedExpression === 'null') return null;
-      if (!isNaN(normalizedExpression)) return Number(normalizedExpression);
-      
-      // Handle string literals
-      if (/^["'].*["']$/.test(normalizedExpression)) {
-        return normalizedExpression.slice(1, -1);
-      }
-  
-      // Try parsing JSON if it's a stringified object/array
-      try {
-        return JSON.parse(normalizedExpression);
-      } catch (e) {
-        // If not valid JSON, return as is
-        return normalizedExpression;
-      }
-  
+
+        // 5. Convert to postfix and evaluate
+        const tokens = this.tokenize(normalizedExpression);
+        const postfix = this.infixToPostfix(tokens);
+        return this.evaluatePostfix(postfix, data);
+
     } catch (error) {
-      console.error('Error evaluating operator expression:', error);
-      throw new Error(`Failed to evaluate expression: ${expression}`);
+        console.error('Expression evaluation error:', error);
+        throw new Error(`Failed to evaluate: ${expression}`);
     }
-  }
+}
+
+handleJSONPathExpressions(expression, data) {
+  // Handle complex JSONPath expressions with string functions and concatenation
+  const jsonPathRegex = /(\$[\w.[\]]+(?:\.(?:toUpperCase|toLowerCase)\(\))?)/g;
+  return expression.replace(jsonPathRegex, (match) => {
+      try {
+          // Extract the base path and function
+          const hasUpperCase = match.endsWith('.toUpperCase()');
+          const hasLowerCase = match.endsWith('.toLowerCase()');
+          const basePath = match.split('.to')[0];
+
+          // Get the value using JSONPath
+          let value = this.handleJSONPath(basePath, data);
+
+          // Apply string functions if present
+          if (typeof value === 'string') {
+              if (hasUpperCase) value = value.toUpperCase();
+              if (hasLowerCase) value = value.toLowerCase();
+          }
+
+          return typeof value === 'string' ? `"${value}"` : JSON.stringify(value);
+      } catch (e) {
+          console.error("JSONPath evaluation error:", e);
+          return 'null';
+      }
+  });
+}
+
+handleDateExpressions(expression) {
+    const dateRegex = /Date\.(now|parse)\(([^)]*)\)(?:\.(\w+)\([^)]*\))?/g;
+    return expression.replace(dateRegex, (match, method, args, chainedMethod) => {
+        try {
+            let date = method === 'now' ? new Date() : new Date(this.evaluateValue(args));
+            
+            if (chainedMethod) {
+                const methodMatch = match.match(/\.(\w+)\(([^)]*)\)/);
+                if (methodMatch) {
+                    const [, methodName, methodArgs] = methodMatch;
+                    switch(methodName) {
+                        case 'minusHours':
+                            const hours = parseInt(methodArgs);
+                            date.setHours(date.getHours() - hours);
+                            break;
+                        case 'toLocaleDateTimeString':
+                            const format = JSON.parse(methodArgs).format;
+                            return `"${this.formatDate(date, format)}"`;
+                    }
+                }
+            }
+            
+            return date.getTime();
+        } catch (e) {
+            console.error("Date operation error:", e);
+            return match;
+        }
+    });
+}
+
+tokenize(expression) {
+  const operators = Object.keys(this.operatorPrecedence);
+  let tokens = [];
+  let current = '';
   
-  // Helper method to evaluate single comparisons
-  evaluateComparison(expression, data) {
-    // Handle comparison operators
-    const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
-    if (comparisonRegex.test(expression)) {
-      const [left, operator, right] = expression.split(comparisonRegex).map(part => part.trim());
+  for (let i = 0; i < expression.length; i++) {
+      const char = expression[i];
       
-      // Evaluate left and right sides
-      let leftValue = this.evaluateValue(left, data);
-      let rightValue = this.evaluateValue(right, data);
-  
-      // Convert to numbers if both sides are numeric
-      if (!isNaN(leftValue) && !isNaN(rightValue)) {
-        leftValue = Number(leftValue);
-        rightValue = Number(rightValue);
+      // Handle string literals with spaces
+      if (char === '"' || char === "'") {
+          if (current) {
+              tokens.push(current);
+              current = '';
+          }
+          let j = i + 1;
+          let stringLiteral = char;
+          while (j < expression.length) {
+              stringLiteral += expression[j];
+              if (expression[j] === char && expression[j-1] !== '\\') break;
+              j++;
+          }
+          tokens.push(stringLiteral);
+          i = j;
+          continue;
       }
-  
-      // Perform comparison
-      switch(operator) {
-        case '>=': return leftValue >= rightValue;
-        case '<=': return leftValue <= rightValue;
-        case '==': return leftValue == rightValue;
-        case '===': return leftValue === rightValue;
-        case '!=': return leftValue != rightValue;
-        case '!==': return leftValue !== rightValue;
-        case '>': return leftValue > rightValue;
-        case '<': return leftValue < rightValue;
-        default: return false;
+
+      // Handle operators
+      const op = operators.find(op => expression.substring(i).startsWith(op));
+      if (op) {
+          if (current) {
+              tokens.push(current);
+              current = '';
+          }
+          tokens.push(op);
+          i += op.length - 1;
+          continue;
       }
+
+      // Handle spaces
+      if (char === ' ') {
+          if (current) {
+              tokens.push(current);
+              current = '';
+          }
+          continue;
+      }
+
+      current += char;
+  }
+
+  if (current) tokens.push(current);
+  return tokens;
+}
+
+
+infixToPostfix(tokens) {
+    const output = [];
+    const operatorStack = [];
+
+    tokens.forEach(token => {
+        if (this.isOperator(token)) {
+            while (operatorStack.length > 0 && 
+                   this.operatorPrecedence[operatorStack[operatorStack.length - 1]] >= 
+                   this.operatorPrecedence[token]) {
+                output.push(operatorStack.pop());
+            }
+            operatorStack.push(token);
+        } else {
+            output.push(token);
+        }
+    });
+
+    while (operatorStack.length > 0) {
+        output.push(operatorStack.pop());
     }
-  
-    // Handle single values
-    return this.evaluateValue(expression, data);
+
+    return output;
+}
+
+evaluatePostfix(tokens, data) {
+    const stack = [];
+
+    tokens.forEach(token => {
+        if (this.isOperator(token)) {
+            const right = stack.pop();
+            const left = stack.pop();
+            stack.push(this.applyOperator(left, token, right));
+        } else {
+            stack.push(this.evaluateValue(token));
+        }
+    });
+
+    return stack[0];
+}
+
+evaluateTernary(expression, data) {
+    const [condition, rest] = expression.split('?').map(p => p.trim());
+    const [truePart, falsePart] = rest.split(':').map(p => p.trim());
+    
+    const conditionResult = this.evaluateOperatorExpression(condition, data);
+    return conditionResult ? 
+        this.evaluateOperatorExpression(truePart, data) : 
+        this.evaluateOperatorExpression(falsePart, data);
+}
+
+isOperator(token) {
+    return this.operatorPrecedence.hasOwnProperty(token);
+}
+
+applyOperator(left, operator, right) {
+    switch(operator) {
+        case '+': return this.add(left, right);
+        case '-': return Number(left) - Number(right);
+        case '*': return Number(left) * Number(right);
+        case '/': 
+            if (Number(right) === 0) throw new Error('Division by zero');
+            return Number(left) / Number(right);
+        case '==': return left == right;
+        case '===': return left === right;
+        case '!=': return left != right;
+        case '!==': return left !== right;
+        case '>': return left > right;
+        case '<': return left < right;
+        case '>=': return left >= right;
+        case '<=': return left <= right;
+        case '&&': return left && right;
+        case '||': return left || right;
+        default:
+            throw new Error(`Unsupported operator: ${operator}`);
+    }
+}
+
+add(a, b) {
+  // Remove quotes from string literals
+  const unquote = (val) => {
+      if (typeof val === 'string' && (val.startsWith('"') || val.startsWith("'"))) {
+          return val.slice(1, -1);
+      }
+      return val;
+  };
+
+  a = unquote(a);
+  b = unquote(b);
+
+  // Handle string concatenation
+  if (typeof a === 'string' || typeof b === 'string') {
+      return String(a) + String(b);
   }
   
-  // Helper method to evaluate single values
-  evaluateValue(value, data) {
-    value = value.trim();
+  return Number(a) + Number(b);
+}
+
+evaluateValue(value) {
+  if (!value) return value;
+  value = value.trim();
   
-    // Handle SnapLogic functions
-    if (value.startsWith('$') && value.includes('.')) {
-      return this.executeScript(value, data);
-    }
-  
-    // Handle jsonPath
-    if (value.startsWith('jsonPath(')) {
-      return this.executeScript(value, data);
-    }
-  
-    // Handle literals
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (value === 'null') return null;
-    if (!isNaN(value)) return Number(value);
-    if (/^["'].*["']$/.test(value)) return value.slice(1, -1);
-  
-    // Try parsing JSON
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      return value;
-    }
+  // Handle string literals
+  if ((value.startsWith('"') && value.endsWith('"')) || 
+      (value.startsWith("'") && value.endsWith("'"))) {
+      return value; // Keep quotes for string literals
   }
+  
+  // Handle other types
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+  if (!isNaN(value)) return Number(value);
+  
+  return value;
+}
+
+formatDate(date, format) {
+    const formatters = {
+        'yyyy': d => d.getFullYear(),
+        'MM': d => String(d.getMonth() + 1).padStart(2, '0'),
+        'dd': d => String(d.getDate()).padStart(2, '0'),
+        'HH': d => String(d.getHours()).padStart(2, '0'),
+        'mm': d => String(d.getMinutes()).padStart(2, '0'),
+        'ss': d => String(d.getSeconds()).padStart(2, '0')
+    };
+
+    return Object.entries(formatters).reduce((result, [pattern, formatter]) => {
+        return result.replace(pattern, formatter(date));
+    }, format);
+}
+
+  
+  
   buildNestedObject(path, value) {
-    // Handle special characters and spaces in path
     const parts = path.split('.').map(part => part.trim());
     const result = {};
     let current = result;
   
-    // Build nested structure
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       if (i === parts.length - 1) {
-        // Set the final value
         current[part] = value;
       } else {
-        // Create nested object if it doesn't exist
         current[part] = current[part] || {};
         current = current[part];
       }
     }
   
-    console.log('Built nested object:', result);
     return result;
   }
   
-
   evaluateExpression(expression, sourceData) {
     if (!expression || !sourceData) return null;
   
     try {
-      // Handle jsonPath function syntax with single or double quotes
-      if (expression.startsWith('jsonPath(')) {
-        const pathMatch = expression.match(/jsonPath\(\$,\s*['"]([^'"]+)['"]\)/);
-        if (pathMatch) {
-          const path = pathMatch[1];
-          console.log('Evaluating JSONPath:', path);
-          const result = JSONPath({
-            path: path,
-            json: sourceData,
-            wrap: false
-          });
-          console.log('JSONPath result:', result);
-          return result !== undefined ? result : null;
-        }
-      }
-  
-      // Handle direct JSONPath access
-      if (expression.startsWith('$')) {
-        const result = JSONPath({
-          path: expression,
-          json: sourceData,
-          wrap: false
-        });
+      // Handle both jsonPath function and direct access using handleJSONPath
+      if (expression.startsWith('jsonPath(') || expression.startsWith('$')) {
+        const result = this.handleJSONPath(expression, sourceData);
         return result !== undefined ? result : null;
       }
   
@@ -1222,17 +1573,8 @@ class SnapLogicFunctionsHandler {
       const value = this.evaluateExpression(expression.trim(), sourceData);
   
       if (value !== null) {
-        if (targetPath.startsWith('jsonPath(')) {
-          // Enhanced regex to handle both formats
-          const pathMatch = targetPath.match(/jsonPath\(\$,\s*['"](.+?)['"]?\)/);
-          if (pathMatch) {
-            const path = pathMatch[1];
-            const evaluatedKey = this.handleJSONPath(path, sourceData);
-            if (evaluatedKey !== undefined) {
-              result[evaluatedKey] = value;
-            }
-          }
-        } else if (targetPath.startsWith('$')) {
+        if (targetPath.startsWith('jsonPath(') || targetPath.startsWith('$')) {
+          // Use handleJSONPath for both formats
           const evaluatedKey = this.handleJSONPath(targetPath, sourceData);
           if (evaluatedKey !== undefined) {
             result[evaluatedKey] = value;
@@ -1247,33 +1589,49 @@ class SnapLogicFunctionsHandler {
     return result;
   }
   
-  
- 
-
   handleJSONPath(script, data) {
     try {
-      // console.log('Original expression:', script);
-      // console.log('Original data:', data);
-  
-      // Parse JSON data if it's a string
       const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
-      // console.log('Parsed JSON data:', jsonData);
   
       // Handle root access cases
       if (script === '$' || script === 'jsonPath($,"$")') {
         return jsonData;
       }
   
-      // Normalize the expression
+      // Check for function calls after array indexing
+      if (script.includes('][0].') || script.includes(')[0].')) {
+        // Split into three parts: jsonPath, array index, and function
+        const jsonPathEndIndex = script.indexOf('[0]');
+        const jsonPathPart = script.substring(0, jsonPathEndIndex);
+        const functionPart = script.substring(jsonPathEndIndex + 4); // Skip '[0].'
+  
+        // First evaluate the JSONPath
+        let result = this.handleJSONPath(jsonPathPart, jsonData);
+        
+        // Get the indexed element
+        if (Array.isArray(result)) {
+          result = result[0];
+        }
+  
+        // Now handle the function call
+        if (functionPart.includes('contains(')) {
+          const containsMatch = functionPart.match(/contains\((["'])(.*?)\1\)/);
+          if (containsMatch) {
+            const searchStr = containsMatch[2];
+            return this.stringFunctions.contains(result, searchStr);
+          }
+        }
+      }
+  
+      // Rest of your existing JSONPath handling code...
       let normalizedExpression = script;
       let finalArrayAccess = false;
-      // Handle jsonPath function syntax with explicit [0] at the end
+  
       if (normalizedExpression.match(/jsonPath\(\$,\s*["'].+?\["']\)\[0\]/)) {
         finalArrayAccess = true;
         normalizedExpression = normalizedExpression.replace(/\[0\]$/, '');
       }
   
-      // Handle jsonPath function syntax
       if (normalizedExpression.startsWith('jsonPath(')) {
         const pathMatch = normalizedExpression.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
         if (pathMatch) {
@@ -1283,53 +1641,116 @@ class SnapLogicFunctionsHandler {
         }
       }
   
-      // Remove quotes around the path if present
       normalizedExpression = normalizedExpression.replace(/^["'](.+)["']$/, '$1');
-  
-      // Handle direct property access after $ (e.g., $ACTION -> $.ACTION)
       normalizedExpression = normalizedExpression.replace(/\$([A-Za-z])/g, '$.$1');
   
-      // Handle special case where [0] is missing after MAST_UPL
-      if (normalizedExpression.includes('MAST_UPL.')) {
-        normalizedExpression = normalizedExpression.replace('MAST_UPL.', 'MAST_UPL[0].');
-      }
-  
-      // If the path doesn't start with $[0] and data is an array, add [0]
       if (!normalizedExpression.startsWith('$[0]') && Array.isArray(jsonData)) {
         normalizedExpression = normalizedExpression.replace('$', '$[0]');
       }
   
-      console.log('Normalized expression:', normalizedExpression);
-  
-      // Execute JSONPath query
       let result = JSONPath({ path: normalizedExpression, json: jsonData });
-      console.log('JSONPath query result:', result);
   
-      // Handle empty results
       if (!result || result.length === 0) {
-        console.log('No results found');
         return null;
       }
   
-      // Handle the case where we need to return first element
       if (finalArrayAccess || script.includes('[0]')) {
-        console.log('Returning first element:', result[0]);
         return result[0];
       }
   
-      // Return single value for specific cases
       if (result.length === 1 && !normalizedExpression.includes('*') && !normalizedExpression.includes('..')) {
-        console.log('Returning single value:', result[0]);
         return result[0];
       }
   
-      console.log('Returning full result:', result);
       return result;
+  
     } catch (error) {
       console.error('JSONPath evaluation error:', error);
       throw new Error('JSONPath evaluation failed: ' + error.message);
     }
   }
+  
+
+  // handleJSONPath(script, data) {
+  //   try {
+  //     // console.log('Original expression:', script);
+  //     // console.log('Original data:', data);
+  
+  //     // Parse JSON data if it's a string
+  //     const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
+  //     // console.log('Parsed JSON data:', jsonData);
+  
+  //     // Handle root access cases
+  //     if (script === '$' || script === 'jsonPath($,"$")') {
+  //       return jsonData;
+  //     }
+  
+  //     // Normalize the expression
+  //     let normalizedExpression = script;
+  //     let finalArrayAccess = false;
+  //     // Handle jsonPath function syntax with explicit [0] at the end
+  //     if (normalizedExpression.match(/jsonPath\(\$,\s*["'].+?\["']\)\[0\]/)) {
+  //       finalArrayAccess = true;
+  //       normalizedExpression = normalizedExpression.replace(/\[0\]$/, '');
+  //     }
+  
+  //     // Handle jsonPath function syntax
+  //     if (normalizedExpression.startsWith('jsonPath(')) {
+  //       const pathMatch = normalizedExpression.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
+  //       if (pathMatch) {
+  //         normalizedExpression = pathMatch[1];
+  //       } else {
+  //         throw new Error('Invalid jsonPath function syntax');
+  //       }
+  //     }
+  
+  //     // Remove quotes around the path if present
+  //     normalizedExpression = normalizedExpression.replace(/^["'](.+)["']$/, '$1');
+  
+  //     // Handle direct property access after $ (e.g., $ACTION -> $.ACTION)
+  //     normalizedExpression = normalizedExpression.replace(/\$([A-Za-z])/g, '$.$1');
+  
+  //     // Handle special case where [0] is missing after MAST_UPL
+  //     // if (normalizedExpression.includes('MAST_UPL.')) {
+  //     //   normalizedExpression = normalizedExpression.replace('MAST_UPL.', 'MAST_UPL[0].');
+  //     // }
+  
+  //     // If the path doesn't start with $[0] and data is an array, add [0]
+  //     if (!normalizedExpression.startsWith('$[0]') && Array.isArray(jsonData)) {
+  //       normalizedExpression = normalizedExpression.replace('$', '$[0]');
+  //     }
+  
+  //     console.log('Normalized expression:', normalizedExpression);
+  
+  //     // Execute JSONPath query
+  //     let result = JSONPath({ path: normalizedExpression, json: jsonData });
+  //     console.log('JSONPath query result:', result);
+  
+  //     // Handle empty results
+  //     if (!result || result.length === 0) {
+  //       console.log('No results found');
+  //       return null;
+  //     }
+  
+  //     // Handle the case where we need to return first element
+  //     if (finalArrayAccess || script.includes('[0]')) {
+  //       console.log('Returning first element:', result[0]);
+  //       return result[0];
+  //     }
+  
+  //     // Return single value for specific cases
+  //     if (result.length === 1 && !normalizedExpression.includes('*') && !normalizedExpression.includes('..')) {
+  //       console.log('Returning single value:', result[0]);
+  //       return result[0];
+  //     }
+  
+  //     console.log('Returning full result:', result);
+  //     return result;
+  //   } catch (error) {
+  //     console.error('JSONPath evaluation error:', error);
+  //     throw new Error('JSONPath evaluation failed: ' + error.message);
+  //   }
+  // }
   
  
   executeScript(script, data) { 
