@@ -390,7 +390,73 @@ class SnapLogicFunctionsHandler {
     this.dateFunctions = {
       // Core Date Methods
       now: () => new Date(),
-      parse: (dateStr, format) => format ? moment(dateStr, format).toDate() : new Date(dateStr),
+      parse: (args, data) => {
+        try {
+          // Handle nested array structure
+          if (Array.isArray(data)) {
+            // Extract only EffectiveMoment dates from the nested structure
+            return data.flatMap(group => 
+              group.employee?.map(emp => {
+                if (args.startsWith('$')) {
+                  const varName = args.substring(1);
+                  const dateStr = emp[varName];
+                  if (!dateStr) {
+                    console.warn(`No date value found for: ${varName} in employee:`, emp);
+                    return null;
+                  }
+                  return new Date(dateStr);
+                }
+                return null;
+              }) || []
+            ).filter(date => date !== null); // Remove any null values
+          }
+  
+          // Handle single object case
+          if (typeof data === 'object' && data !== null) {
+            if (args.startsWith('$')) {
+              const varName = args.substring(1);
+              const dateStr = data[varName];
+              if (!dateStr) return null;
+              return new Date(dateStr);
+            }
+          }
+  
+          return null;
+        } catch (error) {
+          console.error('Error in Date.parse:', error);
+          return null;
+        }
+      },
+  
+  
+  
+      now: () => new Date(),
+  minusHours: (date, hours) => {
+    const result = new Date(date);
+    result.setHours(result.getHours() - hours);
+    return result;
+  },
+  format: (date, options) => {
+    const { format } = options;
+    const pad = (num) => String(num).padStart(2, '0');
+    
+    const yyyy = date.getFullYear();
+    const MM = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    const HH = pad(date.getHours());
+    const mm = pad(date.getMinutes());
+    const ss = pad(date.getSeconds());
+
+    switch (format) {
+      case 'yyyy-MM-dd':
+        return `${yyyy}-${MM}-${dd}`;
+      case 'HH:mm:ss':
+        return `${HH}:${mm}:${ss}`;
+      default:
+        return date.toISOString().split('.')[0];
+    }
+  },
+
       UTC: (year, month, day = 1, hour = 0, minute = 0, second = 0, millisecond = 0) => 
         Date.UTC(year, month, day, hour, minute, second, millisecond),
     
@@ -623,11 +689,16 @@ class SnapLogicFunctionsHandler {
     this.operatorPrecedence = {
       '||': 1,
       '&&': 2,
-      '==': 3, '!=': 3, '===': 3, '!==': 3,
+      '===': 3,
+  '==': 3,
+  '!=': 3,
+  '!==': 3,
       '<': 4, '<=': 4, '>': 4, '>=': 4,
       '+': 5, '-': 5,
       '*': 6, '/': 6,
-      '?': 0, ':': 0  // Ternary operators have special handling
+      
+      '?': 1,  // Add ternary operator precedence
+  ':': 1   // Add colon with same precedence// Ternary operators have special handling
   };
 
    
@@ -1256,85 +1327,665 @@ class SnapLogicFunctionsHandler {
   //   return result;
   // }
  
-  evaluateOperatorExpression(expression, data) {
-    try {
-      // Handle ternary operations first
-      if (expression.includes('?')) {
-        const [condition, rest] = expression.split('?').map(p => p.trim());
-        const [truePart, falsePart] = rest.split(':').map(p => p.trim());
-        
-        const conditionResult = this.evaluateOperatorExpression(condition, data);
-        return conditionResult ? 
-          this.evaluateOperatorExpression(truePart, data) : 
-          this.evaluateOperatorExpression(falsePart, data);
-      }
+ // Define operator precedence
+ evaluateOperatorExpression(expression, data) {
+  try {
+
+    
+    // Normalize the expression
+    const normalizedExpr = expression.replace(/\r?\n/g, ' ').trim();
+
+
+
+    
+ // Handle Date.parse with complex conditions
+ if (normalizedExpr.includes('Date.parse') && normalizedExpr.includes('&&')) {
+  const [datePart, conditionsPart] = normalizedExpr.split('&&').map(part => part.trim());
   
-      // Handle date comparisons and operations
-      if (expression.includes('Date.')) {
-        const dateRegex = /Date\.(parse|now)\([^)]*\)/g;
-        expression = expression.replace(dateRegex, (match) => {
-          if (match === 'Date.now()') {
-            return new Date().getTime();
-          }
-          const parseMatch = match.match(/Date\.parse\(['"]([^'"]+)['"]\)/);
-          if (parseMatch) {
-            return new Date(parseMatch[1]).getTime();
-          }
-          return match;
-        });
-      }
+  // Evaluate date comparison
+  const dateResult = this.evaluateDateComparison(datePart, data);
   
-      // Handle string concatenation with +
-      if (expression.includes('+')) {
-        const parts = expression.split('+').map(p => p.trim());
-        return parts.map(part => this.evaluateOperatorExpression(part, data)).join('');
-      }
+  // Evaluate complex conditions
+  const conditionsResult = this.evaluateComplexConditions(conditionsPart, data);
   
-      // Handle logical operators
-      if (expression.includes('&&') || expression.includes('||')) {
-        const parts = expression.split(/(\|\||\&\&)/).map(p => p.trim());
-        let result = this.evaluateOperatorExpression(parts[0], data);
-        
-        for (let i = 1; i < parts.length; i += 2) {
-          const operator = parts[i];
-          const nextValue = this.evaluateOperatorExpression(parts[i + 1], data);
-          
-          if (operator === '&&') {
-            result = result && nextValue;
-          } else if (operator === '||') {
-            result = result || nextValue;
-          }
-        }
-        return result;
-      }
+  return dateResult && conditionsResult;
+}
+
+    
+ // Special handling for logical operators
+ if (normalizedExpr.includes('&&') || normalizedExpr.includes('||')) {
+  // Split by && first
+  const andParts = normalizedExpr.split('&&').map(part => part.trim());
   
-      // Handle comparison operators
-      const comparisonRegex = /(>=|<=|==|===|!=|!==|>|<)/;
-      if (comparisonRegex.test(expression)) {
-        const [left, operator, right] = expression.split(comparisonRegex);
-        const leftValue = this.evaluateValue(left.trim(), data);
-        const rightValue = this.evaluateValue(right.trim(), data);
-        
-        switch(operator.trim()) {
-          case '>=': return leftValue >= rightValue;
-          case '<=': return leftValue <= rightValue;
-          case '==': return String(leftValue) === String(rightValue);
-          case '===': return leftValue === rightValue;
-          case '!=': return String(leftValue) !== String(rightValue);
-          case '!==': return leftValue !== rightValue;
-          case '>': return leftValue > rightValue;
-          case '<': return leftValue < rightValue;
-        }
+  // Evaluate each AND part
+  const andResults = andParts.map(part => {
+    // Split by || if present
+    const orParts = part.split('||').map(p => p.trim());
+    
+    // Evaluate each OR part
+    const orResults = orParts.map(p => {
+      // Handle comparison operators within each part
+      if (p.includes('==')) {
+        const [left, right] = p.split('==').map(s => s.trim());
+        const leftValue = this.evaluateNestedFunction(left, data);
+        const rightValue = this.evaluateNestedFunction(right, data);
+        return leftValue === rightValue;
       }
+      return this.evaluateNestedFunction(p, data);
+    });
+    
+    // Combine OR results
+    return orResults.some(r => Boolean(r));
+  });
   
-      // Handle direct values
-      return this.evaluateValue(expression, data);
-    } catch (error) {
-      console.error('Operator expression error:', error);
-      return null;
+  // Combine AND results
+  return andResults.every(r => Boolean(r));
+}
+
+
+    // Special handling for complex date expressions
+    if (normalizedExpr.includes('Date.now()')) {
+      return this.handleComplexDateExpression(normalizedExpr, data);
     }
+
+    // Regular expression handling
+    const operatorRegex = /[\+\-\*\/>=<==!=&\|?:]/;
+    if (!operatorRegex.test(normalizedExpr)) {
+      return this.evaluateNestedFunction(normalizedExpr, data);
+    }
+
+    const tokens = this.tokenizeExpression(normalizedExpr);
+    return this.parseExpression(tokens, data, 0).result;
+  } catch (error) {
+    console.error('Error evaluating operator expression:', error);
+    throw new Error(`Failed to evaluate expression: ${expression}`);
+  }
+}
+handleComplexDateExpression(expression, data) {
+  try {
+    // Handle ternary operator
+    if (expression.includes('?')) {
+      const [condition, rest] = expression.split('?').map(part => part.trim());
+      const [truePart, falsePart] = rest.split(':').map(part => part.trim());
+      
+      // Evaluate the condition (true == "false")
+      const conditionResult = this.evaluateSimpleCondition(condition);
+      
+      if (conditionResult) {
+        return this.evaluateDateLiteral(truePart);
+      } else {
+        return this.evaluateDateCalculation(falsePart, data);
+      }
+    }
+    return this.evaluateDateCalculation(expression, data);
+  } catch (error) {
+    console.error('Error in handleComplexDateExpression:', error);
+    throw error;
+  }
+}
+evaluateDateComparison(expression, data) {
+  try {
+    // Handle Date.parse($var) <= Date.now()
+    if (expression.includes('Date.parse') && expression.includes('Date.now()')) {
+      const [left, right] = expression.split('<=').map(part => part.trim());
+      
+      // Get variable value from Date.parse
+      const variable = left.match(/\$\w+/)?.[0];
+      const dateValue = variable ? this.evaluateNestedFunction(variable, data) : null;
+      const parsedDate = dateValue ? Date.parse(dateValue) : null;
+      
+      // Get current timestamp
+      const now = Date.now();
+      
+      return parsedDate <= now;
+    }
+    
+    return this.evaluateSingleCondition(expression, data);
+  } catch (error) {
+    console.error('Error in evaluateDateComparison:', error);
+    return false;
+  }
+}
+evaluateComplexConditions(expression, data) {
+  try {
+    // Remove outer parentheses if present
+    const cleanExpr = expression.replace(/^\(|\)$/g, '').trim();
+    
+    // Split by OR operator
+    const conditions = cleanExpr.split('||').map(part => part.trim());
+    
+    // Evaluate each condition
+    return conditions.some(condition => {
+      // Handle both $EventLiteTypeID and $Event comparisons
+      if (condition.includes('==')) {
+        const [left, right] = condition.split('==').map(part => part.trim());
+        const leftValue = this.evaluateNestedFunction(left, data);
+        const rightValue = this.evaluateNestedFunction(right.replace(/['"]/g, ''), data);
+        return leftValue === rightValue;
+      }
+      return false;
+    });
+  } catch (error) {
+    console.error('Error in evaluateComplexConditions:', error);
+    return false;
+  }
+}
+evaluateSingleCondition(condition, data) {
+  try {
+    // Handle simple comparisons
+    if (condition.includes('==')) {
+      const [left, right] = condition.split('==').map(s => s.trim());
+      const leftValue = this.evaluateNestedFunction(left, data);
+      const rightValue = this.evaluateNestedFunction(right.replace(/['"]/g, ''), data);
+      return leftValue === rightValue;
+    }
+
+    return this.evaluateNestedFunction(condition, data);
+  } catch (error) {
+    console.error('Error in evaluateSingleCondition:', error);
+    return false;
+  }
+}
+evaluateDateLiteral(dateLiteral) {
+  // Remove any whitespace and quotes
+  const dateStr = dateLiteral.replace(/\s+/g, '').replace(/['"]/g, '');
+  
+  // Match ISO 8601 date format with timezone offset
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/.test(dateStr)) {
+    return dateStr;
   }
   
+  // If it's already a valid date string, return as is
+  if (!isNaN(new Date(dateStr).getTime())) {
+    return dateStr;
+  }
+  
+  return dateLiteral;
+}
+
+evaluateSimpleCondition(condition) {
+  const [left, right] = condition.split('==').map(part => part.trim());
+  // Remove quotes from string literals
+  const rightValue = right.replace(/['"]/g, '');
+  return left === rightValue;
+}
+evaluateDateCalculation(expression, data) {
+  try {
+    const baseDate = new Date();
+    const hoursToSubtract = 10; // From the expression
+    
+    // Subtract hours
+    const adjustedDate = new Date(baseDate);
+    adjustedDate.setHours(baseDate.getHours() - hoursToSubtract);
+    
+    // Format date parts
+    const yyyy = adjustedDate.getFullYear();
+    const MM = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(adjustedDate.getDate()).padStart(2, '0');
+    const HH = String(adjustedDate.getHours()).padStart(2, '0');
+    const mm = String(adjustedDate.getMinutes()).padStart(2, '0');
+    const ss = String(adjustedDate.getSeconds()).padStart(2, '0');
+
+    // Construct the final date string
+    return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}+02:00`;
+  } catch (error) {
+    console.error('Error in evaluateDateCalculation:', error);
+    throw error;
+  }
+}
+
+// Helper: Tokenize the expression
+tokenizeExpression(expression) {
+  const tokens = [];
+  let currentToken = '';
+  let inString = false;
+  let stringChar = '';
+  let i = 0;
+
+  while (i < expression.length) {
+    const char = expression[i];
+
+    // Handle string literals
+    if ((char === '"' || char === "'") && !inString) {
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      inString = true;
+      stringChar = char;
+      currentToken = char;
+      i++;
+      continue;
+    }
+
+    if (char === stringChar && inString) {
+      currentToken += char;
+      tokens.push(currentToken);
+      currentToken = '';
+      inString = false;
+      i++;
+      continue;
+    }
+
+    if (inString) {
+      currentToken += char;
+      i++;
+      continue;
+    }
+
+    // Handle date literals
+    if (/\d/.test(char) && !currentToken) {
+      let dateStr = '';
+      let j = i;
+      
+      while (j < expression.length && /[\d\-T:+]/.test(expression[j])) {
+        dateStr += expression[j];
+        j++;
+      }
+      
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/)) {
+        tokens.push(dateStr);
+        i = j;
+        continue;
+      }
+    }
+
+    // Handle method chains
+    if (char === '.' && currentToken) {
+      let methodChain = currentToken + '.';
+      let j = i + 1;
+      let parenCount = 0;
+
+      while (j < expression.length) {
+        if (expression[j] === '(') parenCount++;
+        if (expression[j] === ')') parenCount--;
+        if (parenCount === 0 && /[\s\+\-\*\/>=<!&|?:]/.test(expression[j])) break;
+        methodChain += expression[j];
+        j++;
+      }
+
+      tokens.push(methodChain);
+      currentToken = '';
+      i = j;
+      continue;
+    }
+
+    // Handle operators
+    if (/[\+\-\*\/>=<!&|?:]/.test(char)) {
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      if (char === '>' || char === '<' || char === '=' || char === '!' || char === '&' || char === '|') {
+        if (expression[i + 1] === '=') {
+          tokens.push(char + '=');
+          i += 2;
+          continue;
+        }
+      }
+      tokens.push(char);
+      i++;
+      continue;
+    }
+
+    // Handle parentheses
+    if (char === '(' || char === ')') {
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      tokens.push(char);
+      i++;
+      continue;
+    }
+
+    // Skip whitespace
+    if (/\s/.test(char)) {
+      if (currentToken) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      i++;
+      continue;
+    }
+
+    currentToken += char;
+    i++;
+  }
+
+  if (currentToken) {
+    tokens.push(currentToken);
+  }
+
+  return tokens;
+}
+
+
+
+// Helper: Parse expression with precedence
+parseExpression(tokens, data, minPrecedence) {
+  let i = 0;
+
+  // Parse initial operand
+  let left = this.evaluateNestedFunction(tokens[i++], data);
+
+  while (i < tokens.length) {
+    const operator = tokens[i];
+    const precedence = this.operatorPrecedence[operator] || 0;
+
+    if (precedence < minPrecedence) {
+      break;
+    }
+
+    i++; // Move past operator
+
+     // Special handling for ternary operator
+     if (operator === '?') {
+      // Find the matching colon
+      let colonIndex = i;
+      let depth = 1;
+      while (colonIndex < tokens.length) {
+        if (tokens[colonIndex] === '?') depth++;
+        if (tokens[colonIndex] === ':') depth--;
+        if (depth === 0) break;
+        colonIndex++;
+      }
+
+      if (colonIndex >= tokens.length) {
+        throw new Error('Missing colon in ternary operator');
+      }
+
+      // Parse true part (between ? and :)
+      const trueTokens = tokens.slice(i, colonIndex);
+      const trueResult = this.parseExpression(trueTokens, data, 0);
+      const truePart = trueResult.result;
+
+      // Parse false part (after :)
+      const falseTokens = tokens.slice(colonIndex + 1);
+      const falseResult = this.parseExpression(falseTokens, data, 0);
+      const falsePart = falseResult.result;
+
+      // Update position and set result
+      i = tokens.length; // Move to end as we've consumed all tokens
+      left = left ? truePart : falsePart;
+      continue;
+    }
+
+    
+    const nextMinPrecedence = precedence + 1;
+    const rightResult = this.parseExpression(tokens.slice(i), data, nextMinPrecedence);
+    const right = rightResult.result;
+    i += rightResult.consumed;
+
+    switch (operator) {
+      case '+': left = this.safeAdd(left, right); break;
+      case '-': left = left - right; break;
+      case '*': left = left * right; break;
+      case '/': left = left / right; break;
+      case '>=': left = left >= right; break;
+      case '<=': left = left <= right; break;
+      case '==':
+    left = this.compareValues(left, right, false);
+    break;
+      case '===':
+        left = this.compareValues(left, right, true);
+        break;
+      case '!=': left = left != right; break;
+      case '!==': left = left !== right; break;
+      case '>': left = left > right; break;
+      case '<': left = left < right; break;
+      case '&&':
+        left = Boolean(left) && Boolean(right);
+        break;
+
+    case '||':
+      left = Boolean(left) || Boolean(right);
+      break;
+  
+      case '?':
+        const truePartResult = this.parseExpression(tokens.slice(i), data, 0);
+        const truePart = truePartResult.result;
+        i += truePartResult.consumed;
+        if (tokens[i] === ':') {
+          i++; // Move past colon
+          const falsePartResult = this.parseExpression(tokens.slice(i), data, 0);
+          const falsePart = falsePartResult.result;
+          i += falsePartResult.consumed;
+          left = left ? truePart : falsePart;
+        } else {
+          throw new Error('Expected colon in ternary operator');
+        }
+        break;
+      default: throw new Error(`Unsupported operator: ${operator}`);
+    }
+  }
+
+  return { result: left, consumed: i };
+}
+compareValues(left, right, strict = false) {
+  // Handle date comparison
+  if (left instanceof Date && typeof right === 'string') {
+    right = new Date(right);
+  } else if (right instanceof Date && typeof left === 'string') {
+    left = new Date(left);
+  }
+
+  if (strict) {
+    return left === right;
+  }
+
+  // Handle type coercion for == operator
+  if (left instanceof Date && right instanceof Date) {
+    return left.getTime() === right.getTime();
+  }
+
+  // Handle boolean comparison with strings
+  if (typeof left === 'boolean' && typeof right === 'string') {
+    return left === (right.toLowerCase() === 'true');
+  }
+  if (typeof right === 'boolean' && typeof left === 'string') {
+    return right === (left.toLowerCase() === 'true');
+  }
+
+  return left == right;
+}
+// Helper: Safe addition for strings and numbers
+safeAdd(left, right) {
+  if (typeof left === 'string' || typeof right === 'string') {
+    return String(left) + String(right);
+  }
+  return left + right;
+}
+
+evaluateNestedFunction(expression, data) {
+  if (!expression) return null;
+
+  try {
+    const trimmedExpr = expression.trim();
+ // Handle complete method chains
+ if (trimmedExpr.includes('.')) {
+  const parts = trimmedExpr.split('.');
+  let result = this.evaluateBaseExpression(parts[0], data);
+
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const methodMatch = part.match(/(\w+)(?:\((.*)\))?/);
+    
+    if (methodMatch) {
+      const [, methodName, args] = methodMatch;
+      const parsedArgs = args ? this.parseMethodArgs(args, data) : [];
+
+      if (this.dateFunctions[methodName]) {
+        result = this.dateFunctions[methodName](result, ...parsedArgs);
+      } else if (typeof result[methodName] === 'function') {
+        result = result[methodName](...parsedArgs);
+      }
+    }
+  }
+  return result;
+}
+
+
+
+    // Handle chained calls and array indexing
+    if ((trimmedExpr.includes('.') || trimmedExpr.includes('[')) && !trimmedExpr.startsWith('jsonPath(')) {
+      const parts = this.splitChainedExpression(trimmedExpr);
+      let result = this.evaluateBaseExpression(parts[0], data);
+
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+
+        // Array indexing (e.g., [0])
+        if (part.startsWith('[')) {
+          const index = parseInt(part.match(/\[(\d+)\]/)[1]);
+          if (Array.isArray(result)) {
+            result = result[index];
+          } else {
+            throw new Error(`Cannot index non-array: ${result}`);
+          }
+          continue;
+        }
+
+        // Function call (e.g., toUpperCase())
+        if (part.includes('(')) {
+          const [funcName, argsStr] = part.split('(');
+          const args = argsStr.slice(0, -1).split(',').map(arg => this.evaluateNestedFunction(arg.trim(), data));
+
+          if (typeof result === 'string' && this.stringFunctions[funcName]) {
+            result = this.stringFunctions[funcName](result, ...args);
+          } else if (Array.isArray(result) && this.arrayFunctions[funcName]) {
+            if (funcName === 'map' && args[0] instanceof Function) {
+              result = result.map(args[0]);
+            } else {
+              result = this.arrayFunctions[funcName](result, ...args);
+            }
+          } else if (result instanceof Date && this.dateFunctions[funcName]) {
+            result = this.dateFunctions[funcName](result, ...args);
+          } else {
+            throw new Error(`Unsupported function '${funcName}' for type ${typeof result}`);
+          }
+        }
+      }
+
+      return result;
+    }
+
+    // Handle jsonPath
+    if (trimmedExpr.startsWith('jsonPath(')) {
+      return this.handleJSONPath(trimmedExpr, data);
+    }
+
+    // Handle direct $ references
+    if (trimmedExpr.startsWith('$')) {
+      return this.handleJSONPath(trimmedExpr, data);
+    }
+
+    // Handle Date.now()
+    if (trimmedExpr === 'Date.now()') {
+      return this.dateFunctions.now();
+    }
+
+    // Handle literals
+    if (/^["'].*["']$/.test(trimmedExpr)) {
+      return trimmedExpr.slice(1, -1);
+    }
+    if (!isNaN(trimmedExpr)) {
+      return Number(trimmedExpr);
+    }
+    if (trimmedExpr === 'true') return true;
+    if (trimmedExpr === 'false') return false;
+    if (trimmedExpr === 'null') return null;
+
+    return trimmedExpr;
+  } catch (error) {
+    console.error('Error evaluating nested function:', error);
+    throw error;
+  }
+}
+
+parseMethodArgs(argsString, data) {
+  if (!argsString) return [];
+  
+  return argsString.split(',').map(arg => {
+    arg = arg.trim();
+    try {
+      // Try parsing as JSON
+      if (arg.startsWith('{') || arg.startsWith('[')) {
+        return JSON.parse(arg);
+      }
+      // Try parsing as number
+      if (!isNaN(arg)) {
+        return Number(arg);
+      }
+      // Evaluate as expression
+      return this.evaluateOperatorExpression(arg, data);
+    } catch (e) {
+      return arg;
+    }
+  });
+}
+
+// Helper: Split chained expression into parts
+splitChainedExpression(expression) {
+  const parts = [];
+  let current = '';
+  let depth = 0;
+
+  for (let i = 0; i < expression.length; i++) {
+    const char = expression[i];
+
+    if (char === '.' && depth === 0) {
+      if (current) parts.push(current);
+      current = '';
+      continue;
+    }
+    if (char === '[') {
+      depth++;
+      if (depth === 1 && current) {
+        parts.push(current);
+        current = '';
+      }
+    }
+    if (char === ']') {
+      depth--;
+      if (depth === 0) {
+        current += char;
+        parts.push(current);
+        current = '';
+        continue;
+      }
+    }
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+
+    current += char;
+  }
+
+  if (current) parts.push(current);
+  return parts;
+}
+
+// Helper: Evaluate base expression
+evaluateBaseExpression(expr, data) {
+  expr = expr.trim();
+  if (expr.startsWith('$')) {
+    return this.handleJSONPath(expr, data);
+  }
+  if (expr.startsWith('jsonPath(')) {
+    return this.handleJSONPath(expr, data);
+  }
+  if (/^["'].*["']$/.test(expr)) {
+    return expr.slice(1, -1);
+  }
+  if (!isNaN(expr)) {
+    return Number(expr);
+  }
+  return expr;
+}
+
+
+
+
   
   buildNestedObject(path, value) {
     const parts = path.split('.').map(part => part.trim());
@@ -1621,6 +2272,56 @@ class SnapLogicFunctionsHandler {
     if (!script) return null; 
   
     try { 
+
+        // Handle Date.parse specifically
+    const parseDateMatch = script.match(/Date\.parse\((.*?)\)/);
+    if (parseDateMatch) {
+      const args = parseDateMatch[1].trim();
+      const result = this.dateFunctions.parse(args, data);
+      
+      // If result is an array with all null values, return null
+      if (Array.isArray(result) && result.every(item => item === null)) {
+        return null;
+      }
+      
+      return result;
+    }
+
+
+      // Handle operator expressions first
+      // if (typeof script === 'string') {
+      //   const hasOperators = /[\+\-\/>=<==!=&\|?:]/.test(script);
+      //   if (hasOperators) {
+      //     return this.evaluateOperatorExpression(script, data);
+      //   }
+      // }
+      // Handle operator expressions first, but exclude certain patterns
+      if (typeof script === 'string') {
+         // First check if it's a JSONPath expression
+  if (script.startsWith('$.') || script.startsWith('$[')) {
+    return this.handleJSONPath(script, data);
+  }
+        // Special case for logical operators && and ||
+      if (script.includes('&&') || script.includes('||')) {
+        return this.evaluateOperatorExpression(script, data);
+      }
+        // Special case for date expressions with ternary
+      if (script.includes('?') && script.includes('Date.now()')) {
+        return this.evaluateOperatorExpression(script, data);
+      }
+        const hasOperators = /[\+\-\/>=<==!=&\|?:]/.test(script);
+        const isNotMapper = !script.trim().startsWith('{');
+        const isNotMethodCall = !script.match(/\.\w+\(/);
+        const isNotMathOrJSON = !script.match(/^(Math|JSON|Date)\./);
+        const isNotLocalDateTime = !script.includes('LocalDateTime');
+        const isNotMatch = !script.trim().startsWith('match'); // Added match condition
+        const isNotObjectFunction = !script.match(/^(keys|values|entries|assign|filter|mapKeys|mapValues|extend|fromEntries|hasOwn)\(/); 
+        const isNotGlobalFunction = !script.match(/^(eval|instanceof|isNaN|parseFloat|parseInt|typeof|jsonPath|decodeURIComponent|encodeURIComponent)\(/);
+        if (hasOperators && isNotMapper && isNotMethodCall && isNotMathOrJSON && 
+            isNotLocalDateTime && isNotMatch && isNotObjectFunction && isNotGlobalFunction) {
+          return this.evaluateOperatorExpression(script, data);
+        }
+      }
 
       // Handle direct JSONPath queries
 if (script.startsWith('$.') || script.startsWith('jsonPath(')) {
@@ -2044,12 +2745,12 @@ if (typeof script === 'object' && script !== null) {
   return this.processMapping(script, data);
 }
 // Handle operator expressions in all script types
-if (typeof script === 'string') {
-  const hasOperators = /[\+\-\*\/>=<==!=&\|?:]/.test(script);
-  if (hasOperators) {
-    return this.evaluateOperatorExpression(script, data);
-  }
-}
+// if (typeof script === 'string') {
+//   const hasOperators = /[\+\-\*\/>=<==!=&\|?:]/.test(script);
+//   if (hasOperators) {
+//     return this.evaluateOperatorExpression(script, data);
+//   }
+// }
 
 
 
