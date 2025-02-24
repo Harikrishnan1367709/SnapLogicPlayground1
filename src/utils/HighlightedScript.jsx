@@ -7,6 +7,13 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
 
+    // Disable all validations
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true,
+      noSuggestionDiagnostics: true
+    });
+
     // Register completion provider for method suggestions
     monaco.languages.registerCompletionItemProvider('javascript', {
       provideCompletionItems: (model, position) => {
@@ -50,7 +57,7 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
       inherit: false,
       rules: [
         // JSONPath specific rules
-        { token: 'jsonpath', foreground: '800000', fontStyle: 'bold' },  // Changed to maroon color for $ expressions
+        { token: 'jsonpath', foreground: '800000', fontStyle: 'bold' },
         { token: 'delimiter', foreground: '000000' },
         { token: 'property', foreground: '001080' },
         
@@ -93,8 +100,14 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
       autoClosingBrackets: 'never',
       autoClosingQuotes: 'never',
       suggestOnTriggerCharacters: true,
-      quickSuggestions: { other: true }
+      quickSuggestions: { other: true },
+      // Add validation disabling options
+      validateOnModelChange: false,
+      renderValidationDecorations: "off"
     });
+
+    // Clear any existing markers
+    monaco.editor.setModelMarkers(editor.getModel(), 'javascript', []);
 
     // Handle content changes
     editor.onDidChangeModelContent(() => {
@@ -139,20 +152,24 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
           }
         }}
       />
-     <style dangerouslySetInnerHTML={{
-  __html: `
-    .currentLineDecoration {
-      background-color: #F7F7F7;
-    }
-    .monaco-editor .margin {
-      background-color: #FFFFFF !important;
-    }
-    .monaco-editor {
-      padding-top: 4px;
-    }
-  `
-}} />
-
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .currentLineDecoration {
+            background-color: #F7F7F7;
+          }
+          .monaco-editor .margin {
+            background-color: #FFFFFF !important;
+          }
+          .monaco-editor {
+            padding-top: 4px;
+          }
+          /* Hide error decorations */
+          .monaco-editor .squiggly-error,
+          .monaco-editor .error-decoration {
+            display: none !important;
+          }
+        `
+      }} />
     </div>
   );
 };
