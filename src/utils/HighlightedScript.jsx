@@ -1,67 +1,122 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 
-const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
+const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
   const editorRef = useRef(null);
+  const completionProviderRef = useRef(null);
+
+  useEffect(() => {
+    if (editorRef.current && completionProviderRef.current) {
+      // Update completion provider when payload changes
+      updateCompletionProvider(payload);
+    }
+  }, [payload]);
+
+  const debugKeys = (obj) => {
+    const keys = Object.keys(obj);
+    console.log('Current payload keys:', keys);
+    return keys;
+  };
+
+  const validatePayload = (rawPayload) => {
+    try {
+      return typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+    } catch (error) {
+      console.error('Error parsing payload:', error);
+      return {};
+    }
+  };
+
+  const createSuggestions = (jsonData, position, wordUntilPosition, monaco) => {
+    const keys = debugKeys(jsonData);
+    
+    return keys.map(key => ({
+      label: key,
+      kind: monaco.languages.CompletionItemKind.Field,
+      insertText: key,
+      detail: `${key}: ${JSON.stringify(jsonData[key])}`,
+      documentation: {
+        value: `Type: ${typeof jsonData[key]}\nValue: ${JSON.stringify(jsonData[key], null, 2)}`
+      },
+      range: {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: wordUntilPosition.startColumn,
+        endColumn: wordUntilPosition.endColumn
+      }
+    }));
+  };
+
+  const updateCompletionProvider = (currentPayload) => {
+    const editor = editorRef.current;
+    const monaco = window.monaco;
+
+    if (!editor || !monaco) return;
+
+    // Dispose of previous completion provider if it exists
+    if (completionProviderRef.current) {
+      completionProviderRef.current.dispose();
+    }
+
+    completionProviderRef.current = monaco.languages.registerCompletionItemProvider('javascript', {
+      provideCompletionItems: (model, position) => {
+        const wordUntilPosition = model.getWordUntilPosition(position);
+        const lineContent = model.getLineContent(position.lineNumber);
+        const lastChar = lineContent.charAt(wordUntilPosition.startColumn - 2);
+
+        try {
+          const jsonData = validatePayload(currentPayload);
+
+          // Trigger for $ character
+          if (lastChar === '$' || lineContent.trim() === '$') {
+            const suggestions = createSuggestions(jsonData, position, wordUntilPosition, monaco);
+            return { suggestions };
+          }
+
+          // Trigger for dot after a path
+          if (lineContent.includes('$') && lastChar === '.') {
+            const pathUntilDot = lineContent
+              .substring(lineContent.indexOf('$') + 1, lineContent.length - 1)
+              .trim();
+
+            let currentObj = jsonData;
+            if (pathUntilDot) {
+              const parts = pathUntilDot.split('.');
+              for (const part of parts) {
+                currentObj = currentObj?.[part];
+              }
+            }
+
+            if (currentObj && typeof currentObj === 'object') {
+              const suggestions = createSuggestions(currentObj, position, wordUntilPosition, monaco);
+              return { suggestions };
+            }
+          }
+        } catch (error) {
+          console.error('Error in suggestion provider:', error);
+        }
+
+        return { suggestions: [] };
+      },
+      triggerCharacters: ['$', '.']
+    });
+  };
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
+    window.monaco = monaco;
 
-    // Disable all validations
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: true,
-      noSyntaxValidation: true,
-      noSuggestionDiagnostics: true
-    });
+    // Initial setup of completion provider
+    updateCompletionProvider(payload);
 
-    // Register completion provider for method suggestions
-    monaco.languages.registerCompletionItemProvider('javascript', {
-      provideCompletionItems: (model, position) => {
-        const lineContent = model.getLineContent(position.lineNumber);
-        const wordUntilPosition = model.getWordUntilPosition(position);
-
-        if (lineContent.charAt(wordUntilPosition.startColumn - 2) === '.') {
-          const varName = lineContent.substring(0, wordUntilPosition.startColumn - 2);
-          
-          if (varName.startsWith('$')) {
-            const methods = [
-              'concat', 'map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every',
-              'includes', 'indexOf', 'join', 'slice', 'splice', 'sort', 'reverse',
-              'push', 'pop', 'shift', 'unshift', 'toString', 'valueOf', 'length',
-              'toLowerCase', 'toUpperCase', 'trim', 'replace', 'split', 'substring'
-            ];
-            
-            return {
-              suggestions: methods.map(method => ({
-                label: method,
-                kind: monaco.languages.CompletionItemKind.Method,
-                insertText: method,
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: wordUntilPosition.startColumn,
-                  endColumn: wordUntilPosition.endColumn
-                }
-              }))
-            };
-          }
-        }
-        return { suggestions: [] };
-      },
-      triggerCharacters: ['.']
-    });
-
-    // Define custom theme for script syntax highlighting
+    // Theme definition
     monaco.editor.defineTheme('scriptTheme', {
       base: 'vs',
       inherit: false,
       rules: [
-        // JSONPath specific rules
         { token: 'jsonpath', foreground: '800000', fontStyle: 'bold' },
         { token: 'delimiter', foreground: '000000' },
         { token: 'property', foreground: '001080' },
-        
-        // General syntax rules
         { token: 'string', foreground: '0451A5' },
         { token: 'number', foreground: '098658' },
         { token: 'operator', foreground: '000000' },
@@ -79,7 +134,6 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
       }
     });
 
-    // Configure editor to look like a textarea
     editor.updateOptions({
       lineNumbers: 'on',
       fontSize: 13,
@@ -100,22 +154,28 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
       autoClosingBrackets: 'never',
       autoClosingQuotes: 'never',
       suggestOnTriggerCharacters: true,
-      quickSuggestions: { other: true },
-      // Add validation disabling options
-      validateOnModelChange: false,
-      renderValidationDecorations: "off"
+      quickSuggestions: {
+        other: true,
+        strings: true,
+        comments: true
+      },
+      acceptSuggestionOnCommitCharacter: true,
+      suggestSelection: 'first',
+      suggest: {
+        showIcons: true,
+        showStatusBar: true,
+        preview: true,
+        previewMode: 'prefix',
+        filterGraceful: true,
+        snippets: 'inline'
+      }
     });
 
-    // Clear any existing markers
-    monaco.editor.setModelMarkers(editor.getModel(), 'javascript', []);
-
-    // Handle content changes
     editor.onDidChangeModelContent(() => {
       const newValue = editor.getValue();
       onChange(newValue);
     });
 
-    // Handle cursor position for line highlighting
     editor.onDidChangeCursorPosition((e) => {
       const lineNumber = e.position.lineNumber - 1;
       if (typeof activeLineIndex === 'number') {
@@ -162,11 +222,6 @@ const HighlightedScript = ({ content, onChange, activeLineIndex }) => {
           }
           .monaco-editor {
             padding-top: 4px;
-          }
-          /* Hide error decorations */
-          .monaco-editor .squiggly-error,
-          .monaco-editor .error-decoration {
-            display: none !important;
           }
         `
       }} />
