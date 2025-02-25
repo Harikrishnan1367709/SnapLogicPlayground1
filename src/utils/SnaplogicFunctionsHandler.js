@@ -2267,8 +2267,35 @@ evaluateBaseExpression(expr, data) {
   //   }
   // }
   
- 
-  executeScript(script, data) { 
+  executeScript(script, data) {
+    if (!script) return null;
+
+    try {
+      // Clean the script first
+      const cleanedScript = this.cleanScript(script);
+      if (!cleanedScript) return null;
+
+      // Order matters! Process in specific order
+      return this.processScript(cleanedScript, data);
+    } catch (error) {
+      console.error('Script execution error:', error);
+      throw new Error(`Script execution failed: ${error.message}`);
+    }
+  }
+
+  cleanScript(script) {
+    // Remove comments and clean the script
+    return script
+      .replace(/\/\*[\s\S]*?\*\//g, '')  // Remove multi-line comments
+      .split('\n')
+      .map(line => {
+        const commentIndex = line.indexOf('//');
+        return commentIndex >= 0 ? line.slice(0, commentIndex) : line;
+      })
+      .filter(line => line.trim())
+      .join('\n');
+  }
+  processScript(script, data) { 
     if (!script) return null; 
   
     try { 
