@@ -1722,6 +1722,7 @@ const monacoStyles = `
         setActiveLineIndex(lines.length - 1);
       }}
       activeLineIndex={activeLineIndex}
+      payload={inputContents[activeInput] || '{}'}
     />
   </div>
  <canvas
