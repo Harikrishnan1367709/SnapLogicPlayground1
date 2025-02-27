@@ -7,7 +7,6 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
 
   useEffect(() => {
     if (editorRef.current && completionProviderRef.current) {
-      // Update completion provider when payload changes
       updateCompletionProvider(payload);
     }
   }, [payload]);
@@ -27,16 +26,58 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
     }
   };
 
-  const createSuggestions = (jsonData, position, wordUntilPosition, monaco) => {
-    const keys = debugKeys(jsonData);
+  const createSuggestions = (jsonData, position, wordUntilPosition, monaco, type = 'keys') => {
+    if (type === 'functions') {
+      const methods = [
+        'concat', 'map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every',
+        'includes', 'indexOf', 'join', 'slice', 'splice', 'sort', 'reverse',
+        'push', 'pop', 'shift', 'unshift', 'toString', 'valueOf', 'length',
+        'toLowerCase', 'toUpperCase', 'trim', 'replace', 'split', 'substring'
+      ];
+  
+      return methods.map(method => ({
+        label: method,
+        kind: monaco.languages.CompletionItemKind.Method,
+        insertText: method,
+        detail: `Array/String method: ${method}()`,
+        documentation: {
+          value: `Common ${method} method for arrays and strings`
+        },
+        range: {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: position.column,
+          endColumn: position.column
+        }
+      }));
+    }
+  
+    let keys = [];
+    if (Array.isArray(jsonData)) {
+      const keySet = new Set();
+      jsonData.forEach(item => {
+        if (item && typeof item === 'object') {
+          Object.keys(item).forEach(key => keySet.add(key));
+        }
+      });
+      keys = Array.from(keySet);
+    } else if (jsonData && typeof jsonData === 'object') {
+      keys = Object.keys(jsonData);
+    }
     
+    console.log('Generated keys:', keys);
+  
     return keys.map(key => ({
       label: key,
       kind: monaco.languages.CompletionItemKind.Field,
       insertText: key,
-      detail: `${key}: ${JSON.stringify(jsonData[key])}`,
+      detail: Array.isArray(jsonData) 
+        ? `Array field: ${key}` 
+        : `${key}: ${JSON.stringify(jsonData[key])}`,
       documentation: {
-        value: `Type: ${typeof jsonData[key]}\nValue: ${JSON.stringify(jsonData[key], null, 2)}`
+        value: Array.isArray(jsonData)
+          ? `Field present in array items`
+          : `Type: ${typeof jsonData[key]}\nValue: ${JSON.stringify(jsonData[key], null, 2)}`
       },
       range: {
         startLineNumber: position.lineNumber,
@@ -53,7 +94,6 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
 
     if (!editor || !monaco) return;
 
-    // Dispose of previous completion provider if it exists
     if (completionProviderRef.current) {
       completionProviderRef.current.dispose();
     }
@@ -63,35 +103,59 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
         const wordUntilPosition = model.getWordUntilPosition(position);
         const lineContent = model.getLineContent(position.lineNumber);
         const lastChar = lineContent.charAt(wordUntilPosition.startColumn - 2);
+        
+        console.log('Line content:', lineContent);
+        console.log('Last char:', lastChar);
+        console.log('Current payload:', currentPayload);
 
         try {
           const jsonData = validatePayload(currentPayload);
 
-          // Trigger for $ character
-          if (lastChar === '$' || lineContent.trim() === '$') {
-            const suggestions = createSuggestions(jsonData, position, wordUntilPosition, monaco);
-            return { suggestions };
+          // For $ trigger
+          if (lineContent.trim() === '$' || lineContent.endsWith('$')) {
+            console.log('$ trigger detected');
+            const keySuggestions = createSuggestions(jsonData, position, wordUntilPosition, monaco, 'keys');
+            const functionSuggestions = createSuggestions(jsonData, position, wordUntilPosition, monaco, 'functions');
+            console.log('Key suggestions:', keySuggestions);
+            return { 
+              suggestions: [...keySuggestions, ...functionSuggestions]
+            };
           }
 
-          // Trigger for dot after a path
+          // For dot after $ trigger
           if (lineContent.includes('$') && lastChar === '.') {
-            const pathUntilDot = lineContent
+            console.log('Dot after $ detected');
+            let currentObj = jsonData;
+            const path = lineContent
               .substring(lineContent.indexOf('$') + 1, lineContent.length - 1)
               .trim();
 
-            let currentObj = jsonData;
-            if (pathUntilDot) {
-              const parts = pathUntilDot.split('.');
+            if (path) {
+              const parts = path.split('.');
               for (const part of parts) {
-                currentObj = currentObj?.[part];
+                if (part && currentObj) {
+                  currentObj = currentObj[part];
+                }
               }
             }
 
-            if (currentObj && typeof currentObj === 'object') {
-              const suggestions = createSuggestions(currentObj, position, wordUntilPosition, monaco);
-              return { suggestions };
-            }
+            const keySuggestions = currentObj ? 
+              createSuggestions(currentObj, position, wordUntilPosition, monaco, 'keys') : 
+              [];
+            const functionSuggestions = createSuggestions(null, position, wordUntilPosition, monaco, 'functions');
+            
+            return { 
+              suggestions: [...keySuggestions, ...functionSuggestions]
+            };
           }
+
+          // For regular dot trigger
+          if (lastChar === '.') {
+            return { 
+              suggestions: createSuggestions(null, position, wordUntilPosition, monaco, 'functions')
+            };
+          }
+
         } catch (error) {
           console.error('Error in suggestion provider:', error);
         }
@@ -101,7 +165,6 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
       triggerCharacters: ['$', '.']
     });
   };
-
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     window.monaco = monaco;
@@ -112,8 +175,11 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
     // Theme definition
     monaco.editor.defineTheme('scriptTheme', {
       base: 'vs',
-      inherit: false,
+      inherit: true,
       rules: [
+        { token: 'comment', foreground: '008800' },
+        { token: 'comment.js', foreground: '008800' },
+        { token: 'comment.multi.js', foreground: '008800' },
         { token: 'jsonpath', foreground: '800000', fontStyle: 'bold' },
         { token: 'delimiter', foreground: '000000' },
         { token: 'property', foreground: '001080' },
@@ -130,10 +196,12 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
         'editorCursor.foreground': '#000000',
         'editor.selectionBackground': '#ADD6FF',
         'editorLineNumber.foreground': '#237893',
-        'editorLineNumber.activeForeground': '#0B216F'
+        'editorLineNumber.activeForeground': '#0B216F',
+        'editor.commentForeground': '#008800'
       }
     });
 
+    // Configure the editor
     editor.updateOptions({
       lineNumbers: 'on',
       fontSize: 13,
@@ -161,6 +229,7 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
       },
       acceptSuggestionOnCommitCharacter: true,
       suggestSelection: 'first',
+      language: 'javascript',
       suggest: {
         showIcons: true,
         showStatusBar: true,
@@ -168,6 +237,14 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
         previewMode: 'prefix',
         filterGraceful: true,
         snippets: 'inline'
+      }
+    });
+
+    // Register custom language configuration
+    monaco.languages.setLanguageConfiguration('javascript', {
+      comments: {
+        lineComment: '//',
+        blockComment: ['/*', '*/']
       }
     });
 
@@ -222,6 +299,14 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
           }
           .monaco-editor {
             padding-top: 4px;
+          }
+          .monaco-editor .comment {
+            color: #008800 !important;
+          }
+          .monaco-editor .mtk1.comment,
+          .monaco-editor .mtk1.comment.js,
+          .monaco-editor .mtk1.comment.multi.js {
+            color: #008800 !important;
           }
         `
       }} />
