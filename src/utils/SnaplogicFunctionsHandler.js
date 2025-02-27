@@ -2359,7 +2359,7 @@ evaluateBaseExpression(expr, data) {
         const isNotMathOrJSON = !script.match(/^(Math|JSON|Date)\./);
         const isNotLocalDateTime = !script.includes('LocalDateTime');
         const isNotMatch = !script.trim().startsWith('match'); // Added match condition
-        const isNotObjectFunction = !script.match(/^(keys|values|entries|assign|filter|mapKeys|mapValues|extend|fromEntries|hasOwn)\(/); 
+        const isNotObjectFunction = !script.match(/^(keys|values|get|hasPath|hasOwnProperty|entries|assign|filter|mapKeys|mapValues|extend|fromEntries|hasOwn)\(/); 
         const isNotGlobalFunction = !script.match(/^(eval|instanceof|isNaN|parseFloat|parseInt|typeof|jsonPath|decodeURIComponent|encodeURIComponent)\(/);
         if (hasOperators && isNotMapper && isNotMethodCall && isNotMathOrJSON && 
             isNotLocalDateTime && isNotMatch && isNotObjectFunction && isNotGlobalFunction) {
