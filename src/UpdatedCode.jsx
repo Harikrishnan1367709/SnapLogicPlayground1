@@ -102,10 +102,12 @@ const [inputs, setInputs] = useState(['Payload']);
 
 
 
-
 const [inputContents, setInputContents] = useState({
-  [inputs[0]]: '{}'  // Now we can safely use inputs[0]
+  [inputs[0]]: JSON.stringify({
+    Message: "Hello World!"
+  }, null, 2)
 });
+
 
 
 
