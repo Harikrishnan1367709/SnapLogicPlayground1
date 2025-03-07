@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 const FormatDropdown = ({ onFormatChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('JSON');
-  const formats = ['JSON', 'XML', 'CSV'];
+  const formats = ['JSON'];
   
   const handleFormatSelect = (format) => {
     setSelectedFormat(format);
@@ -22,7 +22,7 @@ const FormatDropdown = ({ onFormatChange }) => {
       >
         <span className="font-bold text-gray-600 hover:text-blue-500 text-xs mr-14">{selectedFormat}</span>
         <img
-          src="/SnapLogicPlayground1/chevron_down_small.svg"
+          src="/chevron_down_small.svg"
           alt="SnapLogic Logo"
           className="text-gray-500 h-3 w-3"
         />
@@ -33,7 +33,11 @@ const FormatDropdown = ({ onFormatChange }) => {
           {formats.map((format) => (
             <div
               key={format}
-              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-xs"
+              className="px-4 py-2 hover:bg-gray-100 text-[12px]
+  font-system-default
+  font-bold
+  text-[rgb(107,108,109)]
+  leading-[18px] cursor-pointer "
               onClick={() => handleFormatSelect(format)}
             >
               {format}

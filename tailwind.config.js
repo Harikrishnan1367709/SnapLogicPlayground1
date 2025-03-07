@@ -6,9 +6,25 @@ module.exports = {
 	theme: {
 	  extend: {
 		fontFamily: {
-		  'manrope': ['Manrope', 'sans-serif'],
-		  'mono': ['Monaco', 'Consolas', 'monospace'],
-		},
+			'system-default': [
+			  'system-ui',
+			  '-apple-system',
+			  'Segoe UI',
+			  'Roboto',
+			  'Ubuntu',
+			  'Cantarell',
+			  'Noto Sans',
+			  'sans-serif',
+			  'BlinkMacSystemFont',
+			  'Helvetica Neue',
+			  'Arial',
+			  'Liberation Sans',
+			  'Apple Color Emoji',
+			  'Segoe UI Emoji',
+			  'Segoe UI Symbol',
+			  'Noto Color Emoji'
+			],
+		  },
 		borderRadius: {
 		  lg: 'var(--radius)',
 		  md: 'calc(var(--radius) - 2px)',

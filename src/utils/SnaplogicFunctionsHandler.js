@@ -444,7 +444,7 @@ class SnapLogicFunctionsHandler {
           return null;
         }
       },
-    
+  
   
   
       now: () => new Date(),
@@ -2203,87 +2203,6 @@ evaluateBaseExpression(expr, data) {
   }
   
 
-  // handleJSONPath(script, data) {
-  //   try {
-  //     // console.log('Original expression:', script);
-  //     // console.log('Original data:', data);
-  
-  //     // Parse JSON data if it's a string
-  //     const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
-  //     // console.log('Parsed JSON data:', jsonData);
-  
-  //     // Handle root access cases
-  //     if (script === '$' || script === 'jsonPath($,"$")') {
-  //       return jsonData;
-  //     }
-  
-  //     // Normalize the expression
-  //     let normalizedExpression = script;
-  //     let finalArrayAccess = false;
-  //     // Handle jsonPath function syntax with explicit [0] at the end
-  //     if (normalizedExpression.match(/jsonPath\(\$,\s*["'].+?\["']\)\[0\]/)) {
-  //       finalArrayAccess = true;
-  //       normalizedExpression = normalizedExpression.replace(/\[0\]$/, '');
-  //     }
-  
-  //     // Handle jsonPath function syntax
-  //     if (normalizedExpression.startsWith('jsonPath(')) {
-  //       const pathMatch = normalizedExpression.match(/jsonPath\(\$,\s*["'](.+?)["']\)/);
-  //       if (pathMatch) {
-  //         normalizedExpression = pathMatch[1];
-  //       } else {
-  //         throw new Error('Invalid jsonPath function syntax');
-  //       }
-  //     }
-  
-  //     // Remove quotes around the path if present
-  //     normalizedExpression = normalizedExpression.replace(/^["'](.+)["']$/, '$1');
-  
-  //     // Handle direct property access after $ (e.g., $ACTION -> $.ACTION)
-  //     normalizedExpression = normalizedExpression.replace(/\$([A-Za-z])/g, '$.$1');
-  
-  //     // Handle special case where [0] is missing after MAST_UPL
-  //     // if (normalizedExpression.includes('MAST_UPL.')) {
-  //     //   normalizedExpression = normalizedExpression.replace('MAST_UPL.', 'MAST_UPL[0].');
-  //     // }
-  
-  //     // If the path doesn't start with $[0] and data is an array, add [0]
-  //     if (!normalizedExpression.startsWith('$[0]') && Array.isArray(jsonData)) {
-  //       normalizedExpression = normalizedExpression.replace('$', '$[0]');
-  //     }
-  
-  //     console.log('Normalized expression:', normalizedExpression);
-  
-  //     // Execute JSONPath query
-  //     let result = JSONPath({ path: normalizedExpression, json: jsonData });
-  //     console.log('JSONPath query result:', result);
-  
-  //     // Handle empty results
-  //     if (!result || result.length === 0) {
-  //       console.log('No results found');
-  //       return null;
-  //     }
-  
-  //     // Handle the case where we need to return first element
-  //     if (finalArrayAccess || script.includes('[0]')) {
-  //       console.log('Returning first element:', result[0]);
-  //       return result[0];
-  //     }
-  
-  //     // Return single value for specific cases
-  //     if (result.length === 1 && !normalizedExpression.includes('*') && !normalizedExpression.includes('..')) {
-  //       console.log('Returning single value:', result[0]);
-  //       return result[0];
-  //     }
-  
-  //     console.log('Returning full result:', result);
-  //     return result;
-  //   } catch (error) {
-  //     console.error('JSONPath evaluation error:', error);
-  //     throw new Error('JSONPath evaluation failed: ' + error.message);
-  //   }
-  // }
-  
   executeScript(script, data) {
     if (!script) return null;
 
@@ -2312,6 +2231,8 @@ evaluateBaseExpression(expr, data) {
       .filter(line => line.trim())
       .join('\n');
   }
+  
+ 
   processScript(script, data) { 
     if (!script) return null; 
   
@@ -2359,7 +2280,7 @@ evaluateBaseExpression(expr, data) {
         const isNotMathOrJSON = !script.match(/^(Math|JSON|Date)\./);
         const isNotLocalDateTime = !script.includes('LocalDateTime');
         const isNotMatch = !script.trim().startsWith('match'); // Added match condition
-        const isNotObjectFunction = !script.match(/^(keys|values|get|hasPath|hasOwnProperty|entries|assign|filter|mapKeys|mapValues|extend|fromEntries|hasOwn)\(/); 
+        const isNotObjectFunction = !script.match(/^(keys|values|entries|assign|filter|mapKeys|mapValues|extend|fromEntries|hasOwn)\(/); 
         const isNotGlobalFunction = !script.match(/^(eval|instanceof|isNaN|parseFloat|parseInt|typeof|jsonPath|decodeURIComponent|encodeURIComponent)\(/);
         if (hasOperators && isNotMapper && isNotMethodCall && isNotMathOrJSON && 
             isNotLocalDateTime && isNotMatch && isNotObjectFunction && isNotGlobalFunction) {
@@ -2379,23 +2300,24 @@ if (script.startsWith('$') && !script.includes('(')) {
   return this.handleJSONPath(`$.${script.slice(1)}`, data);
 }
        // Handle typeof directly 
-      if (script.startsWith('typeof ')) { 
-        const valueExpr = script.slice(7); // Remove 'typeof ' 
-        let value; 
-        
+       if (script.trim().startsWith('typeof')) { 
+        // Remove 'typeof' and trim any extra spaces
+        const valueExpr = script.trim().slice(6).trim();
+        let value;
+      
         if (valueExpr.startsWith('$.')) { 
-          value = this.handleJSONPath(valueExpr, data); 
+          value = this.handleJSONPath(valueExpr.trim(), data); 
         } else if (valueExpr.startsWith('$')) { 
-          value = data[valueExpr.slice(1)]; 
+          value = data[valueExpr.slice(1).trim()]; 
         } else { 
-          value = this.evaluateValue(valueExpr); 
+          value = this.evaluateValue(valueExpr.trim()); 
         } 
-        
+      
         return this.globalFunctions.typeof(value); 
       } 
  
       // Handle eval 
-      if (script.startsWith('eval(')) { 
+      if (script.trim().startsWith('eval(')) { 
         const match = script.match(/eval\((.*)\)/); 
         if (match) { 
           const expression = match[1].trim().replace(/^["']|["']$/g, ''); 
@@ -2403,25 +2325,29 @@ if (script.startsWith('$') && !script.includes('(')) {
         } 
       } 
        // Handle global functions 
-       if (script.includes('(')) { 
-        const functionMatch = script.match(/^(\w+)\((.*)\)$/); 
-        if (functionMatch) { 
-          const [, funcName, args] = functionMatch; 
-          if (this.globalFunctions[funcName]) { 
-            const evaluatedArgs = args.split(',').map(arg => { 
-              arg = arg.trim(); 
-              if (arg.startsWith('$')) { 
-                return this.handleJSONPath(arg, data); 
-              } 
-              if (arg.startsWith('"') || arg.startsWith("'")) { 
-                return arg.slice(1, -1); 
-              } 
-              return arg; 
-            }); 
-            return this.globalFunctions[funcName](...evaluatedArgs); 
-          } 
+       // Handle global functions 
+if (script.includes('(')) { 
+  // Use a more flexible regex pattern that handles trailing spaces
+  const functionMatch = script.trim().match(/^(\w+)\s*\((.*?)\)\s*$/);
+  if (functionMatch) { 
+    const [, funcName, args] = functionMatch; 
+    if (this.globalFunctions[funcName]) { 
+      const evaluatedArgs = args.split(',').map(arg => { 
+        // Trim each argument and handle path expressions
+        const trimmedArg = arg.trim();
+        if (trimmedArg.startsWith('$')) { 
+          // Handle JSONPath with potential spaces
+          return this.handleJSONPath(trimmedArg, data); 
         } 
-      } 
+        if (trimmedArg.startsWith('"') || trimmedArg.startsWith("'")) { 
+          return trimmedArg.slice(1, -1); 
+        } 
+        return trimmedArg; 
+      }); 
+      return this.globalFunctions[funcName](...evaluatedArgs); 
+    } 
+  } 
+} 
  
        // Handle match expressions 
     

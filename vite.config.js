@@ -4,7 +4,7 @@ import path from "path"
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/SnapLogicPlayground1/',
+ 
   build: {
     outDir: 'dist',
   },
