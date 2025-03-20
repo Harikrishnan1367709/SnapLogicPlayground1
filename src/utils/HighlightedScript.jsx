@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 
-const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
+const HighlightedScript = ({ content, onChange, activeLineIndex, payload,showTutorial }) => {
   const editorRef = useRef(null);
   const completionProviderRef = useRef(null);
   console.log("Payload received in HighlightedScript:", payload);
@@ -122,6 +122,7 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
   
     if (!editor || !monaco) return;
   
+    
     // Ensure proper disposal of existing provider
     if (completionProviderRef.current) {
       completionProviderRef.current.dispose();
@@ -261,6 +262,7 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
       fontSize: 13,
       fontFamily: 'Manrope, Monaco, Consolas, monospace',
       lineHeight: 24,
+      fontWeight:'500',
       padding: { top: 8, bottom: 8 },
       scrollBeyondLastLine: false,
       minimap: { enabled: false },
@@ -273,8 +275,8 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
       autoIndent: 'keep',
       formatOnPaste: false,
       formatOnType: false,
-      autoClosingBrackets: 'never',
-      autoClosingQuotes: 'never',
+      autoClosingBrackets: 'always',
+      autoClosingQuotes: 'always',
       suggestOnTriggerCharacters: true,
       quickSuggestions: {
         other: true,
@@ -388,6 +390,65 @@ const HighlightedScript = ({ content, onChange, activeLineIndex, payload }) => {
       display: block !important;
       visibility: visible !important;
     }
+      
+ /* Base styles for suggestion widget */
+      .monaco-editor .suggest-widget {
+        z-index: 9999 !important;
+        ${showTutorial ? `
+          position: fixed !important;
+          width: 280px !important;
+          max-width: 280px !important;
+          right: calc(33% + 20px) !important;
+          left: auto !important;
+        ` : `
+          position: absolute !important;
+          right: auto !important;
+          width: 400px !important;    /* Increased width for non-tutorial mode */
+          max-width: 400px !important;
+        `}
+      }
+
+      /* Adjust list container */
+      .monaco-editor .suggest-widget .monaco-list {
+        ${showTutorial ? `
+          width: 280px !important;
+          max-width: 280px !important;
+        ` : `
+          width: 400px !important;    /* Match parent width */
+          max-width: 400px !important;
+        `}
+      }
+
+      /* Ensure suggestion items are visible */
+      .monaco-editor .suggest-widget .monaco-list .monaco-list-row {
+        ${showTutorial ? `
+          width: 280px !important;
+          max-width: 280px !important;
+        ` : `
+          width: 400px !important;    /* Match parent width */
+          max-width: 400px !important;
+        `}
+      }
+
+      /* Adjust suggestion details */
+      .monaco-editor .suggest-widget .details {
+        ${showTutorial ? `
+          width: 280px !important;
+          max-width: 280px !important;
+        ` : `
+          width: 400px !important;    /* Match parent width */
+          max-width: 400px !important;
+        `}
+      }
+
+      /* Ensure suggestion widget stays above tutorial panel */
+      .monaco-editor .suggest-widget.visible {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+
+
+
 
     /* Keep canvas and panels visible while removing the blue line */
     .monaco-editor .overflow-guard > div {

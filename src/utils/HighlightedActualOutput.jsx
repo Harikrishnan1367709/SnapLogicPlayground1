@@ -56,8 +56,8 @@ const HighlightedActualOutput = ({
         readOnly: true,
         lineNumbers: 'on',
         fontSize: 13,
-        fontFamily: 'Manrope, Monaco, Consolas, monospace',
-        lineHeight: 24,
+        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+        lineHeight: 20,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         renderLineHighlight: 'none'

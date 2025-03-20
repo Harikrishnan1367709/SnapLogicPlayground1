@@ -1908,10 +1908,10 @@ const monacoStyles = `
   callback={handleJoyrideCallback}
 />
 {showSuccessToast && (
-      <div className="fixed top-4 font-system-default right-4 bg-[#00B300] text-white px-1 py-1 rounded-lg shadow-lg z-50 flex items-center space-x-2 animate-fade-in">
-      <div className="bg-white rounded-full p-1">
+      <div className="fixed top-4 right-4 bg-[#00B300] text-white px-1 py-0 rounded-md shadow-md z-50 flex items-center gap-1 animate-fade-in text-sm">
+      {/* <div className="bg-white rounded-full p-0.5">
         <svg 
-          className="w-4 h-4 text-[#00B300]" 
+          className="w-3 h-3 text-[#00B300]" 
           fill="currentColor" 
           viewBox="0 0 20 20"
         >
@@ -1921,10 +1921,16 @@ const monacoStyles = `
             clipRule="evenodd" 
           />
         </svg>
-      </div>
+      </div> */}
       <span className="font-medium">Right on! ✓</span>
-      <button onClick={()=>setShowSuccessToast(false)} className='font-normal text-black-400 bg-[#00B300] hover:bg-[#00B300] hover:border-none hover:outline-none focus:border-none focus:outline-none'>✕</button>
+      <button 
+        onClick={() => setShowSuccessToast(false)} 
+        className="text-black-400 text-xs bg-[#00B300] hover:bg-[#00B300] focus:outline-none"
+      >
+        ✕
+      </button>
     </div>
+    
     
     )}
 

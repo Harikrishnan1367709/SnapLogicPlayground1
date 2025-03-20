@@ -120,6 +120,16 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
           'editor.inactiveSelectionBackground': '#E5EBF1'
         }
       });
+      monaco.languages.setLanguageConfiguration('javascript', {
+        autoClosingPairs: [
+          { open: "{", close: "}" },
+          { open: "[", close: "]" },
+          { open: "(", close: ")" },
+          { open: "'", close: "'" },
+          { open: '"', close: '"' },
+          { open: "`", close: "`" }
+        ]
+      });
       
 
     // CSV theme
@@ -191,9 +201,14 @@ const HighLightedJSON = ({ content, onChange, style, format = 'json' }) => {
       formatOnType: false,
       suggestOnTriggerCharacters: false,
       quickSuggestions: false,
-      autoClosingBrackets: 'never',
-      autoClosingQuotes: 'never',
-      autoSurround: 'never',
+      autoClosingBrackets: "languageDefined", // Try "always" if still not working
+  autoClosingQuotes: "languageDefined",  // Try "always" if needed
+  autoClosingOvertype: 'always',
+  autoClosingDelete: 'always',
+  autoSurround: 'languageDefined',
+  bracketPairColorization: {
+    enabled: true
+  },
       renderWhitespace: 'none',
       occurrencesHighlight: false,
       links: false,
