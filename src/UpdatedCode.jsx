@@ -609,7 +609,7 @@ const [scriptContent, setScriptContent] = useState('');
         );
       }
   
-      const scriptName = newScript.endsWith('.dwl') ? newScript : `${newScript}.dwl`;
+      const scriptName = newScript.endsWith('.slexpr') ? newScript : `${newScript}.slexpr`;
       const newScriptObj = {
         id: Date.now(),
         name: scriptName,
@@ -1160,20 +1160,160 @@ const CopyButton = ({ content }) => {
 
 
  
+  const processZipFile = async (file) => {
+    // Initialize variables to store extracted data
+    let newScripts = [];
+    let newInputs = [];
+    let newInputContents = {};
+  
+    try {
+      console.log("Starting ZIP file processing...");
+  
+      // Reset state before importing
+      console.log("Resetting state...");
+      setScripts([]);
+      setInputs([]);
+      setInputContents({});
+      setActiveScript(null);
+      setActiveInput(null);
+      setScriptContent("");
+      setPayloadContent("");
+      setSelectedInputIndex(0);
+  
+      // Step 1: Load the ZIP file
+      console.log("Loading ZIP file...");
+      const zip = new JSZip();
+      const zipData = await zip.loadAsync(file);
+      console.log("ZIP file loaded successfully. Structure:", Object.keys(zipData.files));
+  
+      // Step 2: Extract scripts (only .slexpr files from the scripts/ folder)
+      console.log("Extracting scripts...");
+      // Filter files that are in the scripts folder and have .slexpr extension
+      const scriptFiles = Object.keys(zipData.files)
+        .filter(path => path.startsWith('scripts/') && path.endsWith('.slexpr') && !zipData.files[path].dir);
+      
+      console.log("Found script files:", scriptFiles);
+  
+      for (const filePath of scriptFiles) {
+        try {
+          console.log(`Processing script file: ${filePath}`);
+          const fileData = zipData.files[filePath];
+          const contentArray = await fileData.async("uint8array");
+          const content = new TextDecoder().decode(contentArray);
+          console.log(`Script content for ${filePath}:`, content.substring(0, 50) + "...");
+  
+          newScripts.push({
+            id: Date.now() + Math.random(),
+            name: filePath.replace(/^scripts\//, ""),
+            content,
+            lastModified: new Date(),
+          });
+        } catch (error) {
+          console.error(`Error reading script file ${filePath}:`, error);
+        }
+      }
+      console.log("Extracted scripts:", newScripts);
+  
+      // Step 3: Extract inputs (only .json files from the inputs/ folder, excluding metadata.json)
+      console.log("Extracting inputs...");
+      const inputFiles = Object.keys(zipData.files)
+        .filter(path => 
+          path.startsWith('inputs/') && 
+          path.endsWith('.json') && 
+          !path.includes('metadata.json') && 
+          !zipData.files[path].dir
+        );
+      
+      console.log("Found input files:", inputFiles);
+  
+      for (const filePath of inputFiles) {
+        try {
+          console.log(`Processing input file: ${filePath}`);
+          const fileData = zipData.files[filePath];
+          const contentArray = await fileData.async("uint8array");
+          const content = new TextDecoder().decode(contentArray);
+          console.log(`Input content for ${filePath}:`, content.substring(0, 50) + "...");
+  
+          const inputName = filePath.replace(/^inputs\//, "").replace(/\.json$/, "");
+          newInputContents[inputName] = content;
+          newInputs.push(inputName);
+        } catch (error) {
+          console.error(`Error reading input file ${filePath}:`, error);
+        }
+      }
+      console.log("Extracted inputs:", newInputs);
+      console.log("Extracted input contents:", newInputContents);
+  
+      // Step 4: Update the state
+      console.log("Updating state...");
+      try {
+        if (newScripts.length > 0) {
+          console.log("Setting scripts:", newScripts);
+          setScripts(newScripts);
+        } else {
+          console.log("No scripts to update.");
+        }
+  
+        if (newInputs.length > 0) {
+          console.log("Setting inputs:", newInputs);
+          setInputs(newInputs);
+  
+          console.log("Setting input contents:", newInputContents);
+          setInputContents(newInputContents);
+        } else {
+          console.log("No inputs to update.");
+        }
+  
+        // Step 5: Set active script and input
+        console.log("Setting active script and input...");
+        if (newScripts.length > 0) {
+          const mainScript = newScripts.find(s => s.name.toLowerCase() === "main.slexpr") || newScripts[0];
+          console.log("Setting active script:", mainScript);
+          setActiveScript(mainScript);
+          setScriptContent(mainScript.content);
+        } else {
+          console.log("No scripts to set as active.");
+        }
+  
+        if (newInputs.length > 0) {
+          const firstInput = newInputs[0];
+          console.log("Setting active input:", firstInput);
+          setActiveInput(firstInput);
+          setPayloadContent(newInputContents[firstInput]);
+          setSelectedInputIndex(0);
+        } else {
+          console.log("No inputs to set as active.");
+        }
+  
+        console.log("Import completed successfully:", { newScripts, newInputs, newInputContents });
+        alert("Project imported successfully!");
+      } catch (stateError) {
+        console.error("Error updating state:", stateError);
+        alert("Failed to update project state. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error processing ZIP file:", error);
+      console.error("Error stack:", error.stack);
+      alert("Failed to import project. Please ensure it's a valid SnapLogic Playground export.");
+    }
+  };
+  
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file && file.name.endsWith('.zip')) {
       setSelectedFile(file);
       setShowImportDialog(false);
+      processZipFile(file); // Process the ZIP file
     }
   };
- 
+
   const handleFileDrop = (event) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file && file.name.endsWith('.zip')) {
       setSelectedFile(file);
       setShowImportDialog(false);
+      processZipFile(file); // Process the ZIP file
     }
   };
  
@@ -1186,27 +1326,48 @@ const CopyButton = ({ content }) => {
 
   const handleExport = async () => {
     try {
+      // First, ensure the current script content is saved to the scripts array
+      if (activeScript) {
+        setScripts(prevScripts =>
+          prevScripts.map(s =>
+            s.id === activeScript.id
+              ? { ...s, content: scriptContent, lastModified: new Date() }
+              : s
+          )
+        );
+      }
+  
+      // Wait a moment for the state update to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+  
       // Create a new JSZip instance
       const zip = new JSZip();
-  
+    
       // Add files to the zip
-      // Add scripts
+      // Add scripts with updated content
       const scriptsFolder = zip.folder("scripts");
-      scripts.forEach(script => {
+      const updatedScripts = scripts.map(script => 
+        script.id === activeScript?.id 
+          ? { ...script, content: scriptContent } 
+          : script
+      );
+      
+      updatedScripts.forEach(script => {
+        console.log(`Adding script ${script.name} with content:`, script.content);
         scriptsFolder.file(script.name, script.content);
       });
-  
+    
       // Add inputs
       const inputsFolder = zip.folder("inputs");
       Object.entries(inputContents).forEach(([name, content]) => {
         inputsFolder.file(`${name}.json`, content);
       });
-  
+    
       // Add metadata
       const metadata = {
         version: "1.0",
         exportDate: new Date().toISOString(),
-        scripts: scripts.map(s => ({
+        scripts: updatedScripts.map(s => ({
           name: s.name,
           lastModified: s.lastModified
         })),
@@ -1214,7 +1375,7 @@ const CopyButton = ({ content }) => {
         expectedOutput: expectedOutput
       };
       zip.file("metadata.json", JSON.stringify(metadata, null, 2));
-  
+    
       // Generate the zip file
       const content = await zip.generateAsync({
         type: "blob",
@@ -1223,7 +1384,7 @@ const CopyButton = ({ content }) => {
           level: 9
         }
       });
-  
+    
       // Create download link and trigger download
       const url = window.URL.createObjectURL(content);
       const link = document.createElement('a');
@@ -1241,6 +1402,7 @@ const CopyButton = ({ content }) => {
       alert('Export failed. Please try again.');
     }
   };
+  
   
  
   const handleCheckboxChange = () => {
@@ -1842,7 +2004,113 @@ const monacoStyles = `
     setFormat(newFormat);
   };
  
-  
+  // Add these state variables to store the user's content when entering tutorial mode
+const [normalModeScriptContent, setNormalModeScriptContent] = useState('');
+const [normalModeInputContents, setNormalModeInputContents] = useState({});
+const [normalModeActiveInput, setNormalModeActiveInput] = useState('');
+const [normalModeActiveScript, setNormalModeActiveScript] = useState(null);
+
+// Modify the useEffect that handles transitions between tutorial mode and normal mode
+useEffect(() => {
+  if (showTutorial) {
+    // Entering tutorial mode - store current state
+    setNormalModeScriptContent(scriptContent);
+    setNormalModeInputContents({...inputContents});
+    setNormalModeActiveInput(activeInput);
+    setNormalModeActiveScript(activeScript);
+    
+    console.log('Stored normal mode state before entering tutorial mode');
+    
+    // Set up tutorial mode with the exercise input
+    const currentTopic = selectedSubTopic || selectedTopic;
+    
+    if (currentTopic?.exercise?.input) {
+      try {
+        // Create a new inputContents object with the exercise input
+        const newInputContents = {
+          'Payload': currentTopic.exercise.input
+        };
+        
+        // Update the inputContents state
+        setInputContents(newInputContents);
+        
+        // Set the active input to 'Payload'
+        setActiveInput('Payload');
+        
+        // Also update payloadContent for immediate use
+        setPayloadContent(currentTopic.exercise.input);
+        
+        // Set script content to $ for tutorial mode
+        setScriptContent('$');
+        setTutorialScriptContent('$');
+        
+        console.log('Tutorial mode: Updated inputContents with exercise input and set script to $');
+      } catch (error) {
+        console.error('Failed to update inputContents with exercise input:', error);
+      }
+    } else {
+      console.warn('No exercise input available for the current tutorial topic');
+      
+      // Even if there's no exercise input, still set script content to $
+      setScriptContent('$');
+      setTutorialScriptContent('$');
+    }
+  } else {
+    // Exiting tutorial mode - restore previous state
+    if (normalModeScriptContent || Object.keys(normalModeInputContents).length > 0) {
+      // Only restore if we have stored state (prevents issues on initial load)
+      setScriptContent(normalModeScriptContent);
+      setInputContents(normalModeInputContents);
+      setActiveInput(normalModeActiveInput);
+      setActiveScript(normalModeActiveScript);
+      
+      // Also update payloadContent for immediate use
+      if (normalModeInputContents[normalModeActiveInput]) {
+        setPayloadContent(normalModeInputContents[normalModeActiveInput]);
+      }
+      
+      console.log('Restored normal mode state after exiting tutorial mode');
+    }
+  }
+}, [showTutorial]); // Only trigger when showTutorial changes
+
+// Also modify the useEffect that updates tutorial content when topic changes
+useEffect(() => {
+  if (showTutorial) {
+    const currentTopic = selectedSubTopic || selectedTopic;
+    
+    if (currentTopic?.exercise?.input) {
+      try {
+        // Create a new inputContents object with the exercise input
+        const newInputContents = {
+          'Payload': currentTopic.exercise.input
+        };
+        
+        // Update the inputContents state
+        setInputContents(newInputContents);
+        
+        // Set the active input to 'Payload'
+        setActiveInput('Payload');
+        
+        // Also update payloadContent for immediate use
+        setPayloadContent(currentTopic.exercise.input);
+        
+        // Set script content to $ when topic changes
+        setScriptContent('$');
+        setTutorialScriptContent('$');
+        
+        console.log('Tutorial mode: Updated content for new topic and set script to $');
+      } catch (error) {
+        console.error('Failed to update content for new topic:', error);
+      }
+    } else {
+      // Even if there's no exercise input, still set script content to $
+      setScriptContent('$');
+      setTutorialScriptContent('$');
+    }
+  }
+}, [showTutorial, selectedTopic, selectedSubTopic]); // Trigger when tutorial mode or selected topic changes
+
  
   
   return (
@@ -2020,8 +2288,8 @@ rel="noopener noreferrer"
       </a>
 
       {/* Discord Icon */}
-      <a
-        href="https://discord.gg/5QHZNSeF" 
+      {/* <a
+        href="https://discord.gg/RN52E4Un" 
         target="_blank" 
         rel="noopener noreferrer"
         className="flex items-center"
@@ -2035,7 +2303,7 @@ rel="noopener noreferrer"
             height: '18px'
           }}
         />
-      </a>
+      </a> */}
 
       {/* Close button */}
       <button

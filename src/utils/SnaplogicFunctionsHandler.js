@@ -1347,58 +1347,59 @@ class SnapLogicFunctionsHandler {
  // Define operator precedence
  evaluateOperatorExpression(expression, data) {
   try {
-
-    
     // Normalize the expression
     const normalizedExpr = expression.replace(/\r?\n/g, ' ').trim();
 
-
-
-    
- // Handle Date.parse with complex conditions
- if (normalizedExpr.includes('Date.parse') && normalizedExpr.includes('&&')) {
-  const [datePart, conditionsPart] = normalizedExpr.split('&&').map(part => part.trim());
-  
-  // Evaluate date comparison
-  const dateResult = this.evaluateDateComparison(datePart, data);
-  
-  // Evaluate complex conditions
-  const conditionsResult = this.evaluateComplexConditions(conditionsPart, data);
-  
-  return dateResult && conditionsResult;
-}
-
-    
- // Special handling for logical operators
- if (normalizedExpr.includes('&&') || normalizedExpr.includes('||')) {
-  // Split by && first
-  const andParts = normalizedExpr.split('&&').map(part => part.trim());
-  
-  // Evaluate each AND part
-  const andResults = andParts.map(part => {
-    // Split by || if present
-    const orParts = part.split('||').map(p => p.trim());
-    
-    // Evaluate each OR part
-    const orResults = orParts.map(p => {
-      // Handle comparison operators within each part
-      if (p.includes('==')) {
-        const [left, right] = p.split('==').map(s => s.trim());
-        const leftValue = this.evaluateNestedFunction(left, data);
-        const rightValue = this.evaluateNestedFunction(right, data);
-        return leftValue === rightValue;
+    // Handle parenthesized expressions first
+    if (normalizedExpr.startsWith('(') && this.hasMatchingClosingParenthesis(normalizedExpr)) {
+      // Find the matching closing parenthesis for the first opening one
+      const closingIndex = this.findMatchingClosingParenthesis(normalizedExpr, 0);
+      
+      // If this is a complete parenthesized expression
+      if (closingIndex === normalizedExpr.length - 1) {
+        // Evaluate the inner expression without the outer parentheses
+        return this.evaluateOperatorExpression(normalizedExpr.substring(1, normalizedExpr.length - 1), data);
       }
-      return this.evaluateNestedFunction(p, data);
-    });
-    
-    // Combine OR results
-    return orResults.some(r => Boolean(r));
-  });
-  
-  // Combine AND results
-  return andResults.every(r => Boolean(r));
-}
+      
+      // If there's more after the closing parenthesis (like a ternary operator)
+      if (normalizedExpr[closingIndex + 1] === '?') {
+        // Handle ternary with parenthesized condition
+        const condition = normalizedExpr.substring(1, closingIndex);
+        const restOfExpr = normalizedExpr.substring(closingIndex + 1);
+        const [truePart, falsePart] = restOfExpr.split(':').map(p => p.trim());
+        
+        // Remove the leading '?' from truePart
+        const cleanTruePart = truePart.substring(1).trim();
+        
+        // Evaluate the condition and return the appropriate part
+        return this.evaluateOperatorExpression(condition, data) 
+          ? this.evaluateOperatorExpression(cleanTruePart, data)
+          : this.evaluateOperatorExpression(falsePart, data);
+      }
+    }
 
+    // Handle ternary operators directly
+    if (normalizedExpr.includes('?') && normalizedExpr.includes(':')) {
+      return this.evaluateTernaryExpression(normalizedExpr, data);
+    }
+
+    // Handle Date.parse with complex conditions
+    if (normalizedExpr.includes('Date.parse') && normalizedExpr.includes('&&')) {
+      const [datePart, conditionsPart] = normalizedExpr.split('&&').map(part => part.trim());
+      
+      // Evaluate date comparison
+      const dateResult = this.evaluateDateComparison(datePart, data);
+      
+      // Evaluate complex conditions
+      const conditionsResult = this.evaluateComplexConditions(conditionsPart, data);
+      
+      return dateResult && conditionsResult;
+    }
+
+    // Special handling for logical operators with parentheses
+    if (normalizedExpr.includes('&&') || normalizedExpr.includes('||')) {
+      return this.evaluateLogicalExpression(normalizedExpr, data);
+    }
 
     // Special handling for complex date expressions
     if (normalizedExpr.includes('Date.now()')) {
@@ -1418,6 +1419,281 @@ class SnapLogicFunctionsHandler {
     throw new Error(`Failed to evaluate expression: ${expression}`);
   }
 }
+
+// Helper method to find matching closing parenthesis
+findMatchingClosingParenthesis(expr, startIndex) {
+  let depth = 0;
+  for (let i = startIndex; i < expr.length; i++) {
+    if (expr[i] === '(') depth++;
+    if (expr[i] === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1; // No matching closing parenthesis found
+}
+
+// Helper method to check if expression has matching closing parenthesis
+hasMatchingClosingParenthesis(expr) {
+  if (!expr.startsWith('(')) return false;
+  return this.findMatchingClosingParenthesis(expr, 0) > 0;
+}
+
+// Helper method to evaluate ternary expressions
+evaluateTernaryExpression(expr, data) {
+  // Find the position of ? and : operators, accounting for nested expressions
+  let questionPos = -1;
+  let colonPos = -1;
+  let depth = 0;
+  
+  for (let i = 0; i < expr.length; i++) {
+    if (expr[i] === '(') depth++;
+    else if (expr[i] === ')') depth--;
+    else if (expr[i] === '?' && depth === 0) questionPos = i;
+    else if (expr[i] === ':' && depth === 0) {
+      colonPos = i;
+      break; // We only need the first colon at the same level
+    }
+  }
+  
+  if (questionPos === -1 || colonPos === -1) {
+    throw new Error('Invalid ternary expression: ' + expr);
+  }
+  
+  const condition = expr.substring(0, questionPos).trim();
+  const truePart = expr.substring(questionPos + 1, colonPos).trim();
+  const falsePart = expr.substring(colonPos + 1).trim();
+  
+  const conditionResult = this.evaluateOperatorExpression(condition, data);
+  return conditionResult 
+    ? this.evaluateOperatorExpression(truePart, data)
+    : this.evaluateOperatorExpression(falsePart, data);
+}
+
+// Helper method to evaluate logical expressions with parentheses
+evaluateLogicalExpression(expr, data) {
+  // Tokenize the expression preserving parentheses
+  const tokens = this.tokenizeLogicalExpression(expr);
+  
+  // Evaluate the expression using recursive descent
+  return this.evaluateLogicalTokens(tokens, data);
+}
+
+// Tokenize logical expression preserving parentheses
+tokenizeLogicalExpression(expr) {
+  const tokens = [];
+  let currentToken = '';
+  let inString = false;
+  let stringChar = '';
+  
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    
+    // Handle string literals
+    if ((char === '"' || char === "'") && !inString) {
+      if (currentToken) tokens.push(currentToken);
+      currentToken = char;
+      inString = true;
+      stringChar = char;
+      continue;
+    }
+    
+    if (char === stringChar && inString) {
+      currentToken += char;
+      tokens.push(currentToken);
+      currentToken = '';
+      inString = false;
+      continue;
+    }
+    
+    if (inString) {
+      currentToken += char;
+      continue;
+    }
+    
+    // Handle parentheses as separate tokens
+    if (char === '(' || char === ')') {
+      if (currentToken) tokens.push(currentToken);
+      tokens.push(char);
+      currentToken = '';
+      continue;
+    }
+    
+    // Handle logical operators
+    if (char === '&' && expr[i+1] === '&') {
+      if (currentToken) tokens.push(currentToken);
+      tokens.push('&&');
+      currentToken = '';
+      i++; // Skip the next &
+      continue;
+    }
+    
+    if (char === '|' && expr[i+1] === '|') {
+      if (currentToken) tokens.push(currentToken);
+      tokens.push('||');
+      currentToken = '';
+      i++; // Skip the next |
+      continue;
+    }
+    
+    // Skip whitespace between tokens
+    if (char === ' ' && currentToken) {
+      tokens.push(currentToken);
+      currentToken = '';
+      continue;
+    }
+    
+    // Add character to current token
+    if (char !== ' ') {
+      currentToken += char;
+    }
+  }
+  
+  if (currentToken) tokens.push(currentToken);
+  
+  return tokens;
+}
+
+// Evaluate logical tokens using recursive descent
+evaluateLogicalTokens(tokens, data) {
+  // Base case: single token
+  if (tokens.length === 1) {
+    const token = tokens[0];
+    if (token === 'true') return true;
+    if (token === 'false') return false;
+    
+    // Handle comparison within a single token
+    if (token.includes('==') || token.includes('!=') || 
+        token.includes('>') || token.includes('<')) {
+      return this.evaluateComparisonToken(token, data);
+    }
+    
+    return this.evaluateNestedFunction(token, data);
+  }
+  
+  // Handle parenthesized expressions
+  if (tokens[0] === '(') {
+    // Find the matching closing parenthesis
+    let depth = 1;
+    let closeIndex = 1;
+    
+    while (depth > 0 && closeIndex < tokens.length) {
+      if (tokens[closeIndex] === '(') depth++;
+      if (tokens[closeIndex] === ')') depth--;
+      closeIndex++;
+    }
+    
+    if (depth !== 0) {
+      throw new Error('Mismatched parentheses in expression');
+    }
+    
+    // Evaluate the expression inside parentheses
+    const innerResult = this.evaluateLogicalTokens(
+      tokens.slice(1, closeIndex - 1), 
+      data
+    );
+    
+    // If that's the entire expression, return the result
+    if (closeIndex === tokens.length) {
+      return innerResult;
+    }
+    
+    // Otherwise, evaluate the rest with this result
+    const operator = tokens[closeIndex];
+    const restTokens = tokens.slice(closeIndex + 1);
+    
+    if (operator === '&&') {
+      return innerResult && this.evaluateLogicalTokens(restTokens, data);
+    }
+    
+    if (operator === '||') {
+      return innerResult || this.evaluateLogicalTokens(restTokens, data);
+    }
+    
+    throw new Error(`Unexpected operator: ${operator}`);
+  }
+  
+  // Handle AND/OR operations
+  const andIndex = tokens.indexOf('&&');
+  const orIndex = tokens.indexOf('||');
+  
+  // Process OR operations first (lower precedence)
+  if (orIndex !== -1 && (andIndex === -1 || orIndex < andIndex)) {
+    const leftTokens = tokens.slice(0, orIndex);
+    const rightTokens = tokens.slice(orIndex + 1);
+    
+    return this.evaluateLogicalTokens(leftTokens, data) || 
+           this.evaluateLogicalTokens(rightTokens, data);
+  }
+  
+  // Process AND operations
+  if (andIndex !== -1) {
+    const leftTokens = tokens.slice(0, andIndex);
+    const rightTokens = tokens.slice(andIndex + 1);
+    
+    return this.evaluateLogicalTokens(leftTokens, data) && 
+           this.evaluateLogicalTokens(rightTokens, data);
+  }
+  
+  // If we get here, we have a complex expression without logical operators
+  // Join the tokens and evaluate as a single expression
+  return this.evaluateComparisonToken(tokens.join(' '), data);
+}
+
+// Evaluate a single comparison token
+evaluateComparisonToken(token, data) {
+  // Handle equality
+  if (token.includes('==')) {
+    const [left, right] = token.split('==').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue === rightValue;
+  }
+  
+  // Handle inequality
+  if (token.includes('!=')) {
+    const [left, right] = token.split('!=').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue !== rightValue;
+  }
+  
+  // Handle greater than
+  if (token.includes('>') && !token.includes('>=')) {
+    const [left, right] = token.split('>').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue > rightValue;
+  }
+  
+  // Handle less than
+  if (token.includes('<') && !token.includes('<=')) {
+    const [left, right] = token.split('<').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue < rightValue;
+  }
+  
+  // Handle greater than or equal
+  if (token.includes('>=')) {
+    const [left, right] = token.split('>=').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue >= rightValue;
+  }
+  
+  // Handle less than or equal
+  if (token.includes('<=')) {
+    const [left, right] = token.split('<=').map(s => s.trim());
+    const leftValue = this.evaluateNestedFunction(left, data);
+    const rightValue = this.evaluateNestedFunction(right, data);
+    return leftValue <= rightValue;
+  }
+  
+  // If no comparison operator, evaluate as a value
+  return this.evaluateNestedFunction(token, data);
+}
+
 handleComplexDateExpression(expression, data) {
   try {
     // Handle ternary operator
@@ -2026,8 +2302,87 @@ evaluateBaseExpression(expr, data) {
     if (!expression || !sourceData) return null;
   
     try {
+      // First, try to execute the expression using the existing processScript method
+      // This will handle all the specialized function types
+      try {
+        return this.processScript(expression, sourceData);
+      } catch (scriptError) {
+        // If processScript fails, continue with other evaluation methods
+        console.log('processScript failed, trying alternative methods:', scriptError.message);
+      }
+  
+      // Handle operator expressions (arithmetic, comparison, ternary, etc.)
+      if (typeof expression === 'string') {
+        // Check for various function patterns that should be handled by processScript
+        const isSpecialFunction = 
+          expression.startsWith('$string.') ||
+          expression.startsWith('$array.') ||
+          expression.startsWith('$date.') ||
+          expression.startsWith('Date.') ||
+          expression.startsWith('Math.') ||
+          expression.startsWith('$object.') ||
+          expression.startsWith('JSON.') ||
+          expression.includes('LocalDateTime.') ||
+          expression.includes('LocalDate.') ||
+          expression.includes('LocalTime.') ||
+          expression.startsWith('match ') ||
+          expression.startsWith('typeof ') ||
+          expression.startsWith('eval(');
+  
+        // Check for method calls on variables like $var.method()
+        const hasMethodCall = /\$\w+\.\w+\(/.test(expression);
+        
+        // Check for operators
+        const hasOperators = /[\+\-\/>=<==!=&\|?:]/.test(expression);
+  
+        if (hasMethodCall) {
+          // Extract variable name, method name, and arguments
+          const methodMatch = expression.match(/\$(\w+)\.(\w+)\((.*)\)/);
+          if (methodMatch) {
+            const [, variableName, methodName, argsString] = methodMatch;
+            const value = sourceData[variableName];
+            
+            // Determine the type of the value and call the appropriate function
+            if (typeof value === 'string') {
+              if (this.stringFunctions[methodName]) {
+                const args = this.parseArguments(argsString, sourceData);
+                return this.stringFunctions[methodName](value, ...args);
+              } else if (typeof value[methodName] === 'function') {
+                // Handle native string methods
+                const args = this.parseArguments(argsString, sourceData);
+                return value[methodName](...args);
+              }
+            } else if (Array.isArray(value)) {
+              if (this.arrayFunctions[methodName]) {
+                const args = this.parseArguments(argsString, sourceData);
+                return this.arrayFunctions[methodName](value, ...args);
+              }
+            } else if (value instanceof Date) {
+              if (this.dateFunctions[methodName]) {
+                const args = this.parseArguments(argsString, sourceData);
+                return this.dateFunctions[methodName](value, ...args);
+              }
+            } else if (typeof value === 'number') {
+              if (this.numberFunctions[methodName]) {
+                const args = this.parseArguments(argsString, sourceData);
+                return this.numberFunctions[methodName](value, ...args);
+              }
+            } else if (typeof value === 'object' && value !== null) {
+              if (this.objectFunctions[methodName]) {
+                const args = this.parseArguments(argsString, sourceData);
+                return this.objectFunctions[methodName](value, ...args);
+              }
+            }
+          }
+        } else if (hasOperators && !isSpecialFunction) {
+          // Use existing evaluateOperatorExpression method for operators
+          return this.evaluateOperatorExpression(expression, sourceData);
+        }
+      }
+  
       // Handle both jsonPath function and direct access using handleJSONPath
-      if (expression.startsWith('jsonPath(') || expression.startsWith('$')) {
+      if (typeof expression === 'string' && 
+          (expression.startsWith('jsonPath(') || expression.startsWith('$'))) {
         const result = this.handleJSONPath(expression, sourceData);
         return result !== undefined ? result : null;
       }
@@ -2038,6 +2393,58 @@ evaluateBaseExpression(expr, data) {
       return null;
     }
   }
+  
+  // Helper method to parse arguments for function calls
+  parseArguments(argsString, sourceData) {
+    if (!argsString) return [];
+    
+    // Handle arrow functions for array methods
+    if (argsString.includes('=>')) {
+      try {
+        return [eval(`(${argsString})`)];
+      } catch (e) {
+        console.error('Error parsing arrow function:', e);
+      }
+    }
+    
+    // Handle object literals
+    if (argsString.trim().startsWith('{') && argsString.trim().endsWith('}')) {
+      try {
+        return [JSON.parse(argsString)];
+      } catch (e) {
+        console.error('Error parsing object literal:', e);
+      }
+    }
+    
+    return argsString.split(',').map(arg => {
+      arg = arg.trim();
+      
+      // Handle variable references
+      if (arg.startsWith('$')) {
+        const varName = arg.substring(1);
+        return sourceData[varName];
+      }
+      
+      // Handle string literals
+      if (arg.startsWith('"') || arg.startsWith("'")) {
+        return arg.substring(1, arg.length - 1);
+      }
+      
+      // Handle numeric literals
+      if (!isNaN(arg)) {
+        return Number(arg);
+      }
+      
+      // Handle boolean literals
+      if (arg === 'true') return true;
+      if (arg === 'false') return false;
+      if (arg === 'null') return null;
+      
+      return arg;
+    });
+  }
+  
+  
   
   processMapping(mapping, sourceData) {
     if (!mapping || typeof mapping !== 'object') return {};
